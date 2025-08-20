@@ -47,10 +47,6 @@ Class cClaudeRequest is a cJsonObject
             // Create the document content object
             For iDoc from 0 to (SizeOfArray(Attachments)-1)
                 Move False to Err
-                If (Attachments[iDoc].sMimeType='application/pdf') Send SetMemberValue of hoDocument "type" jsonTypeString "document"
-                Else If (Left(Attachments[iDoc].sMimeType,5)='image') Send SetMemberValue of hoDocument "type" jsonTypeString "image"
-                Else If (Left(Attachments[iDoc].sMimeType,4)='text') Send SetMemberValue of hoDocument "type" jsonTypeString "text"
-                Else Error DFERR_PROGRAM ("Unknown attachment type:"*Attachments[iDoc].sMimeType) 
                 //
                 // only attach document if we have a valid type
                 If (not(Err)) Begin
@@ -71,6 +67,11 @@ Class cClaudeRequest is a cJsonObject
                         Send InitializeJsonType of hoDocument jsonTypeObject
                         Send AddMember of hoContent hoDocument
         
+                        If (Attachments[iDoc].sMimeType='application/pdf') Send SetMemberValue of hoDocument "type" jsonTypeString "document"
+                        Else If (Left(Attachments[iDoc].sMimeType,5)='image') Send SetMemberValue of hoDocument "type" jsonTypeString "image"
+                        Else If (Left(Attachments[iDoc].sMimeType,4)='text') Send SetMemberValue of hoDocument "type" jsonTypeString "text"
+                        Else Error DFERR_PROGRAM ("Unknown attachment type:"*Attachments[iDoc].sMimeType) 
+
                         // Create the source object for the document
                         Get Create (RefClass(cJsonObject)) to hoSource
                         Send InitializeJsonType of hoSource jsonTypeObject

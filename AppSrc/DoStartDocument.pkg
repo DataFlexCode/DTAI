@@ -1,0 +1,21 @@
+#IFNDEF get_ShellExecute
+// external function call used in Procedure DoStartDocument
+External_Function ShellExecute "ShellExecuteA" shell32.dll ;
+    Handle hWnd ;
+    String lpOperation ;
+    String lpFile ;
+    String lpParameters ;
+    String lpDirectory ;
+    DWord iShowCmd Returns Handle
+
+// this will perform an operation on a file (e.g. open) with the application
+// registered in the Windows Registry to open that type of file (via its extension)
+// sOperation would be "OPEN" (it could also be "PRINT" etc).
+
+Procedure DoStartDocument Global String sOperation String sDocument String sParams
+    Local Handle hInstance hWnd
+    Get Window_Handle to hWnd
+    If (num_arguments>=3) Move (ShellExecute (hWnd, sOperation, (Trim (sDocument)), sParams, '', 1)) to hInstance
+    Else Move (ShellExecute (hWnd, sOperation, (Trim (sDocument)), '', '', 1)) to hInstance
+End_Procedure // DoStartDocument
+#ENDIF

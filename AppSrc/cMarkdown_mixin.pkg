@@ -1,0 +1,50 @@
+Use DoStartDocument.pkg
+
+Class cMarkdown_mixin is a Mixin
+    
+    Procedure define_cMarkdown_mixin 
+        Property String psConversionMethod 'pandoc'
+    End_Procedure
+    
+    Function Pandoc_Markdown2Html String sMarkdown Returns String
+        Boolean bExist
+        String sHtml
+        String sTempPath
+        String sMarkdownFile sHtmlFile
+        UChar[] auHtml
+        
+        Get_Environment "TEMP" to sTempPath
+        Move (sTempPath+'\markdown.md') to sMarkdownFile
+        Move (sTempPath+'\html.htm') to sHtmlFile
+        Direct_Output sMarkdownFile
+        Write sMarkdown
+        Close_Output
+        Runprogram Wait ('pandoc "'+sMarkdownFile+'" -f markdown -t html -o "'+sHtmlFile+'"') 
+        File_Exist sHtmlFile bExist
+        If (bExist) Begin
+            Direct_Input sHtmlFile
+            Read_Block auHtml -1
+            Close_Input
+        End
+        Else Begin
+            Error DFERR_PROGRAM ("PANDOC conversion error.  HTML file is missing.  Expected:"*sHtmlFile)
+        End
+        Send dostartdocument "OPEN" sHtmlFile ''
+        
+        EraseFile sMarkdownFile    
+        EraseFile sHtmlFile
+        
+        Function_Return (UCharArrayToString(auHtml))
+    End_Function
+    
+    Function Markdown2Html String sMarkdown Returns String
+        String sMethod
+        String sHtml
+        
+        Get psConversionMethod to sMethod
+        If (sMethod='pandoc') Get Pandoc_Markdown2Html sMarkdown to sHtml
+        
+        Function_Return sHtml
+    End_Function
+End_Class
+

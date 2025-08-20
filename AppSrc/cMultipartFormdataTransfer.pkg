@@ -1,0 +1,401 @@
+//  
+//  File multipart upload class based on cHttpTransfer.
+//
+//  Use AddFile and AddFormValue to add files and form values before posting data using HttpPostFiles.
+//
+//  ResponseString and ResponseJson can be used to fetch the returned data. Also psContentTypeReceived 
+//  can be queried after the request.
+//
+//  Revisions:
+//      0.1 HW  DAE 2017/02/21
+//      0.2 MD  Datatech 2025/08/20
+//        - Destroy oCharTranslate after use
+//        - Send ParseUtf8 to hoJson
+//
+// From forum post: https://support.dataaccess.com/Forums/showthread.php?63696-Http-multipart-form-data-submission
+//
+Use cHttpTransfer.pkg
+Use GlobalFunctionsProcedures.pkg
+Use seq_chnl.pkg
+Use cCharTranslate.pkg
+Use cJsonObject.pkg
+
+Struct tPostfile
+    String sPath
+    String sName
+    String sContentType
+End_Struct
+
+Struct tPostValue
+    String sName
+    String sValue
+End_Struct
+
+Define cCRLF for (Character(13) + Character(10))
+
+// these define the three characters that define BOM for utf8.
+// These serve no purpos and are rarely used. If used they must be removed 
+Define C_BOM1 for |CI$EF
+Define C_BOM2 for |CI$BB
+Define C_BOM3 for |CI$BF
+Define C_ReadChunk for 1048576 // Read 1MB chunks
+
+Class cMultipartFormdataTransfer is a cHttpTransfer
+    
+    Procedure Construct_Object
+        Forward Send Construct_Object
+        
+        Property tPostValue[] paValues
+        Property tPostfile[] paFiles        
+        Property String psBoundary "---dfyoEniJtfokydpuyM7aT1"
+        
+        Property Boolean pbClearHeaders True
+        
+        { Visibility=Private }
+        Property Address paDataReceived 0                 // maintained by object
+        
+        { Visibility=Private }
+        Property Integer piDataReceivedLength 0           // maintained by object
+        
+        { DesignTime=False }  
+        Property String  psContentTypeReceived ''         // content type received
+
+        // if true, the http post does not happend and whatever was posted is just returned as a copy.
+        // Good for internal Testing
+        Property Boolean pbPostLoopTest False 
+    End_Procedure
+    
+    
+    Procedure AddFormValue String sName String sValue
+        tPostValue[] aValues
+        Integer i
+        
+        Get paValues to aValues
+        Move (SizeOfArray(aValues)) to i
+        
+        Move sName to aValues[i].sName
+        Move sValue to aValues[i].sValue
+        
+        Set paValues to aValues
+    End_Procedure
+    
+    Procedure AddFile String sName String sPath String sContentType
+        tPostfile[] aFiles
+        tPostfile file
+        
+        Get paFiles to aFiles
+        
+        Move sName to file.sName
+        Move sPath to file.sPath
+        Move sContentType to file.sContentType
+        
+        Move file to aFiles[SizeOfArray(aFiles)]
+        
+        Set paFiles to aFiles
+    End_Procedure
+    
+    //
+    //  Cuts the filename of a full file path.
+    //
+    { Visibility=Private }
+    Function FilenameFromPath String sPath Returns String
+        Integer iPos
+        
+        Move (RightPos("\", sPath)) to iPos
+        
+        If (iPos >= 0) Begin
+            Function_Return (Right(sPath, Length(sPath) - iPos))    
+        End
+        
+        Function_Return sPath
+    End_Function
+    
+    //
+    //  Generates the full post data in memory and returns the addres (which should be freed).
+    //
+    { Visibility=Private }
+    Function GenPostData Integer ByRef iSize Returns Address
+        tPostValue[] aValues
+        tPostfile[] aFiles
+        String[] asHeaders
+        String sBoundary sFilename sSeparator sBody
+        Integer i iTo iFileSize iRead iChunk
+        Integer[] aChannels
+        Address pMain pPos
+        Boolean bOk
+        UChar[] uFileData
+        
+        Get paValues to aValues
+        Get paFiles to aFiles
+        Get psBoundary to sBoundary
+        Move ("--" + sBoundary) to sBoundary
+        
+        //  Generate body with form values (simply put that together as a string)
+        Move (sBoundary + cCRLF) to sBody
+        Move (SizeOfArray(aValues) - 1) to iTo
+        For i from 0 to iTo
+            Move (sBody + sformat('Content-Disposition: form-data; name="%1";', aValues[i].sName) + cCRLF) to sBody
+            Move (sBody + cCRLF) to sBody
+            Move (sBody + aValues[i].sValue + cCRLF) to sBody
+            Move (sBody + sBoundary + cCRLF) to sBody
+        Loop
+        
+        Move (iSize + (Length(sBody))) to iSize
+        
+        //  Loop over files, generate headers for the them and calculate size
+        Move (SizeOfArray(aFiles) - 1) to iTo
+        
+        For i from 0 to iTo
+            Get FilenameFromPath aFiles[i].sPath to sFilename
+            
+            Move "" to asHeaders[i]
+            
+            //  Generate header
+            Move (asHeaders[i] + sformat('Content-Disposition: form-data; name="%1"; filename="%2"', aFiles[i].sName, sFilename) + cCRLF) to asHeaders[i]
+            Move (asHeaders[i] + "Content-Type: " + aFiles[i].sContentType + cCRLF) to asHeaders[i]
+            Move (asHeaders[i] + cCRLF) to asHeaders[i]
+            
+            Move (iSize + Length(asHeaders[i])) to iSize
+            
+            Move (Seq_New_Channel()) to aChannels[i]
+            Direct_Input channel aChannels[i] ("binary:" + aFiles[i].sPath)
+            Get_Channel_Size aChannels[i] to iFileSize
+            
+            Move (iSize + iFileSize) to iSize
+            
+            Move (iSize + (Length(cCRLF + sBoundary + cCRLF))) to iSize
+        Loop
+        
+        
+        
+        //  Put together the body and data
+        Move (Alloc(iSize)) to pMain
+        Move pMain to pPos
+        
+        
+        //  We already generated this first part of the body as a string
+        Move (MemCopy(pPos, AddressOf(sBody), Length(sBody))) to bOk
+        Move (pPos + Length(sBody)) to pPos
+        
+        
+        //  Loop over the files and add them to the post body
+        For i from 0 to iTo
+            Move (MemCopy(pPos, AddressOf(asHeaders[i]), Length(asHeaders[i]))) to bOk
+            Move (pPos + Length(asHeaders[i])) to pPos
+            
+            //  Read the file in chunks (to prevent it from needing file size in memory twice)
+            Get_Channel_Size aChannels[i] to iFileSize
+            Move 0 to iRead
+            While (iRead < iFileSize)
+                Move (If(iFileSize - iRead > C_ReadChunk, C_ReadChunk, iFileSize - iRead)) to iChunk
+                Read_Block channel aChannels[i] uFileData iChunk
+                
+                Move (MemCopy(pPos, AddressOf(uFileData), iChunk)) to bOk
+                Move (pPos + iChunk) to pPos
+                Move (iRead + iChunk) to iRead
+            Loop
+            
+            //  Add boundary
+            If (i < iTo) Begin
+                Move (cCRLF + sBoundary + cCRLF) to sSeparator
+                Move (MemCopy(pPos, AddressOf(sSeparator), Length(sSeparator))) to bOk
+                Move (pPos + Length(sSeparator)) to pPos
+            End
+            Else Begin
+                Move (cCRLF + sBoundary + "--") to sSeparator
+                Move (MemCopy(pPos, AddressOf(sSeparator), Length(sSeparator))) to bOk
+                Move (pPos + Length(sSeparator)) to pPos
+            End
+            
+            Close_Input channel aChannels[i]
+            Send Seq_Release_Channel aChannels[i]
+        Loop
+        
+        Function_Return pMain
+    End_Function
+    
+    
+    Function HttpPostFiles String sHost String sFilePath Returns Boolean
+        tPostfile[] aEmpty
+        tPostValue[] aEmptyValues
+        Address pData pDataReceived
+        Integer iSize iVoid
+        Boolean bOk bRes
+        String sBoundary sContentType
+        
+        Get psBoundary to sBoundary
+        
+        Send ClearDataReceived  // this should be zero, just in case it is not
+        Set psRemoteHost to sHost
+
+        // You need to clear headers between posts. If you need to set custom headers you should
+        // set pbClearHeaders to false and then manually send ClearHeaders and AddHeaders in your code
+        If (pbClearHeaders(Self)) ;
+            Send ClearHeaders
+        
+        Get GenPostData (&iSize) to pData
+        
+        Move ("multipart/form-data; boundary=" + sBoundary)  to sContentType
+        
+        If (pbPostLoopTest(Self)) Begin
+            Get LoopDataBack pData iSize sContentType to bOk
+        End
+        Else Begin
+            Get AddHeader "Content-Type" sContentType to bRes
+            Get HttpVerbAddrRequest sFilePath pData iSize False "POST" to bOK
+        End
+        If (bOk) Begin
+            Get paDataReceived to pDataReceived
+        End
+        
+        
+        // I am not sure this could ever happen. But if length is 0, we have no data
+        If (pDataReceived and CStringLength(pDataReceived)=0) Begin
+            Move (Free(pDataReceived)) to iVoid
+            Move 0 to pDataReceived
+        End
+        
+        Move (Free(pData)) to bRes
+        Set paFiles to aEmpty
+        Set paValues to aEmptyValues
+        
+        Function_Return bOk
+    End_Function
+    
+   
+    { Visibility=Private } 
+    Function LoopDataBack Address aOutData Integer iLen String sContentType Returns Boolean
+        Integer aInData
+        Boolean bOk
+        Move (Alloc(iLen+1)) to aInData
+        Move (MemCopy(aInData,aOutData,iLen)) to bOk
+        Move (StoreC(aInData,iLen,0)) to bOk
+        Set paDataReceived to aInData
+        Set piDataReceivedLength to iLen
+        Set psContentTypeReceived to sContentType
+        Function_Return True
+    End_Function
+   
+    
+    // called during http transfer. Take passed data and append to paDataReceived.
+    // If new transfer save contenttype.
+    { MethodType=Event NoDoc=True }
+    Procedure OnDataReceived String sContentType String sData
+        Integer bOk iVoid
+        Address aOldData
+        Address aNewData
+        Integer iOldDataLen
+        Integer iDataLen
+        Integer iNewLen
+        Move (length(sData)) to iDataLen
+        If (iDatalen>0) Begin // if passed data is empty--do nothing
+            Get paDataReceived to aOldData
+            If (aOldData=0) Begin                           // first time called, new data
+
+                // check for BOM (Byte Order Marker) at the start of the file.
+                // if found remove it as it serves no purpose and messes up the translate logic.                
+                If (iDataLen>3 and Ascii(Left(sData,1))=C_BOM1 and Ascii(Mid(sData,1,2))=C_BOM2 and Ascii(Mid(sData,1,3))=C_BOM3) Begin
+                    Move (Remove(sData,1,3)) to sData
+                    Move (iDataLen-3) to iDataLen
+                End
+                
+                Set psContentTypeReceived to sContentType   // store content type
+                Move (Alloc(iDataLen+1)) to aNewData  // alloc extra byte for zero termination...just in case.
+                Move 0 to iOldDataLen
+                Move iDataLen to iNewLen
+            End
+            Else Begin
+                Get piDataReceivedLength to iOldDataLen
+                Move (iOldDataLen+iDataLen) to iNewLen
+                Move (ReAlloc(aOldData,iNewLen+1)) to aNewData // note extra byte at end
+            End
+            Move (memcopy(aNewData+iOldDataLen, AddressOf(sData), iDataLen)) to bOk // copy on top of term zero
+            Move (StoreC(aNewData,iNewLen,0)) to iVoid // add terminating zero at end.
+            Set paDataReceived to aNewData
+            Set piDataReceivedLength to iNewLen // length does not include term zero
+        End
+    End_Procedure
+    
+    // Clear paDataReceived and free any memory associated w/ pointer
+    { Visibility=Private }
+    Procedure ClearDataReceived
+        Address aDataReceived
+        Integer iVoid
+        Get paDataReceived to aDataReceived
+        If (aDataReceived<>0) ;
+            Move (Free(aDataReceived)) to iVoid
+        Set paDataReceived to 0
+        Set piDataReceivedLength to 0
+    End_Procedure
+   
+    //
+    //  Returns the response as a string (properly converted to OEM, we assume UTF8 here..).
+    //
+    Function ResponseString Returns String
+        Address aReceived
+        String sResult
+        
+        Object oCharTranslate is a cCharTranslate
+        End_Object
+        
+        Get paDataReceived to aReceived
+        
+        If (aReceived) Begin
+            Get Utf8ToStr of oCharTranslate aReceived CP_OEMCP to sResult
+        End
+        Send Destroy of oCharTranslate
+
+        Function_Return sResult
+    End_Function
+    
+    //
+    //  Parses the response into a JSON object. If bOk is true succesfull then the response parsed 
+    //  into JSON succesfully. Note that even if bOk is False it can return a Handle that should be
+    //  cleared (it can contain a parsing Error).
+    //
+    //  Params:
+    //      Boolean ByRef bOk   Will indicate if the parsing succeeded.
+    //  Returns:
+    //      Handle to cJsonObject. Even if bOk is false this can contain an object that needs to 
+    //      be destroyed.
+    //
+    Function ResponseJson Boolean ByRef bOk Returns Handle
+        Address aDataReceived
+        Integer iReceived iLen
+        String sResult
+        UChar ucJsonReceived
+        Handle hoJson
+        Boolean bRes
+        
+        Move False to bOk
+        Get paDataReceived to aDataReceived
+        
+        If (aDataReceived) Begin
+            Move (CStringLength(aDataReceived)) to iLen
+            If iLen Begin
+                Move (ResizeArray(ucJsonReceived,iLen)) to ucJsonReceived
+                Move (MemCopy(AddressOf(ucJsonReceived),aDataReceived,iLen)) to bRes
+                
+                If (bRes) Begin
+                    Get Create (RefClass(cJsonObject)) to hoJson
+                    Get ParseUtf8 of hoJson ucJsonReceived to bOk
+                End
+            End
+        End
+        
+        Function_Return hoJson
+    End_Function
+
+    // augment to release any memory in paDataReceived
+    { MethodType=Event  NoDoc=True }
+    Procedure Destroy_Object
+       Send ClearDataReceived
+       Forward Send Destroy_object
+    End_Procedure
+    
+    Procedure End_Construct_Object
+        Forward Send End_Construct_Object
+
+    End_Procedure
+
+End_Class

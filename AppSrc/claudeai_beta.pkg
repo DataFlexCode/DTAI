@@ -1,0 +1,190 @@
+Use claudeai.pkg
+Use ChilkatAx-9.5.0-win32.pkg
+
+
+// Files API is in beta as of 8/19/25
+// This class requires ChilKat to upload multipart form data
+// TODO: retrieve meta data
+// TODO: delete a file
+
+Class cClaudeInterface_beta is a cClaudeInterface
+    
+    Procedure Construct_object
+        Forward Send construct_object
+        
+        Set pbEnableFilesApi to True        // this will add the required header
+    End_Procedure
+    
+    Function ClaudeFileList Returns tClaudeModelList
+        Boolean bOk bTypeExists
+        Handle hoResponse hoError 
+        String sResponse sMessage sResponseType
+        tClaudeModelList ModelList
+        tClaudeFileList FileList
+        
+        Send AddStandardHeaders
+        Get HttpGetJson (psHost(Self)) "v1/files" (&bok) to hoResponse
+        If (not(bOk)) Begin
+            Send UserError (TransferErrorDescription(Self)) "Transfer failed!"
+        End
+        Else Begin
+            Get HasMember of hoResponse "type" to bTypeExists
+            If (bTypeExists) Begin
+                Get MemberValue of hoResponse "type" to sResponseType
+                If (sResponseType='error') Begin
+                    Get Member of hoResponse "error" to hoError
+                    Get MemberValue of hoError "type" to sResponseType
+                    Get MemberValue of hoError "message" to sMessage
+                    Send Stop_Box sMessage sResponseType       
+                    Send Destroy of hoError         
+                End
+            End
+            Else Begin
+                Get JsonToDataType of hoResponse to FileList
+                Send Destroy of hoResponse
+            End
+        End
+        Function_Return FileList
+    End_Function
+
+    // TODO Test this!
+    // returns true if file is deleted
+    Function ClaudeFileMetaData String sFileID Returns Boolean
+        Boolean bOk bTypeExists bRetVal
+        Handle hoResponse hoError 
+        String sResponse sMessage sResponseType
+        tClaudeModelList ModelList
+        tClaudeFile FileMetaData
+                
+        Send AddStandardHeaders
+        Get HttpGetJson (psHost(Self)) ("v1/files/"+sFileID) (&bok) to hoResponse
+        If (not(bOk)) Begin
+            Send UserError (TransferErrorDescription(Self)) "Transfer failed!"
+        End
+        Else Begin
+            // response for a successful deletion is a JSON object with id (file id) and type members
+            Get HasMember of hoResponse "type" to bTypeExists
+            If (bTypeExists) Begin
+                Get MemberValue of hoResponse "type" to sResponseType
+                Move (sResponseType='file_deleted') to bRetVal
+                
+                If (sResponseType='error') Begin
+                    Get Member of hoResponse "error" to hoError
+                    Get MemberValue of hoError "type" to sResponseType
+                    Get MemberValue of hoError "message" to sMessage
+                    Send Stop_Box sMessage sResponseType       
+                    Send Destroy of hoError         
+                End
+            End
+        End
+        Function_Return bRetVal
+    End_Function
+
+    // untested, Postman has a request that works    
+    Function UploadFile String sFilename Returns String 
+        Boolean bOk bTypeExists
+        Integer iSuccess
+        tClaudeResponseUploadFile Response
+        Handle hoReq hoResponse hoHttp hoResp
+        Integer iStatus
+        Variant vReq vResp vRetVal
+        String sError sResponse
+        
+        Delegate Send UnlockChilKat 
+        
+        Get Create (RefClass(cComChilkatHttpRequest)) to hoReq
+        If (not(IsComObjectCreated(hoReq))) Begin
+            Send CreateComObject of hoReq
+        End
+    
+        Set ComHttpVerb of hoReq to "POST"
+        Set ComPath of hoReq to "/v1/files"
+    
+        // The boundary string is automatically generated and added by Chilkat.
+        // The value for the boundary string doesn't matter. (As long as it's a unique string that doesn't occur elsewhere in the request.)
+        Set ComContentType of hoReq to "multipart/form-data"
+        Send ComAddHeader of hoReq "x-api-key" (psApiKey(Self))
+        Send ComAddHeader of hoReq "anthropic-version" (psAnthropicVersion(Self))
+        Send ComAddHeader of hoReq "anthropic-beta" "files-api-2025-04-14"
+        // --------------------------------------------------
+        // IMPORTANT: Never set the Content-Length header.  
+        // Chilkat will automatically compute the correct Content-Length and will add it.
+        // --------------------------------------------------
+    
+        Send ComAddHeader to hoReq "Accept" "application/json"
+    
+        // The last param is the contents of a file.
+        Get ComAddFileForUpload of hoReq "file" sFilename to vRetVal 
+        If (vRetVal = False) Begin
+            Get ComLastErrorText of hoReq to sError
+            Error DFERR_PROGRAM sError
+            Procedure_Return
+        End
+    
+        Get Create (RefClass(cComChilkatHttp)) to hoHttp
+        If (not(IsComObjectCreated(hoHttp))) Begin
+            Send CreateComObject of hoHttp
+        End
+    
+        // The request is ready... now send it using HTTPS (which is port 443 by default).
+        Get Create (RefClass(cComChilkatHttpResponse)) to hoResp
+        If (not(IsComObjectCreated(hoResp))) Begin
+            Send CreateComObject of hoResp
+        End
+        Get pvComObject of hoReq to vReq
+
+        // uncomment for debugging        
+//        String sRequest
+//        Get ComGenerateRequestText of hoReq to sRequest
+//        Direct_Output "CLIPBOARD:"
+//        Write sRequest
+//        Close_Output
+        
+        Get ComSynchronousRequest of hoHttp (psHost(Self)) 443 True vReq to vResp 
+        Get ComLastMethodSuccess to iSuccess
+        If (iSuccess=0) Begin
+            Get ComLastErrorText of hoHttp to sError "Request Error"
+            Send Stop_Box sError
+        End
+        // hook up the variant that's returned to the DataFlex response COM object
+        Set pvComObject of hoResp to vResp
+        Get ComStatusCode of hoResp to iStatus
+
+        // we are expecting a JSON response    
+        Get ComBodyStr of hoResp to sResponse
+        Get create (RefClass(cJsonObject)) to hoResponse
+        Get ParseString of hoResponse sResponse to bok
+        If (bOk) Begin
+            String sResponseType
+            Handle hoError
+            String sMessage
+            
+            Get HasMember of hoResponse "type" to bTypeExists
+            If (bTypeExists) Begin
+                Get MemberValue of hoResponse "type" to sResponseType
+                If (sResponseType='error') Begin
+                    Get Member of hoResponse "error" to hoError
+                    Get MemberValue of hoError "type" to sResponseType
+                    Get MemberValue of hoError "message" to sMessage
+                    Send Stop_Box sMessage sResponseType            
+                    Send Destroy of hoError    
+                End
+            End
+            Else Begin
+                Get JsonToDataType of hoResponse to Response
+            End
+        End
+        Else Begin
+            Error dferr_program ("Error parsing file upload response:"*sResponse)
+        End
+        Send Destroy of hoResponse
+        
+        Function_Return Response.id        
+    End_Function
+    
+End_Class
+
+Object oClaudeAI is a cClaudeInterface_beta
+    If (ghoClaudeAI) Send Destroy of ghoClaudeAI
+    Move Self to ghoClaudeAI
+End_Object

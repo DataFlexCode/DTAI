@@ -1,0 +1,569 @@
+// a mixin class with JSON related helper functions that will be useful for other classes
+//  that deal with JSON
+Use WebConvertClient.pkg
+Use cCharTranslate.pkg
+
+Struct stRESTField
+    Integer iTable
+    Integer iColumn
+    Integer iDFType
+    Integer iJType
+    String  sName
+    Handle  hoObject
+    Handle  hfFunction
+End_Struct
+
+
+Class cJson_mixin is a Mixin
+    
+    Procedure define_cJson_mixin 
+        Property Integer[] paiExcludeFields
+        Property Integer[] paiReadOnlyFields
+        Property Boolean pbReturnBinary
+        Property stRESTField[]  patFields
+        
+        Object oTrans is a cCharTranslate
+        End_Object
+    End_Procedure
+    
+    
+    // from a forum post by Harm
+    Procedure RemoveEmptyMembers Handle hoJsonObj Boolean bEmptyString Boolean bZeroNumber Boolean bNull Boolean bZeroDates
+        Integer iTo iMember iType
+        Handle hoMember
+        String sMemberName
+        Boolean bRemove
+        
+        Get MemberCount of hoJsonObj to iTo
+        For iMember from 0 to (iTo - 1)
+            Move False to bRemove
+            
+            Get MemberByIndex of hoJsonObj iMember to hoMember
+            
+            Get JsonType of hoMember to iType
+            
+            Case Begin
+                Case (iType = jsonTypeString)
+                    If (bEmptyString) Begin
+                        Move (JsonValue(hoMember) = "") to bRemove
+                    End
+                    If (num_arguments>=5 and not(bRemove) and bZeroDates) Begin
+                        Move (JsonValue(hoMember)='0000-00-00T00:00:00') to bRemove
+                    End
+                    Case Break
+                Case (iType = jsonTypeInteger)
+                    If (bZeroNumber) Begin
+                        Move (JsonValue(hoMember) = 0) to bRemove
+                    End
+                    Case Break
+                Case (iType = jsonTypeNull) 
+                    Move bNull to bRemove
+                    Case Break
+                Case (iType = jsonTypeObject or iType = jsonTypeArray) Begin
+                    Send RemoveEmptyMembers hoMember bEmptyString bZeroNumber bNull (If(num_arguments>=5,bZeroDates,False))
+                    Case Break
+                End
+            Case End
+            
+            //  Only remove empty members of objects (not from arrays)
+            If (bRemove and IsOfJsonType(hoJsonObj, jsonTypeObject)) Begin
+                Get MemberNameByIndex of hoJsonObj iMember to sMemberName
+                Send RemoveMember of hoJsonObj sMemberName
+                Decrement iMember
+                Decrement iTo
+            End
+            
+            Send Destroy of hoMember
+        Loop
+    End_Procedure
+
+    // from a forum post by Harm
+    Procedure RemoveEmptyDateMembers Handle hoJsonObj 
+        Integer iTo iMember iType
+        Handle hoMember
+        String sMemberName
+        Boolean bRemove
+        
+        Get MemberCount of hoJsonObj to iTo
+        For iMember from 0 to (iTo - 1)
+            Move False to bRemove
+            
+            Get MemberByIndex of hoJsonObj iMember to hoMember
+            
+            Get JsonType of hoMember to iType
+            
+            Case Begin
+                Case (iType = jsonTypeString)
+                    Move (JsonValue(hoMember)='0000-00-00T00:00:00') to bRemove
+                Case (iType = jsonTypeObject or iType = jsonTypeArray) Begin
+                    Send NullifyEmptyDateMembers hoMember 
+                    Case Break
+                End
+            Case End
+            
+            //  Only remove empty members of objects (not from arrays)
+            If (bRemove and IsOfJsonType(hoJsonObj, jsonTypeObject)) Begin
+                Get MemberNameByIndex of hoJsonObj iMember to sMemberName
+                Send RemoveMember of hoJsonObj sMemberName
+                Decrement iMember
+                Decrement iTo
+            End
+            
+            Send Destroy of hoMember
+        Loop
+    End_Procedure
+
+    // from a forum post by Harm
+    Procedure RemoveNullMembers Handle hoJsonObj 
+        Integer iTo iMember iType
+        Handle hoMember
+        String sMemberName
+        Boolean bRemove
+        
+        Get MemberCount of hoJsonObj to iTo
+        For iMember from 0 to (iTo - 1)
+            Move False to bRemove
+            
+            Get MemberByIndex of hoJsonObj iMember to hoMember
+            
+            Get JsonType of hoMember to iType
+            
+            If (iType = jsonTypeNull) Begin
+                Get MemberNameByIndex of hoJsonObj iMember to sMemberName
+                Send RemoveMember of hoJsonObj sMemberName
+                Decrement iMember
+                Decrement iTo
+            End
+            If (iType=jsonTypeObject or iType = jsonTypeArray) Begin
+                Send RemoveNullMembers hoMember 
+            End
+            Send Destroy of hoMember
+        Loop
+    End_Procedure
+
+    // from a forum post by Harm
+    Procedure NullifyEmptyDateMembers Handle hoJsonObj 
+        Integer iTo iMember iType
+        Handle hoMember
+        String sMemberName
+        Boolean bRemove
+        
+        Get MemberCount of hoJsonObj to iTo
+        For iMember from 0 to (iTo - 1)
+            Move False to bRemove
+            
+            Get MemberByIndex of hoJsonObj iMember to hoMember
+            
+            Get JsonType of hoMember to iType
+            
+            Case Begin
+                Case (iType = jsonTypeString)
+                    Move (JsonValue(hoMember)='0000-00-00T00:00:00') to bRemove
+                Case (iType = jsonTypeObject or iType = jsonTypeArray) Begin
+                    Send NullifyEmptyDateMembers hoMember 
+                    Case Break
+                End
+            Case End
+            
+            //  Only remove empty members of objects (not from arrays)
+            If (bRemove and IsOfJsonType(hoJsonObj, jsonTypeObject)) Begin
+                Get MemberNameByIndex of hoJsonObj iMember to sMemberName
+                Send SetMemberValue of hoJsonObj sMemberName jsonTypeNull ''
+            End
+            
+            Send Destroy of hoMember
+        Loop
+    End_Procedure
+    // JSON path functions adapted from Mike Peat's cJsonConfig.pkg
+    Function ReadArray String sDefs Handle hoDefs Returns String
+        Integer iLSBPos iRSBPos iIndex
+        Handle  hoMemb
+        String  sVal
+        
+        If ((not(hoDefs) or ;
+            (sDefs = ""))) ;
+            Function_Return ""
+        
+        Move (Pos("[", sDefs)) to iLSBPos
+        Move (Pos("]", sDefs)) to iRSBPos
+        
+        If (not(iLSBPos) or ;
+            not(iRSBPos) or ;
+            (iLSBPos > iRSBPos) or ;
+            (iLSBPos <> 1)) ;
+            Function_Return ""
+        
+        Move (Mid(sDefs, (iRSBPos - iLSBPos - 1), (iLSBPos + 1))) to iIndex
+        
+        If (MemberCount(hoDefs) <= iIndex) ;
+            Function_Return ""
+        
+        Get MemberByIndex of hoDefs iIndex to hoMemb
+
+        If (Length(Trim(sDefs)) = iRSBPos) Begin // It ends here
+            Get JsonValue of hoMemb to sVal
+            Send Destroy of hoMemb
+            Function_Return sVal
+        End
+
+        Move (Right(sDefs, (Length(sDefs) - iRSBPos))) to sDefs
+        If (Left(sDefs, 1) = ".") ;
+            Move (Replace(".", sDefs, "")) to sDefs
+        Get ReadSetting sDefs hoMemb to sVal
+        Send Destroy of hoMemb
+        Function_Return sVal
+    End_Function
+    
+    // given a path using dot notation, return the value of the JSON member.
+    //  this doesn't require/expect a "real" JSON path. (https://docs.hevodata.com/sources/engg-analytics/streaming/rest-api/writing-jsonpath-expressions/)
+    //  i.e. do not start with "$."
+    Function ReadSetting String sPath Handle hoDefs Returns String
+        Integer iLSBPos iDotPos iPos
+        String  sMemb sVal
+        Handle  hoMemb
+
+        If ((not(hoDefs) or ;
+            (sPath = ""))) ;
+            Function_Return ""
+            
+        If (Left(sPath, 1) = "[") ;
+            Function_Return (ReadArray(Self, sPath, hoDefs))
+        
+        Move (Pos(".", sPath))      to iDotPos
+        Move (Pos("[", sPath))      to iLSBPos
+        
+        If (iLSBPos and iDotPos) ;
+            Move (iDotPos min iLSBPos)  to iPos
+        Else If (iDotPos) ;
+            Move iDotPos                to iPos
+        Else ;
+            Move iLSBPos                to iPos
+        
+        If not iPos Begin  // We are there!
+            
+            If (HasMember(hoDefs, sPath)) ;
+                Function_Return (MemberValue(hoDefs, sPath))
+            Else ;
+                Function_Return ""
+        
+        End
+        
+        Move (Left(sPath, (iPos - 1)))    to sMemb
+        
+        If (HasMember(hoDefs, sMemb)) Begin
+            Get Member of hoDefs sMemb to hoMemb
+            Move (Right(sPath, (Length(sPath) - iPos + 1))) to sPath
+            If (Left(sPath, 1) = ".") ;
+                Move (Replace(".", sPath, "")) to sPath
+            Get ReadSetting sPath hoMemb to sVal
+            Send Destroy of hoMemb
+        End
+        
+        Function_Return sVal
+    End_Function
+
+    // untested; to provide same type of interface as cJSONObject,
+    //  JSON Path to return a handle to a member, caller is responsible
+    //  for destroying handle
+    Function FindArrayMember String sDefs Handle hoDefs Returns Handle
+        Integer iLSBPos iRSBPos iIndex
+        Handle  hoMemb hoREtVal
+        
+        If ((not(hoDefs) or ;
+            (sDefs = ""))) ;
+            Function_Return 0
+        
+        Move (Pos("[", sDefs)) to iLSBPos
+        Move (Pos("]", sDefs)) to iRSBPos
+        
+        If (not(iLSBPos) or ;
+            not(iRSBPos) or ;
+            (iLSBPos > iRSBPos) or ;
+            (iLSBPos <> 1)) ;
+            Function_Return 0
+        
+        Move (Mid(sDefs, (iRSBPos - iLSBPos - 1), (iLSBPos + 1))) to iIndex
+        
+        If (MemberCount(hoDefs) <= iIndex) ;
+            Function_Return 0
+        
+        Get MemberByIndex of hoDefs iIndex to hoMemb
+
+        If (Length(Trim(sDefs)) = iRSBPos) Begin // It ends here
+            Function_Return hoMemb
+        End
+
+        Move (Right(sDefs, (Length(sDefs) - iRSBPos))) to sDefs
+        If (Left(sDefs, 1) = ".") ;
+            Move (Replace(".", sDefs, "")) to sDefs
+        Get FindMember sDefs hoMemb to hoRetVal
+        Send Destroy of hoMemb
+        Function_Return hoRetVal
+    End_Function
+    
+    Function FindMember String sDefs Handle hoDefs Returns Handle
+        Integer iLSBPos iDotPos iPos
+        String  sMemb sVal
+        Handle  hoMemb hoRetval
+
+        If ((not(hoDefs) or ;
+            (sDefs = ""))) ;
+            Function_Return 0
+            
+        If (Left(sDefs, 1) = "[") ;
+            Function_Return (FindArrayMember(Self, sDefs, hoDefs))
+        
+        Move (Pos(".", sDefs))      to iDotPos
+        Move (Pos("[", sDefs))      to iLSBPos
+        
+        If (iLSBPos and iDotPos) ;
+            Move (iDotPos min iLSBPos)  to iPos
+        Else If (iDotPos) ;
+            Move iDotPos                to iPos
+        Else ;
+            Move iLSBPos                to iPos
+        
+        If not iPos Begin  // We are there!
+            If (HasMember(hoDefs, sDefs)) ;
+                Function_Return (Member(hoDefs))
+            Else ;
+                Function_Return 0
+        End
+        
+        Move (Left(sDefs, (iPos - 1)))    to sMemb
+        
+        If (HasMember(hoDefs, sMemb)) Begin
+            Get Member of hoDefs sMemb to hoMemb
+            Move (Right(sDefs, (Length(sDefs) - iPos + 1))) to sDefs
+            If (Left(sDefs, 1) = ".") ;
+                Move (Replace(".", sDefs, "")) to sDefs
+            Get FindMember sDefs hoMemb to hoRetVal
+            Send Destroy of hoMemb
+        End
+        
+        Function_Return hoRetVal
+    End_Function
+
+    // TODO: refactor to use JsonPathMember
+    Function JsonPathMemberValue Handle hoJson String sElementPath Returns String
+        Function_Return (ReadSetting(Self,sElementPath ,hoJson))
+    End_Function
+    
+    Function JsonPathMember Handle hoJson String sElementPath Returns String
+        Function_Return (FindMember(Self,sElementPath,hoJson))
+    End_Function
+
+    // lifted from REST library
+    Procedure UpdateDDFromJson Handle hoDD Handle hoJson
+        Integer   iMembs i iType iField iOpt
+        Integer   iRelatedField iRelatedFile iIndex
+        String    sMemb sJVal sDVal
+        Handle    htTable hoMember
+        Integer[] aiExclude aiReadOnly
+        UChar[]   ucaVal
+        
+        If not hoJson ;
+            Procedure_Return
+            
+        If not (JsonType(hoJson) = jsonTypeObject) ;
+            Procedure_Return
+
+        Get paiExcludeFields        to aiExclude
+        Get paiReadOnlyFields       to aiReadOnly
+        Get Main_File of hoDD       to htTable
+        Get MemberCount of hoJson   to iMembs
+        Decrement iMembs
+        
+        For i from 0 to iMembs
+            Get MemberNameByIndex of hoJson i to sMemb
+            If (MemberJsonType(hoJson, sMemb) = jsonTypeNull) ;
+                                                    Break Begin // Skip nulls - no use to us
+            
+            // We ignore the error 4100 which will occur will occur if member
+            // is NOT a field in the table when Field_Map tries to evaluate it
+            // because we want to handle that ourselves below using the
+            // OnUnrecognizedField developer hook.
+            Send ignore_error to Error_object_id 4100
+            Field_Map htTable sMemb to iField
+            Send trap_error to Error_object_id 4100
+            
+            If (SearchArray(iField, aiExclude) > -1) ;
+                                                    Break Begin
+            If (SearchArray(iField, aiReadOnly) > -1) ;
+                                                    Break Begin
+
+            If (iField <> 0) Begin
+                Get MemberValue of hoJson sMemb                     to sJVal
+                Get Field_Current_Value of hoDD iField              to sDVal
+                Get_Attribute DF_FIELD_TYPE of htTable iField       to iType
+                Get_Attribute DF_FIELD_RELATED_FILE of htTable iField to iRelatedFile
+                Get_Attribute DF_FIELD_RELATED_FIELD of htTable iField to iRelatedField 
+                If (iRelatedFile<>0 and iRelatedField<>0) Begin
+                    Get_Attribute DF_FIELD_INDEX of iRelatedFile iRelatedField to iIndex
+                    Clear iRelatedFile
+                    Set_Field_Value iRelatedFile iRelatedField to sJVal
+                    Vfind iRelatedFile iIndex EQ
+                    If (Found) Send Request_Assign of hoDD iRelatedFile
+                End
+                Else Begin
+                    If (iType = DF_BINARY) Begin
+                        Move (StringToUCharArray(sJVal))                to ucaVal
+                        Get Base64DecodeUCharArray of oTrans ucaVal     to ucaVal
+                        Set Field_Current_UCAValue of hoDD iField       to ucaVal
+                        Set Field_Changed_State    of hoDD iField       to True
+                    End
+                    Else Begin
+                        
+                        If (iType = DF_DATE) ;
+                            Move (ConvertFromClient(typeDate, sJVal))       to sJVal
+                    
+                        If (iType = DF_DATETIME) ;
+                            Move (ConvertFromClient(typeDateTime, sJVal))   to sJVal
+                    
+                        Get Field_Option of hoDD iField DD_CAPSLOCK     to iOpt
+                        If (iOpt = 1) ;
+                            Move (Uppercase(sJVal))                     to sJVal
+                            
+                        If (sJVal <> sDVal) Begin
+                            Set Field_Changed_Value of hoDD iField      to sJVal
+                        End
+                    
+                    End
+                End                
+            End
+            Else Begin
+                Get Member of hoJson sMemb to hoMember
+                Send OnUnrecognizedField sMemb hoMember Self
+            End
+            
+        Loop
+
+    End_Procedure
+
+    // Functions CreateJsonObject and CreateJsonArray
+    // ==============================================
+    // Simple little helper functions to save a bit of code on doing these two
+    // things.
+    Function CreateJsonObject Returns Handle
+        Handle hoObj
+        
+        Get Create (RefClass(cJsonObject)) to hoObj
+        Send InitializeJsonType of hoObj jsonTypeObject
+        
+        Function_Return hoObj
+    End_Function
+    
+    // Function JsonFromDD
+    // ===================
+    // Takes a DD object and returns a JSON object populated with the current
+    // DD values for it.  If aiFields is not empty it is used as a list of the
+    // columns to include, otherwise all will be returned.  Overlaps will be
+    // skipped.  Binary fields will only be returned if the property
+    // pbReturnBinary is set to True (False by default).
+    Function JsonFromDD Handle hoDD Integer[] aiFields Returns Handle
+        Handle    hoJson htTable hoField
+        Integer   i iFields iMax iField iType iDec
+        stRESTField[] atFields
+        stRESTField tField
+        String    sName sValue
+        Integer[] aiExclude
+        UChar[]   ucaVal
+        
+        Get Main_File of hoDD   to htTable
+        Get paiExcludeFields    to aiExclude
+        Get patFields           to atFields
+        Get CreateJsonObject    to hoJson
+        
+        Move (SizeOfArray(aiFields) - 1) to iMax
+        If (iMax<0) begin
+            Get_Attribute DF_FILE_NUMBER_FIELDS of htTable to iMax
+            For i from 0 to (iMax-1)
+                Move (i+1) to aiFields[i]
+                Move htTable to atFields[i+1].iTable
+                Get_Attribute DF_FIELD_TYPE of htTable (i+1) to atFields[i+1].iDFType
+                Get_Attribute DF_FIELD_NAME of htTable (i+1) to atFields[i+1].sName
+                Move (i+1) to atFields[i+1].iColumn
+                If (atFields[i+1].iDFType=DF_ASCII) Move jsonTypeString to atFields[i+1].iJType
+                If (atFields[i+1].iDFType=DF_TEXT) Move jsonTypeString to atFields[i+1].iJType
+                If (atFields[i+1].iDFType=DF_DATE) Move jsonTypeString to atFields[i+1].iJType
+                If (atFields[i+1].iDFType=DF_DATE) Move jsonTypeString to atFields[i+1].iJType
+                If (atFields[i+1].iDFType=DF_BCD) Begin
+                    Get_Attribute DF_FIELD_PRECISION of htTable (i+1) to iDec
+                    If (iDec=0) Move jsonTypeInteger to atFields[i+1].iJType
+                    Else Move jsonTypeDouble to atFields[i+1].iJType
+                End
+            Loop
+            Move (iMax-1) to iMax
+        End
+        
+        For i from 0 to iMax
+            Move aiFields[i] to iField
+            
+            // Do not return RECNUM
+            If (aiFields[i] <= 0) ;
+                Break Begin
+            
+            // Do not return excluded fields
+            If (SearchArray(iField, aiExclude) > -1) ;
+                                                Break Begin
+
+            Move atFields[iField] to tField
+            
+            If (tField.hfFunction) Begin
+                
+                If ((tField.iJType = jsonTypeObject) or ;
+                    (tField.iJType = jsonTypeArray)) Begin
+                    Get tField.hfFunction of tField.hoObject Self to hoField
+                    
+                    If hoField Begin
+                        Send SetMember of hoJson tField.sName hoField
+                        Send Destroy of hoField
+                    End
+                    
+                End
+                Else Begin
+                    Get tField.hfFunction of tField.hoObject Self to sValue
+                    Send SetMemberValue of hoJson tField.sName tField.iJType sValue
+                End
+                
+            End
+            Else Begin
+                
+                If (tField.iDFType <> DF_OVERLAP) Begin  // Ignore overlaps
+                    
+                    If ((tField.iDFType = DF_BINARY) and ;
+                        pbReturnBinary(Self)) Begin
+                            Get File_Field_Current_UCAValue of hoDD ;
+                                tField.iTable tField.iColumn                to ucaVal
+                            Get Base64EncodeUCharArray of oTrans ucaVal     to ucaVal
+                            Send SetMemberValue of hoJson tField.sName jsonTypeString ;
+                                (UCharArrayToString(ucaVal))                        
+                    End
+                    Else Begin
+                        Get File_Field_Current_Value of hoDD tField.iTable tField.iColumn to sValue
+
+                        If (tField.iDFType = DF_DATE) Begin
+                            Move (ConvertToClient(DF_DATE, sValue))        to sValue
+                        End
+                        
+                        If (tField.iDFType = DF_DATETIME) Begin
+                            Move (ConvertToClient(DF_DATETIME, sValue))    to sValue
+                        End
+                        
+                        Send SetMemberValue of hoJson tField.sName tField.iJType (Trim(sValue))
+                    End
+                    
+                End
+            
+            End
+            
+        Loop
+
+        Function_Return hoJson
+    End_Function
+    
+    Procedure OnUnrecognizedField String sMemb Handle hoMember Handle hoSource
+        
+    End_Procedure
+End_Class
+

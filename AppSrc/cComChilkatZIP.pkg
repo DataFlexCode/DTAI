@@ -1,0 +1,2665 @@
+// Visual DataFlex COM proxy classes generated from C:\Chillkat\ChilkatAx-9.5.0-win32.dll
+Use FlexCom20.pkg
+Use cCom_IChilkatEvents.pkg
+
+// CLSID: {EFE9ADE4-0851-49E2-BC0B-AB26E0353B1B}
+// IChilkatZip Interface v9.5.0
+Class cComIChilkatZip is a Mixin
+
+    Function ComGetImplAddrStr Returns String
+        Handle hDispatchDriver
+        String retVal
+        Get phDispatchDriver to hDispatchDriver
+        Get InvokeComMethod of hDispatchDriver 99 OLE_VT_BSTR to retVal
+        Function_Return retVal
+    End_Function
+
+    { MethodType=Property DesignTime=False }
+    Function ComLastErrorHtml Returns String
+        Handle hDispatchDriver
+        String retVal
+        Get phDispatchDriver to hDispatchDriver
+        Get InvokeComMethod of hDispatchDriver 1 OLE_VT_BSTR to retVal
+        Function_Return retVal
+    End_Function
+
+    { MethodType=Property DesignTime=False }
+    Function ComLastErrorText Returns String
+        Handle hDispatchDriver
+        String retVal
+        Get phDispatchDriver to hDispatchDriver
+        Get InvokeComMethod of hDispatchDriver 2 OLE_VT_BSTR to retVal
+        Function_Return retVal
+    End_Function
+
+    { MethodType=Property DesignTime=False }
+    Function ComLastErrorXml Returns String
+        Handle hDispatchDriver
+        String retVal
+        Get phDispatchDriver to hDispatchDriver
+        Get InvokeComMethod of hDispatchDriver 3 OLE_VT_BSTR to retVal
+        Function_Return retVal
+    End_Function
+
+    { MethodType=Property DesignTime=False }
+    Function ComVersion Returns String
+        Handle hDispatchDriver
+        String retVal
+        Get phDispatchDriver to hDispatchDriver
+        Get InvokeComMethod of hDispatchDriver 4 OLE_VT_BSTR to retVal
+        Function_Return retVal
+    End_Function
+
+    { MethodType=Property DesignTime=False }
+    Function ComDebugLogFilePath Returns String
+        Handle hDispatchDriver
+        String retVal
+        Get phDispatchDriver to hDispatchDriver
+        Get InvokeComMethod of hDispatchDriver 5 OLE_VT_BSTR to retVal
+        Function_Return retVal
+    End_Function
+
+    { MethodType=Property DesignTime=False }
+    Procedure Set ComDebugLogFilePath String value
+        Handle hDispatchDriver
+        Get phDispatchDriver to hDispatchDriver
+        Send PrepareParams to hDispatchDriver 1
+        Set ComProperty of hDispatchDriver 5 OLE_VT_BSTR to value
+    End_Procedure
+
+    { MethodType=Property DesignTime=False }
+    Function ComVerboseLogging Returns Integer
+        Handle hDispatchDriver
+        Integer retVal
+        Get phDispatchDriver to hDispatchDriver
+        Get InvokeComMethod of hDispatchDriver 6 OLE_VT_I4 to retVal
+        Function_Return retVal
+    End_Function
+
+    { MethodType=Property DesignTime=False }
+    Procedure Set ComVerboseLogging Integer value
+        Handle hDispatchDriver
+        Get phDispatchDriver to hDispatchDriver
+        Send PrepareParams to hDispatchDriver 1
+        Set ComProperty of hDispatchDriver 6 OLE_VT_I4 to value
+    End_Procedure
+
+    { MethodType=Property DesignTime=False }
+    Function ComLastMethodSuccess Returns Integer
+        Handle hDispatchDriver
+        Integer retVal
+        Get phDispatchDriver to hDispatchDriver
+        Get InvokeComMethod of hDispatchDriver 9 OLE_VT_I4 to retVal
+        Function_Return retVal
+    End_Function
+
+    { MethodType=Property DesignTime=False }
+    Procedure Set ComLastMethodSuccess Integer value
+        Handle hDispatchDriver
+        Get phDispatchDriver to hDispatchDriver
+        Send PrepareParams to hDispatchDriver 1
+        Set ComProperty of hDispatchDriver 9 OLE_VT_I4 to value
+    End_Procedure
+
+    { MethodType=Property DesignTime=False }
+    Function ComLastStringResult Returns String
+        Handle hDispatchDriver
+        String retVal
+        Get phDispatchDriver to hDispatchDriver
+        Get InvokeComMethod of hDispatchDriver 10 OLE_VT_BSTR to retVal
+        Function_Return retVal
+    End_Function
+
+    { MethodType=Property DesignTime=False }
+    Function ComLastBinaryResult Returns Variant
+        Handle hDispatchDriver
+        Variant retVal
+        Get phDispatchDriver to hDispatchDriver
+        Get InvokeComMethod of hDispatchDriver 11 OLE_VT_VARIANT to retVal
+        Function_Return retVal
+    End_Function
+
+    { MethodType=Property DesignTime=False }
+    Function ComLastStringResultLen Returns Integer
+        Handle hDispatchDriver
+        Integer retVal
+        Get phDispatchDriver to hDispatchDriver
+        Get InvokeComMethod of hDispatchDriver 12 OLE_VT_I4 to retVal
+        Function_Return retVal
+    End_Function
+
+    { MethodType=Property DesignTime=False }
+    Function ComAppendFromDir Returns String
+        Handle hDispatchDriver
+        String retVal
+        Get phDispatchDriver to hDispatchDriver
+        Get InvokeComMethod of hDispatchDriver 100 OLE_VT_BSTR to retVal
+        Function_Return retVal
+    End_Function
+
+    { MethodType=Property DesignTime=False }
+    Procedure Set ComAppendFromDir String value
+        Handle hDispatchDriver
+        Get phDispatchDriver to hDispatchDriver
+        Send PrepareParams to hDispatchDriver 1
+        Set ComProperty of hDispatchDriver 100 OLE_VT_BSTR to value
+    End_Procedure
+
+    { MethodType=Property DesignTime=False }
+    Function ComAutoRun Returns String
+        Handle hDispatchDriver
+        String retVal
+        Get phDispatchDriver to hDispatchDriver
+        Get InvokeComMethod of hDispatchDriver 101 OLE_VT_BSTR to retVal
+        Function_Return retVal
+    End_Function
+
+    { MethodType=Property DesignTime=False }
+    Procedure Set ComAutoRun String value
+        Handle hDispatchDriver
+        Get phDispatchDriver to hDispatchDriver
+        Send PrepareParams to hDispatchDriver 1
+        Set ComProperty of hDispatchDriver 101 OLE_VT_BSTR to value
+    End_Procedure
+
+    { MethodType=Property DesignTime=False }
+    Function ComAutoRunParams Returns String
+        Handle hDispatchDriver
+        String retVal
+        Get phDispatchDriver to hDispatchDriver
+        Get InvokeComMethod of hDispatchDriver 102 OLE_VT_BSTR to retVal
+        Function_Return retVal
+    End_Function
+
+    { MethodType=Property DesignTime=False }
+    Procedure Set ComAutoRunParams String value
+        Handle hDispatchDriver
+        Get phDispatchDriver to hDispatchDriver
+        Send PrepareParams to hDispatchDriver 1
+        Set ComProperty of hDispatchDriver 102 OLE_VT_BSTR to value
+    End_Procedure
+
+    { MethodType=Property DesignTime=False }
+    Function ComAutoTemp Returns Integer
+        Handle hDispatchDriver
+        Integer retVal
+        Get phDispatchDriver to hDispatchDriver
+        Get InvokeComMethod of hDispatchDriver 103 OLE_VT_I4 to retVal
+        Function_Return retVal
+    End_Function
+
+    { MethodType=Property DesignTime=False }
+    Procedure Set ComAutoTemp Integer value
+        Handle hDispatchDriver
+        Get phDispatchDriver to hDispatchDriver
+        Send PrepareParams to hDispatchDriver 1
+        Set ComProperty of hDispatchDriver 103 OLE_VT_I4 to value
+    End_Procedure
+
+    { MethodType=Property DesignTime=False }
+    Function ComCaseSensitive Returns Integer
+        Handle hDispatchDriver
+        Integer retVal
+        Get phDispatchDriver to hDispatchDriver
+        Get InvokeComMethod of hDispatchDriver 104 OLE_VT_I4 to retVal
+        Function_Return retVal
+    End_Function
+
+    { MethodType=Property DesignTime=False }
+    Procedure Set ComCaseSensitive Integer value
+        Handle hDispatchDriver
+        Get phDispatchDriver to hDispatchDriver
+        Send PrepareParams to hDispatchDriver 1
+        Set ComProperty of hDispatchDriver 104 OLE_VT_I4 to value
+    End_Procedure
+
+    { MethodType=Property DesignTime=False }
+    Function ComClearArchiveAttribute Returns Integer
+        Handle hDispatchDriver
+        Integer retVal
+        Get phDispatchDriver to hDispatchDriver
+        Get InvokeComMethod of hDispatchDriver 105 OLE_VT_I4 to retVal
+        Function_Return retVal
+    End_Function
+
+    { MethodType=Property DesignTime=False }
+    Procedure Set ComClearArchiveAttribute Integer value
+        Handle hDispatchDriver
+        Get phDispatchDriver to hDispatchDriver
+        Send PrepareParams to hDispatchDriver 1
+        Set ComProperty of hDispatchDriver 105 OLE_VT_I4 to value
+    End_Procedure
+
+    { MethodType=Property DesignTime=False }
+    Function ComClearReadOnlyAttr Returns Integer
+        Handle hDispatchDriver
+        Integer retVal
+        Get phDispatchDriver to hDispatchDriver
+        Get InvokeComMethod of hDispatchDriver 106 OLE_VT_I4 to retVal
+        Function_Return retVal
+    End_Function
+
+    { MethodType=Property DesignTime=False }
+    Procedure Set ComClearReadOnlyAttr Integer value
+        Handle hDispatchDriver
+        Get phDispatchDriver to hDispatchDriver
+        Send PrepareParams to hDispatchDriver 1
+        Set ComProperty of hDispatchDriver 106 OLE_VT_I4 to value
+    End_Procedure
+
+    { MethodType=Property DesignTime=False }
+    Function ComComment Returns String
+        Handle hDispatchDriver
+        String retVal
+        Get phDispatchDriver to hDispatchDriver
+        Get InvokeComMethod of hDispatchDriver 107 OLE_VT_BSTR to retVal
+        Function_Return retVal
+    End_Function
+
+    { MethodType=Property DesignTime=False }
+    Procedure Set ComComment String value
+        Handle hDispatchDriver
+        Get phDispatchDriver to hDispatchDriver
+        Send PrepareParams to hDispatchDriver 1
+        Set ComProperty of hDispatchDriver 107 OLE_VT_BSTR to value
+    End_Procedure
+
+    { MethodType=Property DesignTime=False }
+    Function ComDecryptPassword Returns String
+        Handle hDispatchDriver
+        String retVal
+        Get phDispatchDriver to hDispatchDriver
+        Get InvokeComMethod of hDispatchDriver 108 OLE_VT_BSTR to retVal
+        Function_Return retVal
+    End_Function
+
+    { MethodType=Property DesignTime=False }
+    Procedure Set ComDecryptPassword String value
+        Handle hDispatchDriver
+        Get phDispatchDriver to hDispatchDriver
+        Send PrepareParams to hDispatchDriver 1
+        Set ComProperty of hDispatchDriver 108 OLE_VT_BSTR to value
+    End_Procedure
+
+    { MethodType=Property DesignTime=False }
+    Function ComDiscardPaths Returns Integer
+        Handle hDispatchDriver
+        Integer retVal
+        Get phDispatchDriver to hDispatchDriver
+        Get InvokeComMethod of hDispatchDriver 109 OLE_VT_I4 to retVal
+        Function_Return retVal
+    End_Function
+
+    { MethodType=Property DesignTime=False }
+    Procedure Set ComDiscardPaths Integer value
+        Handle hDispatchDriver
+        Get phDispatchDriver to hDispatchDriver
+        Send PrepareParams to hDispatchDriver 1
+        Set ComProperty of hDispatchDriver 109 OLE_VT_I4 to value
+    End_Procedure
+
+    { MethodType=Property DesignTime=False }
+    Function ComEncryptKeyLength Returns Integer
+        Handle hDispatchDriver
+        Integer retVal
+        Get phDispatchDriver to hDispatchDriver
+        Get InvokeComMethod of hDispatchDriver 110 OLE_VT_I4 to retVal
+        Function_Return retVal
+    End_Function
+
+    { MethodType=Property DesignTime=False }
+    Procedure Set ComEncryptKeyLength Integer value
+        Handle hDispatchDriver
+        Get phDispatchDriver to hDispatchDriver
+        Send PrepareParams to hDispatchDriver 1
+        Set ComProperty of hDispatchDriver 110 OLE_VT_I4 to value
+    End_Procedure
+
+    { MethodType=Property DesignTime=False }
+    Function ComEncryptPassword Returns String
+        Handle hDispatchDriver
+        String retVal
+        Get phDispatchDriver to hDispatchDriver
+        Get InvokeComMethod of hDispatchDriver 111 OLE_VT_BSTR to retVal
+        Function_Return retVal
+    End_Function
+
+    { MethodType=Property DesignTime=False }
+    Procedure Set ComEncryptPassword String value
+        Handle hDispatchDriver
+        Get phDispatchDriver to hDispatchDriver
+        Send PrepareParams to hDispatchDriver 1
+        Set ComProperty of hDispatchDriver 111 OLE_VT_BSTR to value
+    End_Procedure
+
+    { MethodType=Property DesignTime=False }
+    Function ComEncryption Returns Integer
+        Handle hDispatchDriver
+        Integer retVal
+        Get phDispatchDriver to hDispatchDriver
+        Get InvokeComMethod of hDispatchDriver 112 OLE_VT_I4 to retVal
+        Function_Return retVal
+    End_Function
+
+    { MethodType=Property DesignTime=False }
+    Procedure Set ComEncryption Integer value
+        Handle hDispatchDriver
+        Get phDispatchDriver to hDispatchDriver
+        Send PrepareParams to hDispatchDriver 1
+        Set ComProperty of hDispatchDriver 112 OLE_VT_I4 to value
+    End_Procedure
+
+    { MethodType=Property DesignTime=False }
+    Function ComExeDefaultDir Returns String
+        Handle hDispatchDriver
+        String retVal
+        Get phDispatchDriver to hDispatchDriver
+        Get InvokeComMethod of hDispatchDriver 113 OLE_VT_BSTR to retVal
+        Function_Return retVal
+    End_Function
+
+    { MethodType=Property DesignTime=False }
+    Procedure Set ComExeDefaultDir String value
+        Handle hDispatchDriver
+        Get phDispatchDriver to hDispatchDriver
+        Send PrepareParams to hDispatchDriver 1
+        Set ComProperty of hDispatchDriver 113 OLE_VT_BSTR to value
+    End_Procedure
+
+    { MethodType=Property DesignTime=False }
+    Function ComExeFinishNotifier Returns Integer
+        Handle hDispatchDriver
+        Integer retVal
+        Get phDispatchDriver to hDispatchDriver
+        Get InvokeComMethod of hDispatchDriver 114 OLE_VT_I4 to retVal
+        Function_Return retVal
+    End_Function
+
+    { MethodType=Property DesignTime=False }
+    Procedure Set ComExeFinishNotifier Integer value
+        Handle hDispatchDriver
+        Get phDispatchDriver to hDispatchDriver
+        Send PrepareParams to hDispatchDriver 1
+        Set ComProperty of hDispatchDriver 114 OLE_VT_I4 to value
+    End_Procedure
+
+    { MethodType=Property DesignTime=False }
+    Function ComExeIconFile Returns String
+        Handle hDispatchDriver
+        String retVal
+        Get phDispatchDriver to hDispatchDriver
+        Get InvokeComMethod of hDispatchDriver 115 OLE_VT_BSTR to retVal
+        Function_Return retVal
+    End_Function
+
+    { MethodType=Property DesignTime=False }
+    Procedure Set ComExeIconFile String value
+        Handle hDispatchDriver
+        Get phDispatchDriver to hDispatchDriver
+        Send PrepareParams to hDispatchDriver 1
+        Set ComProperty of hDispatchDriver 115 OLE_VT_BSTR to value
+    End_Procedure
+
+    { MethodType=Property DesignTime=False }
+    Function ComExeNoInterface Returns Integer
+        Handle hDispatchDriver
+        Integer retVal
+        Get phDispatchDriver to hDispatchDriver
+        Get InvokeComMethod of hDispatchDriver 116 OLE_VT_I4 to retVal
+        Function_Return retVal
+    End_Function
+
+    { MethodType=Property DesignTime=False }
+    Procedure Set ComExeNoInterface Integer value
+        Handle hDispatchDriver
+        Get phDispatchDriver to hDispatchDriver
+        Send PrepareParams to hDispatchDriver 1
+        Set ComProperty of hDispatchDriver 116 OLE_VT_I4 to value
+    End_Procedure
+
+    { MethodType=Property DesignTime=False }
+    Function ComExeSilentProgress Returns Integer
+        Handle hDispatchDriver
+        Integer retVal
+        Get phDispatchDriver to hDispatchDriver
+        Get InvokeComMethod of hDispatchDriver 117 OLE_VT_I4 to retVal
+        Function_Return retVal
+    End_Function
+
+    { MethodType=Property DesignTime=False }
+    Procedure Set ComExeSilentProgress Integer value
+        Handle hDispatchDriver
+        Get phDispatchDriver to hDispatchDriver
+        Send PrepareParams to hDispatchDriver 1
+        Set ComProperty of hDispatchDriver 117 OLE_VT_I4 to value
+    End_Procedure
+
+    { MethodType=Property DesignTime=False }
+    Function ComExeTitle Returns String
+        Handle hDispatchDriver
+        String retVal
+        Get phDispatchDriver to hDispatchDriver
+        Get InvokeComMethod of hDispatchDriver 118 OLE_VT_BSTR to retVal
+        Function_Return retVal
+    End_Function
+
+    { MethodType=Property DesignTime=False }
+    Procedure Set ComExeTitle String value
+        Handle hDispatchDriver
+        Get phDispatchDriver to hDispatchDriver
+        Send PrepareParams to hDispatchDriver 1
+        Set ComProperty of hDispatchDriver 118 OLE_VT_BSTR to value
+    End_Procedure
+
+    { MethodType=Property DesignTime=False }
+    Function ComExeUnzipCaption Returns String
+        Handle hDispatchDriver
+        String retVal
+        Get phDispatchDriver to hDispatchDriver
+        Get InvokeComMethod of hDispatchDriver 119 OLE_VT_BSTR to retVal
+        Function_Return retVal
+    End_Function
+
+    { MethodType=Property DesignTime=False }
+    Procedure Set ComExeUnzipCaption String value
+        Handle hDispatchDriver
+        Get phDispatchDriver to hDispatchDriver
+        Send PrepareParams to hDispatchDriver 1
+        Set ComProperty of hDispatchDriver 119 OLE_VT_BSTR to value
+    End_Procedure
+
+    { MethodType=Property DesignTime=False }
+    Function ComExeUnzipDir Returns String
+        Handle hDispatchDriver
+        String retVal
+        Get phDispatchDriver to hDispatchDriver
+        Get InvokeComMethod of hDispatchDriver 120 OLE_VT_BSTR to retVal
+        Function_Return retVal
+    End_Function
+
+    { MethodType=Property DesignTime=False }
+    Procedure Set ComExeUnzipDir String value
+        Handle hDispatchDriver
+        Get phDispatchDriver to hDispatchDriver
+        Send PrepareParams to hDispatchDriver 1
+        Set ComProperty of hDispatchDriver 120 OLE_VT_BSTR to value
+    End_Procedure
+
+    { MethodType=Property DesignTime=False }
+    Function ComExeWaitForSetup Returns Integer
+        Handle hDispatchDriver
+        Integer retVal
+        Get phDispatchDriver to hDispatchDriver
+        Get InvokeComMethod of hDispatchDriver 121 OLE_VT_I4 to retVal
+        Function_Return retVal
+    End_Function
+
+    { MethodType=Property DesignTime=False }
+    Procedure Set ComExeWaitForSetup Integer value
+        Handle hDispatchDriver
+        Get phDispatchDriver to hDispatchDriver
+        Send PrepareParams to hDispatchDriver 1
+        Set ComProperty of hDispatchDriver 121 OLE_VT_I4 to value
+    End_Procedure
+
+    { MethodType=Property DesignTime=False }
+    Function ComExeXmlConfig Returns String
+        Handle hDispatchDriver
+        String retVal
+        Get phDispatchDriver to hDispatchDriver
+        Get InvokeComMethod of hDispatchDriver 122 OLE_VT_BSTR to retVal
+        Function_Return retVal
+    End_Function
+
+    { MethodType=Property DesignTime=False }
+    Procedure Set ComExeXmlConfig String value
+        Handle hDispatchDriver
+        Get phDispatchDriver to hDispatchDriver
+        Send PrepareParams to hDispatchDriver 1
+        Set ComProperty of hDispatchDriver 122 OLE_VT_BSTR to value
+    End_Procedure
+
+    { MethodType=Property DesignTime=False }
+    Function ComFileCount Returns Integer
+        Handle hDispatchDriver
+        Integer retVal
+        Get phDispatchDriver to hDispatchDriver
+        Get InvokeComMethod of hDispatchDriver 123 OLE_VT_I4 to retVal
+        Function_Return retVal
+    End_Function
+
+    { MethodType=Property DesignTime=False }
+    Function ComFilename Returns String
+        Handle hDispatchDriver
+        String retVal
+        Get phDispatchDriver to hDispatchDriver
+        Get InvokeComMethod of hDispatchDriver 124 OLE_VT_BSTR to retVal
+        Function_Return retVal
+    End_Function
+
+    { MethodType=Property DesignTime=False }
+    Procedure Set ComFilename String value
+        Handle hDispatchDriver
+        Get phDispatchDriver to hDispatchDriver
+        Send PrepareParams to hDispatchDriver 1
+        Set ComProperty of hDispatchDriver 124 OLE_VT_BSTR to value
+    End_Procedure
+
+    { MethodType=Property DesignTime=False }
+    Function ComHasZipFormatErrors Returns Integer
+        Handle hDispatchDriver
+        Integer retVal
+        Get phDispatchDriver to hDispatchDriver
+        Get InvokeComMethod of hDispatchDriver 125 OLE_VT_I4 to retVal
+        Function_Return retVal
+    End_Function
+
+    { MethodType=Property DesignTime=False }
+    Function ComHeartbeatMs Returns Integer
+        Handle hDispatchDriver
+        Integer retVal
+        Get phDispatchDriver to hDispatchDriver
+        Get InvokeComMethod of hDispatchDriver 126 OLE_VT_I4 to retVal
+        Function_Return retVal
+    End_Function
+
+    { MethodType=Property DesignTime=False }
+    Procedure Set ComHeartbeatMs Integer value
+        Handle hDispatchDriver
+        Get phDispatchDriver to hDispatchDriver
+        Send PrepareParams to hDispatchDriver 1
+        Set ComProperty of hDispatchDriver 126 OLE_VT_I4 to value
+    End_Procedure
+
+    { MethodType=Property DesignTime=False }
+    Function ComIgnoreAccessDenied Returns Integer
+        Handle hDispatchDriver
+        Integer retVal
+        Get phDispatchDriver to hDispatchDriver
+        Get InvokeComMethod of hDispatchDriver 127 OLE_VT_I4 to retVal
+        Function_Return retVal
+    End_Function
+
+    { MethodType=Property DesignTime=False }
+    Procedure Set ComIgnoreAccessDenied Integer value
+        Handle hDispatchDriver
+        Get phDispatchDriver to hDispatchDriver
+        Send PrepareParams to hDispatchDriver 1
+        Set ComProperty of hDispatchDriver 127 OLE_VT_I4 to value
+    End_Procedure
+
+    { MethodType=Property DesignTime=False }
+    Function ComNumEntries Returns Integer
+        Handle hDispatchDriver
+        Integer retVal
+        Get phDispatchDriver to hDispatchDriver
+        Get InvokeComMethod of hDispatchDriver 128 OLE_VT_I4 to retVal
+        Function_Return retVal
+    End_Function
+
+    { MethodType=Property DesignTime=False }
+    Function ComOemCodePage Returns Integer
+        Handle hDispatchDriver
+        Integer retVal
+        Get phDispatchDriver to hDispatchDriver
+        Get InvokeComMethod of hDispatchDriver 129 OLE_VT_I4 to retVal
+        Function_Return retVal
+    End_Function
+
+    { MethodType=Property DesignTime=False }
+    Procedure Set ComOemCodePage Integer value
+        Handle hDispatchDriver
+        Get phDispatchDriver to hDispatchDriver
+        Send PrepareParams to hDispatchDriver 1
+        Set ComProperty of hDispatchDriver 129 OLE_VT_I4 to value
+    End_Procedure
+
+    { MethodType=Property DesignTime=False }
+    Function ComOverwriteExisting Returns Integer
+        Handle hDispatchDriver
+        Integer retVal
+        Get phDispatchDriver to hDispatchDriver
+        Get InvokeComMethod of hDispatchDriver 130 OLE_VT_I4 to retVal
+        Function_Return retVal
+    End_Function
+
+    { MethodType=Property DesignTime=False }
+    Procedure Set ComOverwriteExisting Integer value
+        Handle hDispatchDriver
+        Get phDispatchDriver to hDispatchDriver
+        Send PrepareParams to hDispatchDriver 1
+        Set ComProperty of hDispatchDriver 130 OLE_VT_I4 to value
+    End_Procedure
+
+    { MethodType=Property DesignTime=False }
+    Function ComPasswordProtect Returns Integer
+        Handle hDispatchDriver
+        Integer retVal
+        Get phDispatchDriver to hDispatchDriver
+        Get InvokeComMethod of hDispatchDriver 131 OLE_VT_I4 to retVal
+        Function_Return retVal
+    End_Function
+
+    { MethodType=Property DesignTime=False }
+    Procedure Set ComPasswordProtect Integer value
+        Handle hDispatchDriver
+        Get phDispatchDriver to hDispatchDriver
+        Send PrepareParams to hDispatchDriver 1
+        Set ComProperty of hDispatchDriver 131 OLE_VT_I4 to value
+    End_Procedure
+
+    { MethodType=Property DesignTime=False }
+    Function ComPathPrefix Returns String
+        Handle hDispatchDriver
+        String retVal
+        Get phDispatchDriver to hDispatchDriver
+        Get InvokeComMethod of hDispatchDriver 132 OLE_VT_BSTR to retVal
+        Function_Return retVal
+    End_Function
+
+    { MethodType=Property DesignTime=False }
+    Procedure Set ComPathPrefix String value
+        Handle hDispatchDriver
+        Get phDispatchDriver to hDispatchDriver
+        Send PrepareParams to hDispatchDriver 1
+        Set ComProperty of hDispatchDriver 132 OLE_VT_BSTR to value
+    End_Procedure
+
+    { MethodType=Property DesignTime=False }
+    Function ComTempDir Returns String
+        Handle hDispatchDriver
+        String retVal
+        Get phDispatchDriver to hDispatchDriver
+        Get InvokeComMethod of hDispatchDriver 134 OLE_VT_BSTR to retVal
+        Function_Return retVal
+    End_Function
+
+    { MethodType=Property DesignTime=False }
+    Procedure Set ComTempDir String value
+        Handle hDispatchDriver
+        Get phDispatchDriver to hDispatchDriver
+        Send PrepareParams to hDispatchDriver 1
+        Set ComProperty of hDispatchDriver 134 OLE_VT_BSTR to value
+    End_Procedure
+
+    { MethodType=Property DesignTime=False }
+    Function ComTextFlag Returns Integer
+        Handle hDispatchDriver
+        Integer retVal
+        Get phDispatchDriver to hDispatchDriver
+        Get InvokeComMethod of hDispatchDriver 135 OLE_VT_I4 to retVal
+        Function_Return retVal
+    End_Function
+
+    { MethodType=Property DesignTime=False }
+    Procedure Set ComTextFlag Integer value
+        Handle hDispatchDriver
+        Get phDispatchDriver to hDispatchDriver
+        Send PrepareParams to hDispatchDriver 1
+        Set ComProperty of hDispatchDriver 135 OLE_VT_I4 to value
+    End_Procedure
+
+    { MethodType=Property DesignTime=False }
+    Function ComZipx Returns Integer
+        Handle hDispatchDriver
+        Integer retVal
+        Get phDispatchDriver to hDispatchDriver
+        Get InvokeComMethod of hDispatchDriver 136 OLE_VT_I4 to retVal
+        Function_Return retVal
+    End_Function
+
+    { MethodType=Property DesignTime=False }
+    Procedure Set ComZipx Integer value
+        Handle hDispatchDriver
+        Get phDispatchDriver to hDispatchDriver
+        Send PrepareParams to hDispatchDriver 1
+        Set ComProperty of hDispatchDriver 136 OLE_VT_I4 to value
+    End_Procedure
+
+    { MethodType=Property DesignTime=False }
+    Function ComZipxDefaultAlg Returns String
+        Handle hDispatchDriver
+        String retVal
+        Get phDispatchDriver to hDispatchDriver
+        Get InvokeComMethod of hDispatchDriver 137 OLE_VT_BSTR to retVal
+        Function_Return retVal
+    End_Function
+
+    { MethodType=Property DesignTime=False }
+    Procedure Set ComZipxDefaultAlg String value
+        Handle hDispatchDriver
+        Get phDispatchDriver to hDispatchDriver
+        Send PrepareParams to hDispatchDriver 1
+        Set ComProperty of hDispatchDriver 137 OLE_VT_BSTR to value
+    End_Procedure
+
+    Function ComAddEmbedded String llexeFilename String llresourceName String llzipFilename Returns Integer
+        Handle hDispatchDriver
+        Integer retVal
+        Get phDispatchDriver to hDispatchDriver
+        Send PrepareParams to hDispatchDriver 3
+        Send DefineParam to hDispatchDriver OLE_VT_BSTR llexeFilename
+        Send DefineParam to hDispatchDriver OLE_VT_BSTR llresourceName
+        Send DefineParam to hDispatchDriver OLE_VT_BSTR llzipFilename
+        Get InvokeComMethod of hDispatchDriver 138 OLE_VT_I4 to retVal
+        Function_Return retVal
+    End_Function
+
+    Procedure ComAddNoCompressExtension String llfileExtension
+        Handle hDispatchDriver
+        Get phDispatchDriver to hDispatchDriver
+        Send PrepareParams to hDispatchDriver 1
+        Send DefineParam to hDispatchDriver OLE_VT_BSTR llfileExtension
+        Send InvokeComMethod to hDispatchDriver 139 OLE_VT_VOID
+    End_Procedure
+
+    Function ComAppendBase64 String llfilename String llencodedCompressedData Returns Variant
+        Handle hDispatchDriver
+        Variant retVal
+        Get phDispatchDriver to hDispatchDriver
+        Send PrepareParams to hDispatchDriver 2
+        Send DefineParam to hDispatchDriver OLE_VT_BSTR llfilename
+        Send DefineParam to hDispatchDriver OLE_VT_BSTR llencodedCompressedData
+        Get InvokeComMethod of hDispatchDriver 140 OLE_VT_DISPATCH to retVal
+        Function_Return retVal
+    End_Function
+
+    Function ComAppendCompressed String llfilename Variant llinData Returns Variant
+        Handle hDispatchDriver
+        Variant retVal
+        Get phDispatchDriver to hDispatchDriver
+        Send PrepareParams to hDispatchDriver 2
+        Send DefineParam to hDispatchDriver OLE_VT_BSTR llfilename
+        Send DefineParam to hDispatchDriver OLE_VT_VARIANT llinData
+        Get InvokeComMethod of hDispatchDriver 141 OLE_VT_DISPATCH to retVal
+        Function_Return retVal
+    End_Function
+
+    Function ComAppendData String llfilename Variant llinData Returns Variant
+        Handle hDispatchDriver
+        Variant retVal
+        Get phDispatchDriver to hDispatchDriver
+        Send PrepareParams to hDispatchDriver 2
+        Send DefineParam to hDispatchDriver OLE_VT_BSTR llfilename
+        Send DefineParam to hDispatchDriver OLE_VT_VARIANT llinData
+        Get InvokeComMethod of hDispatchDriver 142 OLE_VT_DISPATCH to retVal
+        Function_Return retVal
+    End_Function
+
+    Function ComAppendFiles String llfilePattern Integer llRecurse Returns Integer
+        Handle hDispatchDriver
+        Integer retVal
+        Get phDispatchDriver to hDispatchDriver
+        Send PrepareParams to hDispatchDriver 2
+        Send DefineParam to hDispatchDriver OLE_VT_BSTR llfilePattern
+        Send DefineParam to hDispatchDriver OLE_VT_I4 llRecurse
+        Get InvokeComMethod of hDispatchDriver 143 OLE_VT_I4 to retVal
+        Function_Return retVal
+    End_Function
+
+    Function ComAppendFilesAsync String llfilePattern Integer llRecurse Returns Variant
+        Handle hDispatchDriver
+        Variant retVal
+        Get phDispatchDriver to hDispatchDriver
+        Send PrepareParams to hDispatchDriver 2
+        Send DefineParam to hDispatchDriver OLE_VT_BSTR llfilePattern
+        Send DefineParam to hDispatchDriver OLE_VT_I4 llRecurse
+        Get InvokeComMethod of hDispatchDriver 643 OLE_VT_DISPATCH to retVal
+        Function_Return retVal
+    End_Function
+
+    Function ComAppendFilesEx String llfilePattern Integer llRecurse Integer llsaveExtraPath Integer llarchiveOnly Integer llincludeHidden Integer llincludeSystem Returns Integer
+        Handle hDispatchDriver
+        Integer retVal
+        Get phDispatchDriver to hDispatchDriver
+        Send PrepareParams to hDispatchDriver 6
+        Send DefineParam to hDispatchDriver OLE_VT_BSTR llfilePattern
+        Send DefineParam to hDispatchDriver OLE_VT_I4 llRecurse
+        Send DefineParam to hDispatchDriver OLE_VT_I4 llsaveExtraPath
+        Send DefineParam to hDispatchDriver OLE_VT_I4 llarchiveOnly
+        Send DefineParam to hDispatchDriver OLE_VT_I4 llincludeHidden
+        Send DefineParam to hDispatchDriver OLE_VT_I4 llincludeSystem
+        Get InvokeComMethod of hDispatchDriver 144 OLE_VT_I4 to retVal
+        Function_Return retVal
+    End_Function
+
+    Function ComAppendFilesExAsync String llfilePattern Integer llRecurse Integer llsaveExtraPath Integer llarchiveOnly Integer llincludeHidden Integer llincludeSystem Returns Variant
+        Handle hDispatchDriver
+        Variant retVal
+        Get phDispatchDriver to hDispatchDriver
+        Send PrepareParams to hDispatchDriver 6
+        Send DefineParam to hDispatchDriver OLE_VT_BSTR llfilePattern
+        Send DefineParam to hDispatchDriver OLE_VT_I4 llRecurse
+        Send DefineParam to hDispatchDriver OLE_VT_I4 llsaveExtraPath
+        Send DefineParam to hDispatchDriver OLE_VT_I4 llarchiveOnly
+        Send DefineParam to hDispatchDriver OLE_VT_I4 llincludeHidden
+        Send DefineParam to hDispatchDriver OLE_VT_I4 llincludeSystem
+        Get InvokeComMethod of hDispatchDriver 644 OLE_VT_DISPATCH to retVal
+        Function_Return retVal
+    End_Function
+
+    Function ComAppendHex String llfilename String llencodedCompressedData Returns Variant
+        Handle hDispatchDriver
+        Variant retVal
+        Get phDispatchDriver to hDispatchDriver
+        Send PrepareParams to hDispatchDriver 2
+        Send DefineParam to hDispatchDriver OLE_VT_BSTR llfilename
+        Send DefineParam to hDispatchDriver OLE_VT_BSTR llencodedCompressedData
+        Get InvokeComMethod of hDispatchDriver 145 OLE_VT_DISPATCH to retVal
+        Function_Return retVal
+    End_Function
+
+    Function ComAppendMultiple Variant llfileSpecs Integer llRecurse Returns Integer
+        Handle hDispatchDriver
+        Integer retVal
+        Get phDispatchDriver to hDispatchDriver
+        Send PrepareParams to hDispatchDriver 2
+        Send DefineParam to hDispatchDriver OLE_VT_DISPATCH llfileSpecs
+        Send DefineParam to hDispatchDriver OLE_VT_I4 llRecurse
+        Get InvokeComMethod of hDispatchDriver 146 OLE_VT_I4 to retVal
+        Function_Return retVal
+    End_Function
+
+    Function ComAppendMultipleAsync Variant llfileSpecs Integer llRecurse Returns Variant
+        Handle hDispatchDriver
+        Variant retVal
+        Get phDispatchDriver to hDispatchDriver
+        Send PrepareParams to hDispatchDriver 2
+        Send DefineParam to hDispatchDriver OLE_VT_DISPATCH llfileSpecs
+        Send DefineParam to hDispatchDriver OLE_VT_I4 llRecurse
+        Get InvokeComMethod of hDispatchDriver 646 OLE_VT_DISPATCH to retVal
+        Function_Return retVal
+    End_Function
+
+    Function ComAppendNew String llfilename Returns Variant
+        Handle hDispatchDriver
+        Variant retVal
+        Get phDispatchDriver to hDispatchDriver
+        Send PrepareParams to hDispatchDriver 1
+        Send DefineParam to hDispatchDriver OLE_VT_BSTR llfilename
+        Get InvokeComMethod of hDispatchDriver 147 OLE_VT_DISPATCH to retVal
+        Function_Return retVal
+    End_Function
+
+    Function ComAppendNewDir String lldirName Returns Variant
+        Handle hDispatchDriver
+        Variant retVal
+        Get phDispatchDriver to hDispatchDriver
+        Send PrepareParams to hDispatchDriver 1
+        Send DefineParam to hDispatchDriver OLE_VT_BSTR lldirName
+        Get InvokeComMethod of hDispatchDriver 148 OLE_VT_DISPATCH to retVal
+        Function_Return retVal
+    End_Function
+
+    Function ComAppendOneFileOrDir String llfileOrDirPath Integer llsaveExtraPath Returns Integer
+        Handle hDispatchDriver
+        Integer retVal
+        Get phDispatchDriver to hDispatchDriver
+        Send PrepareParams to hDispatchDriver 2
+        Send DefineParam to hDispatchDriver OLE_VT_BSTR llfileOrDirPath
+        Send DefineParam to hDispatchDriver OLE_VT_I4 llsaveExtraPath
+        Get InvokeComMethod of hDispatchDriver 149 OLE_VT_I4 to retVal
+        Function_Return retVal
+    End_Function
+
+    Function ComAppendOneFileOrDirAsync String llfileOrDirPath Integer llsaveExtraPath Returns Variant
+        Handle hDispatchDriver
+        Variant retVal
+        Get phDispatchDriver to hDispatchDriver
+        Send PrepareParams to hDispatchDriver 2
+        Send DefineParam to hDispatchDriver OLE_VT_BSTR llfileOrDirPath
+        Send DefineParam to hDispatchDriver OLE_VT_I4 llsaveExtraPath
+        Get InvokeComMethod of hDispatchDriver 649 OLE_VT_DISPATCH to retVal
+        Function_Return retVal
+    End_Function
+
+    Function ComAppendString String llinternalZipFilepath String llTextData Returns Variant
+        Handle hDispatchDriver
+        Variant retVal
+        Get phDispatchDriver to hDispatchDriver
+        Send PrepareParams to hDispatchDriver 2
+        Send DefineParam to hDispatchDriver OLE_VT_BSTR llinternalZipFilepath
+        Send DefineParam to hDispatchDriver OLE_VT_BSTR llTextData
+        Get InvokeComMethod of hDispatchDriver 150 OLE_VT_DISPATCH to retVal
+        Function_Return retVal
+    End_Function
+
+    Function ComAppendString2 String llinternalZipFilepath String llTextData String llcharset Returns Variant
+        Handle hDispatchDriver
+        Variant retVal
+        Get phDispatchDriver to hDispatchDriver
+        Send PrepareParams to hDispatchDriver 3
+        Send DefineParam to hDispatchDriver OLE_VT_BSTR llinternalZipFilepath
+        Send DefineParam to hDispatchDriver OLE_VT_BSTR llTextData
+        Send DefineParam to hDispatchDriver OLE_VT_BSTR llcharset
+        Get InvokeComMethod of hDispatchDriver 151 OLE_VT_DISPATCH to retVal
+        Function_Return retVal
+    End_Function
+
+    Function ComAppendZip String llzipFilename Returns Integer
+        Handle hDispatchDriver
+        Integer retVal
+        Get phDispatchDriver to hDispatchDriver
+        Send PrepareParams to hDispatchDriver 1
+        Send DefineParam to hDispatchDriver OLE_VT_BSTR llzipFilename
+        Get InvokeComMethod of hDispatchDriver 152 OLE_VT_I4 to retVal
+        Function_Return retVal
+    End_Function
+
+    Procedure ComCloseZip
+        Handle hDispatchDriver
+        Get phDispatchDriver to hDispatchDriver
+        Send InvokeComMethod to hDispatchDriver 153 OLE_VT_VOID
+    End_Procedure
+
+    Function ComDeleteEntry Variant llentry Returns Integer
+        Handle hDispatchDriver
+        Integer retVal
+        Get phDispatchDriver to hDispatchDriver
+        Send PrepareParams to hDispatchDriver 1
+        Send DefineParam to hDispatchDriver OLE_VT_DISPATCH llentry
+        Get InvokeComMethod of hDispatchDriver 154 OLE_VT_I4 to retVal
+        Function_Return retVal
+    End_Function
+
+    Procedure ComExcludeDir String lldirName
+        Handle hDispatchDriver
+        Get phDispatchDriver to hDispatchDriver
+        Send PrepareParams to hDispatchDriver 1
+        Send DefineParam to hDispatchDriver OLE_VT_BSTR lldirName
+        Send InvokeComMethod to hDispatchDriver 155 OLE_VT_VOID
+    End_Procedure
+
+    Function ComExtract String lldirPath Returns Integer
+        Handle hDispatchDriver
+        Integer retVal
+        Get phDispatchDriver to hDispatchDriver
+        Send PrepareParams to hDispatchDriver 1
+        Send DefineParam to hDispatchDriver OLE_VT_BSTR lldirPath
+        Get InvokeComMethod of hDispatchDriver 156 OLE_VT_I4 to retVal
+        Function_Return retVal
+    End_Function
+
+    Function ComExtractAsync String lldirPath Returns Variant
+        Handle hDispatchDriver
+        Variant retVal
+        Get phDispatchDriver to hDispatchDriver
+        Send PrepareParams to hDispatchDriver 1
+        Send DefineParam to hDispatchDriver OLE_VT_BSTR lldirPath
+        Get InvokeComMethod of hDispatchDriver 656 OLE_VT_DISPATCH to retVal
+        Function_Return retVal
+    End_Function
+
+    Function ComFirstEntry Returns Variant
+        Handle hDispatchDriver
+        Variant retVal
+        Get phDispatchDriver to hDispatchDriver
+        Get InvokeComMethod of hDispatchDriver 157 OLE_VT_DISPATCH to retVal
+        Function_Return retVal
+    End_Function
+
+    Function ComFirstMatchingEntry String llpattern Returns Variant
+        Handle hDispatchDriver
+        Variant retVal
+        Get phDispatchDriver to hDispatchDriver
+        Send PrepareParams to hDispatchDriver 1
+        Send DefineParam to hDispatchDriver OLE_VT_BSTR llpattern
+        Get InvokeComMethod of hDispatchDriver 158 OLE_VT_DISPATCH to retVal
+        Function_Return retVal
+    End_Function
+
+    Function ComGetDirectoryAsXML Returns String
+        Handle hDispatchDriver
+        String retVal
+        Get phDispatchDriver to hDispatchDriver
+        Get InvokeComMethod of hDispatchDriver 159 OLE_VT_BSTR to retVal
+        Function_Return retVal
+    End_Function
+
+    Function ComGetEntryByID Integer llEntryID Returns Variant
+        Handle hDispatchDriver
+        Variant retVal
+        Get phDispatchDriver to hDispatchDriver
+        Send PrepareParams to hDispatchDriver 1
+        Send DefineParam to hDispatchDriver OLE_VT_I4 llEntryID
+        Get InvokeComMethod of hDispatchDriver 160 OLE_VT_DISPATCH to retVal
+        Function_Return retVal
+    End_Function
+
+    Function ComGetEntryByIndex Integer llindex Returns Variant
+        Handle hDispatchDriver
+        Variant retVal
+        Get phDispatchDriver to hDispatchDriver
+        Send PrepareParams to hDispatchDriver 1
+        Send DefineParam to hDispatchDriver OLE_VT_I4 llindex
+        Get InvokeComMethod of hDispatchDriver 161 OLE_VT_DISPATCH to retVal
+        Function_Return retVal
+    End_Function
+
+    Function ComGetEntryByName String llentryName Returns Variant
+        Handle hDispatchDriver
+        Variant retVal
+        Get phDispatchDriver to hDispatchDriver
+        Send PrepareParams to hDispatchDriver 1
+        Send DefineParam to hDispatchDriver OLE_VT_BSTR llentryName
+        Get InvokeComMethod of hDispatchDriver 162 OLE_VT_DISPATCH to retVal
+        Function_Return retVal
+    End_Function
+
+    Function ComGetExclusions Returns Variant
+        Handle hDispatchDriver
+        Variant retVal
+        Get phDispatchDriver to hDispatchDriver
+        Get InvokeComMethod of hDispatchDriver 163 OLE_VT_DISPATCH to retVal
+        Function_Return retVal
+    End_Function
+
+    Function ComGetExeConfigParam String llname Returns String
+        Handle hDispatchDriver
+        String retVal
+        Get phDispatchDriver to hDispatchDriver
+        Send PrepareParams to hDispatchDriver 1
+        Send DefineParam to hDispatchDriver OLE_VT_BSTR llname
+        Get InvokeComMethod of hDispatchDriver 164 OLE_VT_BSTR to retVal
+        Function_Return retVal
+    End_Function
+
+    Function ComInsertNew String llfilename Integer llbeforeIndex Returns Variant
+        Handle hDispatchDriver
+        Variant retVal
+        Get phDispatchDriver to hDispatchDriver
+        Send PrepareParams to hDispatchDriver 2
+        Send DefineParam to hDispatchDriver OLE_VT_BSTR llfilename
+        Send DefineParam to hDispatchDriver OLE_VT_I4 llbeforeIndex
+        Get InvokeComMethod of hDispatchDriver 165 OLE_VT_DISPATCH to retVal
+        Function_Return retVal
+    End_Function
+
+    Function ComIsNoCompressExtension String llfileExtension Returns Integer
+        Handle hDispatchDriver
+        Integer retVal
+        Get phDispatchDriver to hDispatchDriver
+        Send PrepareParams to hDispatchDriver 1
+        Send DefineParam to hDispatchDriver OLE_VT_BSTR llfileExtension
+        Get InvokeComMethod of hDispatchDriver 166 OLE_VT_I4 to retVal
+        Function_Return retVal
+    End_Function
+
+    Function ComIsPasswordProtected String llzipFilename Returns Integer
+        Handle hDispatchDriver
+        Integer retVal
+        Get phDispatchDriver to hDispatchDriver
+        Send PrepareParams to hDispatchDriver 1
+        Send DefineParam to hDispatchDriver OLE_VT_BSTR llzipFilename
+        Get InvokeComMethod of hDispatchDriver 167 OLE_VT_I4 to retVal
+        Function_Return retVal
+    End_Function
+
+    Function ComIsUnlocked Returns Integer
+        Handle hDispatchDriver
+        Integer retVal
+        Get phDispatchDriver to hDispatchDriver
+        Get InvokeComMethod of hDispatchDriver 168 OLE_VT_I4 to retVal
+        Function_Return retVal
+    End_Function
+
+    Function ComNewZip String llzipFilePath Returns Integer
+        Handle hDispatchDriver
+        Integer retVal
+        Get phDispatchDriver to hDispatchDriver
+        Send PrepareParams to hDispatchDriver 1
+        Send DefineParam to hDispatchDriver OLE_VT_BSTR llzipFilePath
+        Get InvokeComMethod of hDispatchDriver 169 OLE_VT_I4 to retVal
+        Function_Return retVal
+    End_Function
+
+    Function ComOpenEmbedded String llexeFilename String llresourceName Returns Integer
+        Handle hDispatchDriver
+        Integer retVal
+        Get phDispatchDriver to hDispatchDriver
+        Send PrepareParams to hDispatchDriver 2
+        Send DefineParam to hDispatchDriver OLE_VT_BSTR llexeFilename
+        Send DefineParam to hDispatchDriver OLE_VT_BSTR llresourceName
+        Get InvokeComMethod of hDispatchDriver 170 OLE_VT_I4 to retVal
+        Function_Return retVal
+    End_Function
+
+    Function ComOpenFromByteData Variant llbyteData Returns Integer
+        Handle hDispatchDriver
+        Integer retVal
+        Get phDispatchDriver to hDispatchDriver
+        Send PrepareParams to hDispatchDriver 1
+        Send DefineParam to hDispatchDriver OLE_VT_VARIANT llbyteData
+        Get InvokeComMethod of hDispatchDriver 171 OLE_VT_I4 to retVal
+        Function_Return retVal
+    End_Function
+
+    Function ComOpenFromMemory Variant llinData Returns Integer
+        Handle hDispatchDriver
+        Integer retVal
+        Get phDispatchDriver to hDispatchDriver
+        Send PrepareParams to hDispatchDriver 1
+        Send DefineParam to hDispatchDriver OLE_VT_VARIANT llinData
+        Get InvokeComMethod of hDispatchDriver 172 OLE_VT_I4 to retVal
+        Function_Return retVal
+    End_Function
+
+    Function ComOpenMyEmbedded String llresourceName Returns Integer
+        Handle hDispatchDriver
+        Integer retVal
+        Get phDispatchDriver to hDispatchDriver
+        Send PrepareParams to hDispatchDriver 1
+        Send DefineParam to hDispatchDriver OLE_VT_BSTR llresourceName
+        Get InvokeComMethod of hDispatchDriver 174 OLE_VT_I4 to retVal
+        Function_Return retVal
+    End_Function
+
+    Function ComOpenZip String llzipPath Returns Integer
+        Handle hDispatchDriver
+        Integer retVal
+        Get phDispatchDriver to hDispatchDriver
+        Send PrepareParams to hDispatchDriver 1
+        Send DefineParam to hDispatchDriver OLE_VT_BSTR llzipPath
+        Get InvokeComMethod of hDispatchDriver 175 OLE_VT_I4 to retVal
+        Function_Return retVal
+    End_Function
+
+    Function ComOpenZipAsync String llzipPath Returns Variant
+        Handle hDispatchDriver
+        Variant retVal
+        Get phDispatchDriver to hDispatchDriver
+        Send PrepareParams to hDispatchDriver 1
+        Send DefineParam to hDispatchDriver OLE_VT_BSTR llzipPath
+        Get InvokeComMethod of hDispatchDriver 675 OLE_VT_DISPATCH to retVal
+        Function_Return retVal
+    End_Function
+
+    Function ComQuickAppend String llzipFilename Returns Integer
+        Handle hDispatchDriver
+        Integer retVal
+        Get phDispatchDriver to hDispatchDriver
+        Send PrepareParams to hDispatchDriver 1
+        Send DefineParam to hDispatchDriver OLE_VT_BSTR llzipFilename
+        Get InvokeComMethod of hDispatchDriver 176 OLE_VT_I4 to retVal
+        Function_Return retVal
+    End_Function
+
+    Function ComQuickAppendAsync String llzipFilename Returns Variant
+        Handle hDispatchDriver
+        Variant retVal
+        Get phDispatchDriver to hDispatchDriver
+        Send PrepareParams to hDispatchDriver 1
+        Send DefineParam to hDispatchDriver OLE_VT_BSTR llzipFilename
+        Get InvokeComMethod of hDispatchDriver 676 OLE_VT_DISPATCH to retVal
+        Function_Return retVal
+    End_Function
+
+    Function ComRemoveEmbedded String llexeFilename String llresourceName Returns Integer
+        Handle hDispatchDriver
+        Integer retVal
+        Get phDispatchDriver to hDispatchDriver
+        Send PrepareParams to hDispatchDriver 2
+        Send DefineParam to hDispatchDriver OLE_VT_BSTR llexeFilename
+        Send DefineParam to hDispatchDriver OLE_VT_BSTR llresourceName
+        Get InvokeComMethod of hDispatchDriver 177 OLE_VT_I4 to retVal
+        Function_Return retVal
+    End_Function
+
+    Procedure ComRemoveNoCompressExtension String llfileExtension
+        Handle hDispatchDriver
+        Get phDispatchDriver to hDispatchDriver
+        Send PrepareParams to hDispatchDriver 1
+        Send DefineParam to hDispatchDriver OLE_VT_BSTR llfileExtension
+        Send InvokeComMethod to hDispatchDriver 178 OLE_VT_VOID
+    End_Procedure
+
+    Function ComReplaceEmbedded String llexeFilename String llresourceName String llzipFilename Returns Integer
+        Handle hDispatchDriver
+        Integer retVal
+        Get phDispatchDriver to hDispatchDriver
+        Send PrepareParams to hDispatchDriver 3
+        Send DefineParam to hDispatchDriver OLE_VT_BSTR llexeFilename
+        Send DefineParam to hDispatchDriver OLE_VT_BSTR llresourceName
+        Send DefineParam to hDispatchDriver OLE_VT_BSTR llzipFilename
+        Get InvokeComMethod of hDispatchDriver 179 OLE_VT_I4 to retVal
+        Function_Return retVal
+    End_Function
+
+    Procedure ComSetCompressionLevel Integer llLevel
+        Handle hDispatchDriver
+        Get phDispatchDriver to hDispatchDriver
+        Send PrepareParams to hDispatchDriver 1
+        Send DefineParam to hDispatchDriver OLE_VT_I4 llLevel
+        Send InvokeComMethod to hDispatchDriver 180 OLE_VT_VOID
+    End_Procedure
+
+    Procedure ComSetExclusions Variant llexcludePatterns
+        Handle hDispatchDriver
+        Get phDispatchDriver to hDispatchDriver
+        Send PrepareParams to hDispatchDriver 1
+        Send DefineParam to hDispatchDriver OLE_VT_DISPATCH llexcludePatterns
+        Send InvokeComMethod to hDispatchDriver 181 OLE_VT_VOID
+    End_Procedure
+
+    Procedure ComSetExeConfigParam String llparamName String llparamValue
+        Handle hDispatchDriver
+        Get phDispatchDriver to hDispatchDriver
+        Send PrepareParams to hDispatchDriver 2
+        Send DefineParam to hDispatchDriver OLE_VT_BSTR llparamName
+        Send DefineParam to hDispatchDriver OLE_VT_BSTR llparamValue
+        Send InvokeComMethod to hDispatchDriver 182 OLE_VT_VOID
+    End_Procedure
+
+    Procedure ComSetPassword String llpassword
+        Handle hDispatchDriver
+        Get phDispatchDriver to hDispatchDriver
+        Send PrepareParams to hDispatchDriver 1
+        Send DefineParam to hDispatchDriver OLE_VT_BSTR llpassword
+        Send InvokeComMethod to hDispatchDriver 183 OLE_VT_VOID
+    End_Procedure
+
+    Function ComUnlockComponent String llregCode Returns Integer
+        Handle hDispatchDriver
+        Integer retVal
+        Get phDispatchDriver to hDispatchDriver
+        Send PrepareParams to hDispatchDriver 1
+        Send DefineParam to hDispatchDriver OLE_VT_BSTR llregCode
+        Get InvokeComMethod of hDispatchDriver 184 OLE_VT_I4 to retVal
+        Function_Return retVal
+    End_Function
+
+    Function ComUnzip String lldirPath Returns Integer
+        Handle hDispatchDriver
+        Integer retVal
+        Get phDispatchDriver to hDispatchDriver
+        Send PrepareParams to hDispatchDriver 1
+        Send DefineParam to hDispatchDriver OLE_VT_BSTR lldirPath
+        Get InvokeComMethod of hDispatchDriver 185 OLE_VT_I4 to retVal
+        Function_Return retVal
+    End_Function
+
+    Function ComUnzipAsync String lldirPath Returns Variant
+        Handle hDispatchDriver
+        Variant retVal
+        Get phDispatchDriver to hDispatchDriver
+        Send PrepareParams to hDispatchDriver 1
+        Send DefineParam to hDispatchDriver OLE_VT_BSTR lldirPath
+        Get InvokeComMethod of hDispatchDriver 685 OLE_VT_DISPATCH to retVal
+        Function_Return retVal
+    End_Function
+
+    Function ComUnzipInto String lldirPath Returns Integer
+        Handle hDispatchDriver
+        Integer retVal
+        Get phDispatchDriver to hDispatchDriver
+        Send PrepareParams to hDispatchDriver 1
+        Send DefineParam to hDispatchDriver OLE_VT_BSTR lldirPath
+        Get InvokeComMethod of hDispatchDriver 186 OLE_VT_I4 to retVal
+        Function_Return retVal
+    End_Function
+
+    Function ComUnzipIntoAsync String lldirPath Returns Variant
+        Handle hDispatchDriver
+        Variant retVal
+        Get phDispatchDriver to hDispatchDriver
+        Send PrepareParams to hDispatchDriver 1
+        Send DefineParam to hDispatchDriver OLE_VT_BSTR lldirPath
+        Get InvokeComMethod of hDispatchDriver 686 OLE_VT_DISPATCH to retVal
+        Function_Return retVal
+    End_Function
+
+    Function ComUnzipMatching String lldirPath String llpattern Integer llverbose Returns Integer
+        Handle hDispatchDriver
+        Integer retVal
+        Get phDispatchDriver to hDispatchDriver
+        Send PrepareParams to hDispatchDriver 3
+        Send DefineParam to hDispatchDriver OLE_VT_BSTR lldirPath
+        Send DefineParam to hDispatchDriver OLE_VT_BSTR llpattern
+        Send DefineParam to hDispatchDriver OLE_VT_I4 llverbose
+        Get InvokeComMethod of hDispatchDriver 187 OLE_VT_I4 to retVal
+        Function_Return retVal
+    End_Function
+
+    Function ComUnzipMatchingAsync String lldirPath String llpattern Integer llverbose Returns Variant
+        Handle hDispatchDriver
+        Variant retVal
+        Get phDispatchDriver to hDispatchDriver
+        Send PrepareParams to hDispatchDriver 3
+        Send DefineParam to hDispatchDriver OLE_VT_BSTR lldirPath
+        Send DefineParam to hDispatchDriver OLE_VT_BSTR llpattern
+        Send DefineParam to hDispatchDriver OLE_VT_I4 llverbose
+        Get InvokeComMethod of hDispatchDriver 687 OLE_VT_DISPATCH to retVal
+        Function_Return retVal
+    End_Function
+
+    Function ComUnzipMatchingInto String lldirPath String llpattern Integer llverbose Returns Integer
+        Handle hDispatchDriver
+        Integer retVal
+        Get phDispatchDriver to hDispatchDriver
+        Send PrepareParams to hDispatchDriver 3
+        Send DefineParam to hDispatchDriver OLE_VT_BSTR lldirPath
+        Send DefineParam to hDispatchDriver OLE_VT_BSTR llpattern
+        Send DefineParam to hDispatchDriver OLE_VT_I4 llverbose
+        Get InvokeComMethod of hDispatchDriver 188 OLE_VT_I4 to retVal
+        Function_Return retVal
+    End_Function
+
+    Function ComUnzipMatchingIntoAsync String lldirPath String llpattern Integer llverbose Returns Variant
+        Handle hDispatchDriver
+        Variant retVal
+        Get phDispatchDriver to hDispatchDriver
+        Send PrepareParams to hDispatchDriver 3
+        Send DefineParam to hDispatchDriver OLE_VT_BSTR lldirPath
+        Send DefineParam to hDispatchDriver OLE_VT_BSTR llpattern
+        Send DefineParam to hDispatchDriver OLE_VT_I4 llverbose
+        Get InvokeComMethod of hDispatchDriver 688 OLE_VT_DISPATCH to retVal
+        Function_Return retVal
+    End_Function
+
+    Function ComUnzipNewer String lldirPath Returns Integer
+        Handle hDispatchDriver
+        Integer retVal
+        Get phDispatchDriver to hDispatchDriver
+        Send PrepareParams to hDispatchDriver 1
+        Send DefineParam to hDispatchDriver OLE_VT_BSTR lldirPath
+        Get InvokeComMethod of hDispatchDriver 189 OLE_VT_I4 to retVal
+        Function_Return retVal
+    End_Function
+
+    Function ComUnzipNewerAsync String lldirPath Returns Variant
+        Handle hDispatchDriver
+        Variant retVal
+        Get phDispatchDriver to hDispatchDriver
+        Send PrepareParams to hDispatchDriver 1
+        Send DefineParam to hDispatchDriver OLE_VT_BSTR lldirPath
+        Get InvokeComMethod of hDispatchDriver 689 OLE_VT_DISPATCH to retVal
+        Function_Return retVal
+    End_Function
+
+    Function ComVerifyPassword Returns Integer
+        Handle hDispatchDriver
+        Integer retVal
+        Get phDispatchDriver to hDispatchDriver
+        Get InvokeComMethod of hDispatchDriver 190 OLE_VT_I4 to retVal
+        Function_Return retVal
+    End_Function
+
+    Function ComWriteExe String llexeFilename Returns Integer
+        Handle hDispatchDriver
+        Integer retVal
+        Get phDispatchDriver to hDispatchDriver
+        Send PrepareParams to hDispatchDriver 1
+        Send DefineParam to hDispatchDriver OLE_VT_BSTR llexeFilename
+        Get InvokeComMethod of hDispatchDriver 191 OLE_VT_I4 to retVal
+        Function_Return retVal
+    End_Function
+
+    Function ComWriteExe2 String llexePath String lldestExePath Integer llbAesEncrypt Integer llKeyLength String llpassword Returns Integer
+        Handle hDispatchDriver
+        Integer retVal
+        Get phDispatchDriver to hDispatchDriver
+        Send PrepareParams to hDispatchDriver 5
+        Send DefineParam to hDispatchDriver OLE_VT_BSTR llexePath
+        Send DefineParam to hDispatchDriver OLE_VT_BSTR lldestExePath
+        Send DefineParam to hDispatchDriver OLE_VT_I4 llbAesEncrypt
+        Send DefineParam to hDispatchDriver OLE_VT_I4 llKeyLength
+        Send DefineParam to hDispatchDriver OLE_VT_BSTR llpassword
+        Get InvokeComMethod of hDispatchDriver 192 OLE_VT_I4 to retVal
+        Function_Return retVal
+    End_Function
+
+    Function ComWriteExeToMemory Returns Variant
+        Handle hDispatchDriver
+        Variant retVal
+        Get phDispatchDriver to hDispatchDriver
+        Get InvokeComMethod of hDispatchDriver 193 OLE_VT_VARIANT to retVal
+        Function_Return retVal
+    End_Function
+
+    Function ComWriteToMemory Returns Variant
+        Handle hDispatchDriver
+        Variant retVal
+        Get phDispatchDriver to hDispatchDriver
+        Get InvokeComMethod of hDispatchDriver 194 OLE_VT_VARIANT to retVal
+        Function_Return retVal
+    End_Function
+
+    Function ComWriteToMemoryAsync Returns Variant
+        Handle hDispatchDriver
+        Variant retVal
+        Get phDispatchDriver to hDispatchDriver
+        Get InvokeComMethod of hDispatchDriver 694 OLE_VT_DISPATCH to retVal
+        Function_Return retVal
+    End_Function
+
+    Function ComWriteZip Returns Integer
+        Handle hDispatchDriver
+        Integer retVal
+        Get phDispatchDriver to hDispatchDriver
+        Get InvokeComMethod of hDispatchDriver 195 OLE_VT_I4 to retVal
+        Function_Return retVal
+    End_Function
+
+    Function ComWriteZipAsync Returns Variant
+        Handle hDispatchDriver
+        Variant retVal
+        Get phDispatchDriver to hDispatchDriver
+        Get InvokeComMethod of hDispatchDriver 695 OLE_VT_DISPATCH to retVal
+        Function_Return retVal
+    End_Function
+
+    Function ComWriteZipAndClose Returns Integer
+        Handle hDispatchDriver
+        Integer retVal
+        Get phDispatchDriver to hDispatchDriver
+        Get InvokeComMethod of hDispatchDriver 196 OLE_VT_I4 to retVal
+        Function_Return retVal
+    End_Function
+
+    Function ComWriteZipAndCloseAsync Returns Variant
+        Handle hDispatchDriver
+        Variant retVal
+        Get phDispatchDriver to hDispatchDriver
+        Get InvokeComMethod of hDispatchDriver 696 OLE_VT_DISPATCH to retVal
+        Function_Return retVal
+    End_Function
+
+    Function ComExtractExe String llexePath String lldirPath Returns Integer
+        Handle hDispatchDriver
+        Integer retVal
+        Get phDispatchDriver to hDispatchDriver
+        Send PrepareParams to hDispatchDriver 2
+        Send DefineParam to hDispatchDriver OLE_VT_BSTR llexePath
+        Send DefineParam to hDispatchDriver OLE_VT_BSTR lldirPath
+        Get InvokeComMethod of hDispatchDriver 197 OLE_VT_I4 to retVal
+        Function_Return retVal
+    End_Function
+
+    Function ComExtractExeAsync String llexePath String lldirPath Returns Variant
+        Handle hDispatchDriver
+        Variant retVal
+        Get phDispatchDriver to hDispatchDriver
+        Send PrepareParams to hDispatchDriver 2
+        Send DefineParam to hDispatchDriver OLE_VT_BSTR llexePath
+        Send DefineParam to hDispatchDriver OLE_VT_BSTR lldirPath
+        Get InvokeComMethod of hDispatchDriver 697 OLE_VT_DISPATCH to retVal
+        Function_Return retVal
+    End_Function
+
+    { MethodType=Property DesignTime=False }
+    Function ComPercentDoneScale Returns Integer
+        Handle hDispatchDriver
+        Integer retVal
+        Get phDispatchDriver to hDispatchDriver
+        Get InvokeComMethod of hDispatchDriver 198 OLE_VT_I4 to retVal
+        Function_Return retVal
+    End_Function
+
+    { MethodType=Property DesignTime=False }
+    Procedure Set ComPercentDoneScale Integer value
+        Handle hDispatchDriver
+        Get phDispatchDriver to hDispatchDriver
+        Send PrepareParams to hDispatchDriver 1
+        Set ComProperty of hDispatchDriver 198 OLE_VT_I4 to value
+    End_Procedure
+
+    { MethodType=Property DesignTime=False }
+    Function ComAbortCurrent Returns Integer
+        Handle hDispatchDriver
+        Integer retVal
+        Get phDispatchDriver to hDispatchDriver
+        Get InvokeComMethod of hDispatchDriver 199 OLE_VT_I4 to retVal
+        Function_Return retVal
+    End_Function
+
+    { MethodType=Property DesignTime=False }
+    Procedure Set ComAbortCurrent Integer value
+        Handle hDispatchDriver
+        Get phDispatchDriver to hDispatchDriver
+        Send PrepareParams to hDispatchDriver 1
+        Set ComProperty of hDispatchDriver 199 OLE_VT_I4 to value
+    End_Procedure
+
+    Function ComAppendDataEncoded String llfilename String llencoding String lldata Returns Variant
+        Handle hDispatchDriver
+        Variant retVal
+        Get phDispatchDriver to hDispatchDriver
+        Send PrepareParams to hDispatchDriver 3
+        Send DefineParam to hDispatchDriver OLE_VT_BSTR llfilename
+        Send DefineParam to hDispatchDriver OLE_VT_BSTR llencoding
+        Send DefineParam to hDispatchDriver OLE_VT_BSTR lldata
+        Get InvokeComMethod of hDispatchDriver 200 OLE_VT_DISPATCH to retVal
+        Function_Return retVal
+    End_Function
+
+    Function ComWriteBd Variant llbinData Returns Integer
+        Handle hDispatchDriver
+        Integer retVal
+        Get phDispatchDriver to hDispatchDriver
+        Send PrepareParams to hDispatchDriver 1
+        Send DefineParam to hDispatchDriver OLE_VT_DISPATCH llbinData
+        Get InvokeComMethod of hDispatchDriver 202 OLE_VT_I4 to retVal
+        Function_Return retVal
+    End_Function
+
+    Function ComWriteBdAsync Variant llbinData Returns Variant
+        Handle hDispatchDriver
+        Variant retVal
+        Get phDispatchDriver to hDispatchDriver
+        Send PrepareParams to hDispatchDriver 1
+        Send DefineParam to hDispatchDriver OLE_VT_DISPATCH llbinData
+        Get InvokeComMethod of hDispatchDriver 702 OLE_VT_DISPATCH to retVal
+        Function_Return retVal
+    End_Function
+
+    Function ComOpenBd Variant llbinData Returns Integer
+        Handle hDispatchDriver
+        Integer retVal
+        Get phDispatchDriver to hDispatchDriver
+        Send PrepareParams to hDispatchDriver 1
+        Send DefineParam to hDispatchDriver OLE_VT_DISPATCH llbinData
+        Get InvokeComMethod of hDispatchDriver 203 OLE_VT_I4 to retVal
+        Function_Return retVal
+    End_Function
+
+    Function ComAppendBd String llpathInZip Variant llbyteData Returns Variant
+        Handle hDispatchDriver
+        Variant retVal
+        Get phDispatchDriver to hDispatchDriver
+        Send PrepareParams to hDispatchDriver 2
+        Send DefineParam to hDispatchDriver OLE_VT_BSTR llpathInZip
+        Send DefineParam to hDispatchDriver OLE_VT_DISPATCH llbyteData
+        Get InvokeComMethod of hDispatchDriver 204 OLE_VT_DISPATCH to retVal
+        Function_Return retVal
+    End_Function
+
+    { MethodType=Property DesignTime=False }
+    Function ComPwdProtCharset Returns String
+        Handle hDispatchDriver
+        String retVal
+        Get phDispatchDriver to hDispatchDriver
+        Get InvokeComMethod of hDispatchDriver 205 OLE_VT_BSTR to retVal
+        Function_Return retVal
+    End_Function
+
+    { MethodType=Property DesignTime=False }
+    Procedure Set ComPwdProtCharset String value
+        Handle hDispatchDriver
+        Get phDispatchDriver to hDispatchDriver
+        Send PrepareParams to hDispatchDriver 1
+        Set ComProperty of hDispatchDriver 205 OLE_VT_BSTR to value
+    End_Procedure
+
+    Function ComLoadTaskCaller Variant lltask Returns Integer
+        Handle hDispatchDriver
+        Integer retVal
+        Get phDispatchDriver to hDispatchDriver
+        Send PrepareParams to hDispatchDriver 1
+        Send DefineParam to hDispatchDriver OLE_VT_DISPATCH lltask
+        Get InvokeComMethod of hDispatchDriver 206 OLE_VT_I4 to retVal
+        Function_Return retVal
+    End_Function
+
+    { MethodType=Property DesignTime=False }
+    Function ComUncommonOptions Returns String
+        Handle hDispatchDriver
+        String retVal
+        Get phDispatchDriver to hDispatchDriver
+        Get InvokeComMethod of hDispatchDriver 207 OLE_VT_BSTR to retVal
+        Function_Return retVal
+    End_Function
+
+    { MethodType=Property DesignTime=False }
+    Procedure Set ComUncommonOptions String value
+        Handle hDispatchDriver
+        Get phDispatchDriver to hDispatchDriver
+        Send PrepareParams to hDispatchDriver 1
+        Set ComProperty of hDispatchDriver 207 OLE_VT_BSTR to value
+    End_Procedure
+End_Class
+
+// CLSID: {F0C2D9C1-0B80-432D-A60C-0957A5A03AAE}
+// _IChilkatZipEvents Interface v9.5.0
+Class cCom_IChilkatZipEvents is a Mixin
+
+    // method AbortCheck
+    { MethodType=Event }
+    Procedure OnComAbortCheck Integer ByRef llabort
+    End_Procedure
+
+    // method PercentDone
+    { MethodType=Event }
+    Procedure OnComPercentDone Integer llpercent Integer ByRef llabort
+    End_Procedure
+
+    // method ProgressInfo
+    { MethodType=Event }
+    Procedure OnComProgressInfo String llname String llvalue
+    End_Procedure
+
+    // method FileUnzipped
+    { MethodType=Event }
+    Procedure OnComFileUnzipped String llfilename Integer llcompressedSize Integer lluncompressedSize Integer ByRef llabort
+    End_Procedure
+
+    // method ToBeAdded
+    { MethodType=Event }
+    Procedure OnComToBeAdded String llfilename Integer llfileSize Integer ByRef llexclude
+    End_Procedure
+
+    // method FileAdded
+    { MethodType=Event }
+    Procedure OnComFileAdded String llfilename Integer llfileSize Integer ByRef llabort
+    End_Procedure
+
+    // method UnzipBegin
+    { MethodType=Event }
+    Procedure OnComUnzipBegin
+    End_Procedure
+
+    // method UnzipEnd
+    { MethodType=Event }
+    Procedure OnComUnzipEnd
+    End_Procedure
+
+    // method WriteZipBegin
+    { MethodType=Event }
+    Procedure OnComWriteZipBegin
+    End_Procedure
+
+    // method WriteZipEnd
+    { MethodType=Event }
+    Procedure OnComWriteZipEnd
+    End_Procedure
+
+    // method ToBeZipped
+    { MethodType=Event }
+    Procedure OnComToBeZipped String llfilename bigint llfileSize Integer ByRef llexclude
+    End_Procedure
+
+    // method FileZipped
+    { MethodType=Event }
+    Procedure OnComFileZipped String llfilename BigInt llfileSize Integer llcompressedSize Integer ByRef llabort
+    End_Procedure
+
+    // method ToBeUnzipped
+    { MethodType=Event }
+    Procedure OnComToBeUnzipped String llfilename Integer llcompressedSize Integer lluncompressedSize Integer ByRef llexclude
+    End_Procedure
+
+    // method AddFilesBegin
+    { MethodType=Event }
+    Procedure OnComAddFilesBegin
+    End_Procedure
+
+    // method SkippedForUnzip
+    { MethodType=Event }
+    Procedure OnComSkippedForUnzip String llfilename Integer llcompressedSize Integer lluncompressedSize
+    End_Procedure
+
+    // method AddFilesEnd
+    { MethodType=Event }
+    Procedure OnComAddFilesEnd
+    End_Procedure
+
+    // method DirToBeAdded
+    { MethodType=Event }
+    Procedure OnComDirToBeAdded String llfilename Integer ByRef llexclude
+    End_Procedure
+
+    // method TaskCompleted
+    { MethodType=Event }
+    Procedure OnComTaskCompleted Variant lltask
+    End_Procedure
+
+    // method TextData
+    { MethodType=Event }
+    Procedure OnComTextData String lldata
+    End_Procedure
+
+    // method BinaryData
+    { MethodType=Event }
+    Procedure OnComBinaryData Variant lldata
+    End_Procedure
+
+    { Visibility=Private }
+    Procedure RegisterComEvents
+        Send RegisterComEvent 1 msg_OnComAbortCheck
+        Send RegisterComEvent 2 msg_OnComPercentDone
+        Send RegisterComEvent 3 msg_OnComProgressInfo
+        Send RegisterComEvent 4 msg_OnComFileUnzipped
+        Send RegisterComEvent 5 msg_OnComToBeAdded
+        Send RegisterComEvent 6 msg_OnComFileAdded
+        Send RegisterComEvent 7 msg_OnComUnzipBegin
+        Send RegisterComEvent 8 msg_OnComUnzipEnd
+        Send RegisterComEvent 9 msg_OnComWriteZipBegin
+        Send RegisterComEvent 10 msg_OnComWriteZipEnd
+        Send RegisterComEvent 11 msg_OnComToBeZipped
+        Send RegisterComEvent 12 msg_OnComFileZipped
+        Send RegisterComEvent 13 msg_OnComToBeUnzipped
+        Send RegisterComEvent 14 msg_OnComAddFilesBegin
+        Send RegisterComEvent 15 msg_OnComSkippedForUnzip
+        Send RegisterComEvent 16 msg_OnComAddFilesEnd
+        Send RegisterComEvent 17 msg_OnComDirToBeAdded
+        Send RegisterComEvent 20 msg_OnComTaskCompleted
+        Send RegisterComEvent 21 msg_OnComTextData
+        Send RegisterComEvent 22 msg_OnComBinaryData
+    End_Procedure
+End_Class
+
+// CoClass
+// ProgID: Chilkat_9_5_0.Zip.1
+// CLSID: {C95EAE19-C7B8-4297-A6C6-B4B973A8B867}
+// ChilkatZip Class 9.5.0
+{ CLSID="{C95EAE19-C7B8-4297-A6C6-B4B973A8B867}" }
+Class cComChilkatZip is a cComActiveXControl
+    Import_Class_Protocol cComIChilkatZip
+    Import_Class_Protocol cCom_IChilkatZipEvents
+
+    Procedure Construct_Object
+        Forward Send Construct_Object
+        Set psProgID to "{C95EAE19-C7B8-4297-A6C6-B4B973A8B867}"
+        Set psEventId to "{F0C2D9C1-0B80-432D-A60C-0957A5A03AAE}"
+        Set peAutoCreate to acAutoCreate
+    End_Procedure
+End_Class
+
+// CLSID: {8C819F76-4B5C-4E9C-A49A-D6BF2190C09C}
+// IChilkatZipCrc Interface v9.5.0
+Class cComIChilkatZipCrc is a Mixin
+
+    Function ComGetImplAddrStr Returns String
+        Handle hDispatchDriver
+        String retVal
+        Get phDispatchDriver to hDispatchDriver
+        Get InvokeComMethod of hDispatchDriver 99 OLE_VT_BSTR to retVal
+        Function_Return retVal
+    End_Function
+
+    { MethodType=Property DesignTime=False }
+    Function ComLastErrorHtml Returns String
+        Handle hDispatchDriver
+        String retVal
+        Get phDispatchDriver to hDispatchDriver
+        Get InvokeComMethod of hDispatchDriver 1 OLE_VT_BSTR to retVal
+        Function_Return retVal
+    End_Function
+
+    { MethodType=Property DesignTime=False }
+    Function ComLastErrorText Returns String
+        Handle hDispatchDriver
+        String retVal
+        Get phDispatchDriver to hDispatchDriver
+        Get InvokeComMethod of hDispatchDriver 2 OLE_VT_BSTR to retVal
+        Function_Return retVal
+    End_Function
+
+    { MethodType=Property DesignTime=False }
+    Function ComLastErrorXml Returns String
+        Handle hDispatchDriver
+        String retVal
+        Get phDispatchDriver to hDispatchDriver
+        Get InvokeComMethod of hDispatchDriver 3 OLE_VT_BSTR to retVal
+        Function_Return retVal
+    End_Function
+
+    { MethodType=Property DesignTime=False }
+    Function ComVersion Returns String
+        Handle hDispatchDriver
+        String retVal
+        Get phDispatchDriver to hDispatchDriver
+        Get InvokeComMethod of hDispatchDriver 4 OLE_VT_BSTR to retVal
+        Function_Return retVal
+    End_Function
+
+    { MethodType=Property DesignTime=False }
+    Function ComDebugLogFilePath Returns String
+        Handle hDispatchDriver
+        String retVal
+        Get phDispatchDriver to hDispatchDriver
+        Get InvokeComMethod of hDispatchDriver 5 OLE_VT_BSTR to retVal
+        Function_Return retVal
+    End_Function
+
+    { MethodType=Property DesignTime=False }
+    Procedure Set ComDebugLogFilePath String value
+        Handle hDispatchDriver
+        Get phDispatchDriver to hDispatchDriver
+        Send PrepareParams to hDispatchDriver 1
+        Set ComProperty of hDispatchDriver 5 OLE_VT_BSTR to value
+    End_Procedure
+
+    { MethodType=Property DesignTime=False }
+    Function ComVerboseLogging Returns Integer
+        Handle hDispatchDriver
+        Integer retVal
+        Get phDispatchDriver to hDispatchDriver
+        Get InvokeComMethod of hDispatchDriver 6 OLE_VT_I4 to retVal
+        Function_Return retVal
+    End_Function
+
+    { MethodType=Property DesignTime=False }
+    Procedure Set ComVerboseLogging Integer value
+        Handle hDispatchDriver
+        Get phDispatchDriver to hDispatchDriver
+        Send PrepareParams to hDispatchDriver 1
+        Set ComProperty of hDispatchDriver 6 OLE_VT_I4 to value
+    End_Procedure
+
+    { MethodType=Property DesignTime=False }
+    Function ComLastMethodSuccess Returns Integer
+        Handle hDispatchDriver
+        Integer retVal
+        Get phDispatchDriver to hDispatchDriver
+        Get InvokeComMethod of hDispatchDriver 9 OLE_VT_I4 to retVal
+        Function_Return retVal
+    End_Function
+
+    { MethodType=Property DesignTime=False }
+    Procedure Set ComLastMethodSuccess Integer value
+        Handle hDispatchDriver
+        Get phDispatchDriver to hDispatchDriver
+        Send PrepareParams to hDispatchDriver 1
+        Set ComProperty of hDispatchDriver 9 OLE_VT_I4 to value
+    End_Procedure
+
+    { MethodType=Property DesignTime=False }
+    Function ComLastStringResult Returns String
+        Handle hDispatchDriver
+        String retVal
+        Get phDispatchDriver to hDispatchDriver
+        Get InvokeComMethod of hDispatchDriver 10 OLE_VT_BSTR to retVal
+        Function_Return retVal
+    End_Function
+
+    { MethodType=Property DesignTime=False }
+    Function ComLastBinaryResult Returns Variant
+        Handle hDispatchDriver
+        Variant retVal
+        Get phDispatchDriver to hDispatchDriver
+        Get InvokeComMethod of hDispatchDriver 11 OLE_VT_VARIANT to retVal
+        Function_Return retVal
+    End_Function
+
+    { MethodType=Property DesignTime=False }
+    Function ComLastStringResultLen Returns Integer
+        Handle hDispatchDriver
+        Integer retVal
+        Get phDispatchDriver to hDispatchDriver
+        Get InvokeComMethod of hDispatchDriver 12 OLE_VT_I4 to retVal
+        Function_Return retVal
+    End_Function
+
+    Procedure ComBeginStream
+        Handle hDispatchDriver
+        Get phDispatchDriver to hDispatchDriver
+        Send InvokeComMethod to hDispatchDriver 100 OLE_VT_VOID
+    End_Procedure
+
+    Function ComCalculateCrc Variant lldata Returns Integer
+        Handle hDispatchDriver
+        Integer retVal
+        Get phDispatchDriver to hDispatchDriver
+        Send PrepareParams to hDispatchDriver 1
+        Send DefineParam to hDispatchDriver OLE_VT_VARIANT lldata
+        Get InvokeComMethod of hDispatchDriver 101 OLE_VT_I4 to retVal
+        Function_Return retVal
+    End_Function
+
+    Function ComEndStream Returns Integer
+        Handle hDispatchDriver
+        Integer retVal
+        Get phDispatchDriver to hDispatchDriver
+        Get InvokeComMethod of hDispatchDriver 102 OLE_VT_I4 to retVal
+        Function_Return retVal
+    End_Function
+
+    Function ComFileCrc String llpath Returns Integer
+        Handle hDispatchDriver
+        Integer retVal
+        Get phDispatchDriver to hDispatchDriver
+        Send PrepareParams to hDispatchDriver 1
+        Send DefineParam to hDispatchDriver OLE_VT_BSTR llpath
+        Get InvokeComMethod of hDispatchDriver 103 OLE_VT_I4 to retVal
+        Function_Return retVal
+    End_Function
+
+    Function ComFileCrcAsync String llpath Returns Variant
+        Handle hDispatchDriver
+        Variant retVal
+        Get phDispatchDriver to hDispatchDriver
+        Send PrepareParams to hDispatchDriver 1
+        Send DefineParam to hDispatchDriver OLE_VT_BSTR llpath
+        Get InvokeComMethod of hDispatchDriver 603 OLE_VT_DISPATCH to retVal
+        Function_Return retVal
+    End_Function
+
+    Procedure ComMoreData Variant lldata
+        Handle hDispatchDriver
+        Get phDispatchDriver to hDispatchDriver
+        Send PrepareParams to hDispatchDriver 1
+        Send DefineParam to hDispatchDriver OLE_VT_VARIANT lldata
+        Send InvokeComMethod to hDispatchDriver 104 OLE_VT_VOID
+    End_Procedure
+
+    Function ComToHex Integer llCrc Returns String
+        Handle hDispatchDriver
+        String retVal
+        Get phDispatchDriver to hDispatchDriver
+        Send PrepareParams to hDispatchDriver 1
+        Send DefineParam to hDispatchDriver OLE_VT_I4 llCrc
+        Get InvokeComMethod of hDispatchDriver 105 OLE_VT_BSTR to retVal
+        Function_Return retVal
+    End_Function
+
+    Function ComCrcString String llstr String llcharset Returns Integer
+        Handle hDispatchDriver
+        Integer retVal
+        Get phDispatchDriver to hDispatchDriver
+        Send PrepareParams to hDispatchDriver 2
+        Send DefineParam to hDispatchDriver OLE_VT_BSTR llstr
+        Send DefineParam to hDispatchDriver OLE_VT_BSTR llcharset
+        Get InvokeComMethod of hDispatchDriver 106 OLE_VT_I4 to retVal
+        Function_Return retVal
+    End_Function
+
+    Function ComCrcSb Variant llsb String llcharset Returns Integer
+        Handle hDispatchDriver
+        Integer retVal
+        Get phDispatchDriver to hDispatchDriver
+        Send PrepareParams to hDispatchDriver 2
+        Send DefineParam to hDispatchDriver OLE_VT_DISPATCH llsb
+        Send DefineParam to hDispatchDriver OLE_VT_BSTR llcharset
+        Get InvokeComMethod of hDispatchDriver 107 OLE_VT_I4 to retVal
+        Function_Return retVal
+    End_Function
+
+    Function ComCrcBd Variant llbd Returns Integer
+        Handle hDispatchDriver
+        Integer retVal
+        Get phDispatchDriver to hDispatchDriver
+        Send PrepareParams to hDispatchDriver 1
+        Send DefineParam to hDispatchDriver OLE_VT_DISPATCH llbd
+        Get InvokeComMethod of hDispatchDriver 108 OLE_VT_I4 to retVal
+        Function_Return retVal
+    End_Function
+
+    Function ComLoadTaskCaller Variant lltask Returns Integer
+        Handle hDispatchDriver
+        Integer retVal
+        Get phDispatchDriver to hDispatchDriver
+        Send PrepareParams to hDispatchDriver 1
+        Send DefineParam to hDispatchDriver OLE_VT_DISPATCH lltask
+        Get InvokeComMethod of hDispatchDriver 109 OLE_VT_I4 to retVal
+        Function_Return retVal
+    End_Function
+End_Class
+
+// CoClass
+// ProgID: Chilkat_9_5_0.ZipCrc.1
+// CLSID: {78AB3AA4-28A5-449B-959E-FFCC2602854D}
+// ChilkatZipCrc Class 9.5.0
+{ CLSID="{78AB3AA4-28A5-449B-959E-FFCC2602854D}" }
+Class cComChilkatZipCrc is a cComActiveXControl
+    Import_Class_Protocol cComIChilkatZipCrc
+    Import_Class_Protocol cCom_IChilkatEvents
+
+    Procedure Construct_Object
+        Forward Send Construct_Object
+        Set psProgID to "{78AB3AA4-28A5-449B-959E-FFCC2602854D}"
+        Set psEventId to "{91D24DB1-0F9E-4E77-B629-70BEE2F61D36}"
+        Set peAutoCreate to acAutoCreate
+    End_Procedure
+End_Class
+
+// CLSID: {C68497C9-2779-48A4-9062-6DAD6EA5E1C6}
+// IChilkatZipEntry Interface v9.5.0
+Class cComIChilkatZipEntry is a Mixin
+
+    Function ComGetImplAddrStr Returns String
+        Handle hDispatchDriver
+        String retVal
+        Get phDispatchDriver to hDispatchDriver
+        Get InvokeComMethod of hDispatchDriver 99 OLE_VT_BSTR to retVal
+        Function_Return retVal
+    End_Function
+
+    { MethodType=Property DesignTime=False }
+    Function ComLastErrorHtml Returns String
+        Handle hDispatchDriver
+        String retVal
+        Get phDispatchDriver to hDispatchDriver
+        Get InvokeComMethod of hDispatchDriver 1 OLE_VT_BSTR to retVal
+        Function_Return retVal
+    End_Function
+
+    { MethodType=Property DesignTime=False }
+    Function ComLastErrorText Returns String
+        Handle hDispatchDriver
+        String retVal
+        Get phDispatchDriver to hDispatchDriver
+        Get InvokeComMethod of hDispatchDriver 2 OLE_VT_BSTR to retVal
+        Function_Return retVal
+    End_Function
+
+    { MethodType=Property DesignTime=False }
+    Function ComLastErrorXml Returns String
+        Handle hDispatchDriver
+        String retVal
+        Get phDispatchDriver to hDispatchDriver
+        Get InvokeComMethod of hDispatchDriver 3 OLE_VT_BSTR to retVal
+        Function_Return retVal
+    End_Function
+
+    { MethodType=Property DesignTime=False }
+    Function ComVersion Returns String
+        Handle hDispatchDriver
+        String retVal
+        Get phDispatchDriver to hDispatchDriver
+        Get InvokeComMethod of hDispatchDriver 4 OLE_VT_BSTR to retVal
+        Function_Return retVal
+    End_Function
+
+    { MethodType=Property DesignTime=False }
+    Function ComDebugLogFilePath Returns String
+        Handle hDispatchDriver
+        String retVal
+        Get phDispatchDriver to hDispatchDriver
+        Get InvokeComMethod of hDispatchDriver 5 OLE_VT_BSTR to retVal
+        Function_Return retVal
+    End_Function
+
+    { MethodType=Property DesignTime=False }
+    Procedure Set ComDebugLogFilePath String value
+        Handle hDispatchDriver
+        Get phDispatchDriver to hDispatchDriver
+        Send PrepareParams to hDispatchDriver 1
+        Set ComProperty of hDispatchDriver 5 OLE_VT_BSTR to value
+    End_Procedure
+
+    { MethodType=Property DesignTime=False }
+    Function ComVerboseLogging Returns Integer
+        Handle hDispatchDriver
+        Integer retVal
+        Get phDispatchDriver to hDispatchDriver
+        Get InvokeComMethod of hDispatchDriver 6 OLE_VT_I4 to retVal
+        Function_Return retVal
+    End_Function
+
+    { MethodType=Property DesignTime=False }
+    Procedure Set ComVerboseLogging Integer value
+        Handle hDispatchDriver
+        Get phDispatchDriver to hDispatchDriver
+        Send PrepareParams to hDispatchDriver 1
+        Set ComProperty of hDispatchDriver 6 OLE_VT_I4 to value
+    End_Procedure
+
+    { MethodType=Property DesignTime=False }
+    Function ComLastMethodSuccess Returns Integer
+        Handle hDispatchDriver
+        Integer retVal
+        Get phDispatchDriver to hDispatchDriver
+        Get InvokeComMethod of hDispatchDriver 9 OLE_VT_I4 to retVal
+        Function_Return retVal
+    End_Function
+
+    { MethodType=Property DesignTime=False }
+    Procedure Set ComLastMethodSuccess Integer value
+        Handle hDispatchDriver
+        Get phDispatchDriver to hDispatchDriver
+        Send PrepareParams to hDispatchDriver 1
+        Set ComProperty of hDispatchDriver 9 OLE_VT_I4 to value
+    End_Procedure
+
+    { MethodType=Property DesignTime=False }
+    Function ComLastStringResult Returns String
+        Handle hDispatchDriver
+        String retVal
+        Get phDispatchDriver to hDispatchDriver
+        Get InvokeComMethod of hDispatchDriver 10 OLE_VT_BSTR to retVal
+        Function_Return retVal
+    End_Function
+
+    { MethodType=Property DesignTime=False }
+    Function ComLastBinaryResult Returns Variant
+        Handle hDispatchDriver
+        Variant retVal
+        Get phDispatchDriver to hDispatchDriver
+        Get InvokeComMethod of hDispatchDriver 11 OLE_VT_VARIANT to retVal
+        Function_Return retVal
+    End_Function
+
+    { MethodType=Property DesignTime=False }
+    Function ComLastStringResultLen Returns Integer
+        Handle hDispatchDriver
+        Integer retVal
+        Get phDispatchDriver to hDispatchDriver
+        Get InvokeComMethod of hDispatchDriver 12 OLE_VT_I4 to retVal
+        Function_Return retVal
+    End_Function
+
+    { MethodType=Property DesignTime=False }
+    Function ComComment Returns String
+        Handle hDispatchDriver
+        String retVal
+        Get phDispatchDriver to hDispatchDriver
+        Get InvokeComMethod of hDispatchDriver 100 OLE_VT_BSTR to retVal
+        Function_Return retVal
+    End_Function
+
+    { MethodType=Property DesignTime=False }
+    Procedure Set ComComment String value
+        Handle hDispatchDriver
+        Get phDispatchDriver to hDispatchDriver
+        Send PrepareParams to hDispatchDriver 1
+        Set ComProperty of hDispatchDriver 100 OLE_VT_BSTR to value
+    End_Procedure
+
+    { MethodType=Property DesignTime=False }
+    Function ComCompressedLength Returns Integer
+        Handle hDispatchDriver
+        Integer retVal
+        Get phDispatchDriver to hDispatchDriver
+        Get InvokeComMethod of hDispatchDriver 101 OLE_VT_I4 to retVal
+        Function_Return retVal
+    End_Function
+
+    { MethodType=Property DesignTime=False }
+    Function ComCompressedLengthStr Returns String
+        Handle hDispatchDriver
+        String retVal
+        Get phDispatchDriver to hDispatchDriver
+        Get InvokeComMethod of hDispatchDriver 102 OLE_VT_BSTR to retVal
+        Function_Return retVal
+    End_Function
+
+    { MethodType=Property DesignTime=False }
+    Function ComCompressionLevel Returns Integer
+        Handle hDispatchDriver
+        Integer retVal
+        Get phDispatchDriver to hDispatchDriver
+        Get InvokeComMethod of hDispatchDriver 103 OLE_VT_I4 to retVal
+        Function_Return retVal
+    End_Function
+
+    { MethodType=Property DesignTime=False }
+    Procedure Set ComCompressionLevel Integer value
+        Handle hDispatchDriver
+        Get phDispatchDriver to hDispatchDriver
+        Send PrepareParams to hDispatchDriver 1
+        Set ComProperty of hDispatchDriver 103 OLE_VT_I4 to value
+    End_Procedure
+
+    { MethodType=Property DesignTime=False }
+    Function ComCompressionMethod Returns Integer
+        Handle hDispatchDriver
+        Integer retVal
+        Get phDispatchDriver to hDispatchDriver
+        Get InvokeComMethod of hDispatchDriver 104 OLE_VT_I4 to retVal
+        Function_Return retVal
+    End_Function
+
+    { MethodType=Property DesignTime=False }
+    Procedure Set ComCompressionMethod Integer value
+        Handle hDispatchDriver
+        Get phDispatchDriver to hDispatchDriver
+        Send PrepareParams to hDispatchDriver 1
+        Set ComProperty of hDispatchDriver 104 OLE_VT_I4 to value
+    End_Procedure
+
+    { MethodType=Property DesignTime=False }
+    Function ComCrc Returns Integer
+        Handle hDispatchDriver
+        Integer retVal
+        Get phDispatchDriver to hDispatchDriver
+        Get InvokeComMethod of hDispatchDriver 105 OLE_VT_I4 to retVal
+        Function_Return retVal
+    End_Function
+
+    { MethodType=Property DesignTime=False }
+    Function ComEntryID Returns Integer
+        Handle hDispatchDriver
+        Integer retVal
+        Get phDispatchDriver to hDispatchDriver
+        Get InvokeComMethod of hDispatchDriver 106 OLE_VT_I4 to retVal
+        Function_Return retVal
+    End_Function
+
+    { MethodType=Property DesignTime=False }
+    Function ComEntryType Returns Integer
+        Handle hDispatchDriver
+        Integer retVal
+        Get phDispatchDriver to hDispatchDriver
+        Get InvokeComMethod of hDispatchDriver 107 OLE_VT_I4 to retVal
+        Function_Return retVal
+    End_Function
+
+    { MethodType=Property DesignTime=False }
+    Function ComFileDateTime Returns DateTime
+        Handle hDispatchDriver
+        DateTime retVal
+        Get phDispatchDriver to hDispatchDriver
+        Get InvokeComMethod of hDispatchDriver 108 OLE_VT_DATE to retVal
+        Function_Return retVal
+    End_Function
+
+    { MethodType=Property DesignTime=False }
+    Procedure Set ComFileDateTime DateTime value
+        Handle hDispatchDriver
+        Get phDispatchDriver to hDispatchDriver
+        Send PrepareParams to hDispatchDriver 1
+        Set ComProperty of hDispatchDriver 108 OLE_VT_DATE to value
+    End_Procedure
+
+    { MethodType=Property DesignTime=False }
+    Function ComFileDateTimeStr Returns String
+        Handle hDispatchDriver
+        String retVal
+        Get phDispatchDriver to hDispatchDriver
+        Get InvokeComMethod of hDispatchDriver 109 OLE_VT_BSTR to retVal
+        Function_Return retVal
+    End_Function
+
+    { MethodType=Property DesignTime=False }
+    Procedure Set ComFileDateTimeStr String value
+        Handle hDispatchDriver
+        Get phDispatchDriver to hDispatchDriver
+        Send PrepareParams to hDispatchDriver 1
+        Set ComProperty of hDispatchDriver 109 OLE_VT_BSTR to value
+    End_Procedure
+
+    { MethodType=Property DesignTime=False }
+    Function ComFilename Returns String
+        Handle hDispatchDriver
+        String retVal
+        Get phDispatchDriver to hDispatchDriver
+        Get InvokeComMethod of hDispatchDriver 110 OLE_VT_BSTR to retVal
+        Function_Return retVal
+    End_Function
+
+    { MethodType=Property DesignTime=False }
+    Procedure Set ComFilename String value
+        Handle hDispatchDriver
+        Get phDispatchDriver to hDispatchDriver
+        Send PrepareParams to hDispatchDriver 1
+        Set ComProperty of hDispatchDriver 110 OLE_VT_BSTR to value
+    End_Procedure
+
+    { MethodType=Property DesignTime=False }
+    Function ComHeartbeatMs Returns Integer
+        Handle hDispatchDriver
+        Integer retVal
+        Get phDispatchDriver to hDispatchDriver
+        Get InvokeComMethod of hDispatchDriver 111 OLE_VT_I4 to retVal
+        Function_Return retVal
+    End_Function
+
+    { MethodType=Property DesignTime=False }
+    Procedure Set ComHeartbeatMs Integer value
+        Handle hDispatchDriver
+        Get phDispatchDriver to hDispatchDriver
+        Send PrepareParams to hDispatchDriver 1
+        Set ComProperty of hDispatchDriver 111 OLE_VT_I4 to value
+    End_Procedure
+
+    { MethodType=Property DesignTime=False }
+    Function ComIsDirectory Returns Integer
+        Handle hDispatchDriver
+        Integer retVal
+        Get phDispatchDriver to hDispatchDriver
+        Get InvokeComMethod of hDispatchDriver 112 OLE_VT_I4 to retVal
+        Function_Return retVal
+    End_Function
+
+    { MethodType=Property DesignTime=False }
+    Function ComTextFlag Returns Integer
+        Handle hDispatchDriver
+        Integer retVal
+        Get phDispatchDriver to hDispatchDriver
+        Get InvokeComMethod of hDispatchDriver 113 OLE_VT_I4 to retVal
+        Function_Return retVal
+    End_Function
+
+    { MethodType=Property DesignTime=False }
+    Procedure Set ComTextFlag Integer value
+        Handle hDispatchDriver
+        Get phDispatchDriver to hDispatchDriver
+        Send PrepareParams to hDispatchDriver 1
+        Set ComProperty of hDispatchDriver 113 OLE_VT_I4 to value
+    End_Procedure
+
+    { MethodType=Property DesignTime=False }
+    Function ComUncompressedLength Returns Integer
+        Handle hDispatchDriver
+        Integer retVal
+        Get phDispatchDriver to hDispatchDriver
+        Get InvokeComMethod of hDispatchDriver 114 OLE_VT_I4 to retVal
+        Function_Return retVal
+    End_Function
+
+    { MethodType=Property DesignTime=False }
+    Function ComUncompressedLengthStr Returns String
+        Handle hDispatchDriver
+        String retVal
+        Get phDispatchDriver to hDispatchDriver
+        Get InvokeComMethod of hDispatchDriver 115 OLE_VT_BSTR to retVal
+        Function_Return retVal
+    End_Function
+
+    Function ComAppendData Variant llinData Returns Integer
+        Handle hDispatchDriver
+        Integer retVal
+        Get phDispatchDriver to hDispatchDriver
+        Send PrepareParams to hDispatchDriver 1
+        Send DefineParam to hDispatchDriver OLE_VT_VARIANT llinData
+        Get InvokeComMethod of hDispatchDriver 116 OLE_VT_I4 to retVal
+        Function_Return retVal
+    End_Function
+
+    Function ComAppendDataAsync Variant llinData Returns Variant
+        Handle hDispatchDriver
+        Variant retVal
+        Get phDispatchDriver to hDispatchDriver
+        Send PrepareParams to hDispatchDriver 1
+        Send DefineParam to hDispatchDriver OLE_VT_VARIANT llinData
+        Get InvokeComMethod of hDispatchDriver 616 OLE_VT_DISPATCH to retVal
+        Function_Return retVal
+    End_Function
+
+    Function ComAppendString String llstrContent String llcharset Returns Integer
+        Handle hDispatchDriver
+        Integer retVal
+        Get phDispatchDriver to hDispatchDriver
+        Send PrepareParams to hDispatchDriver 2
+        Send DefineParam to hDispatchDriver OLE_VT_BSTR llstrContent
+        Send DefineParam to hDispatchDriver OLE_VT_BSTR llcharset
+        Get InvokeComMethod of hDispatchDriver 117 OLE_VT_I4 to retVal
+        Function_Return retVal
+    End_Function
+
+    Function ComAppendStringAsync String llstrContent String llcharset Returns Variant
+        Handle hDispatchDriver
+        Variant retVal
+        Get phDispatchDriver to hDispatchDriver
+        Send PrepareParams to hDispatchDriver 2
+        Send DefineParam to hDispatchDriver OLE_VT_BSTR llstrContent
+        Send DefineParam to hDispatchDriver OLE_VT_BSTR llcharset
+        Get InvokeComMethod of hDispatchDriver 617 OLE_VT_DISPATCH to retVal
+        Function_Return retVal
+    End_Function
+
+    Function ComCopy Returns Variant
+        Handle hDispatchDriver
+        Variant retVal
+        Get phDispatchDriver to hDispatchDriver
+        Get InvokeComMethod of hDispatchDriver 118 OLE_VT_VARIANT to retVal
+        Function_Return retVal
+    End_Function
+
+    Function ComCopyToBase64 Returns String
+        Handle hDispatchDriver
+        String retVal
+        Get phDispatchDriver to hDispatchDriver
+        Get InvokeComMethod of hDispatchDriver 119 OLE_VT_BSTR to retVal
+        Function_Return retVal
+    End_Function
+
+    Function ComCopyToHex Returns String
+        Handle hDispatchDriver
+        String retVal
+        Get phDispatchDriver to hDispatchDriver
+        Get InvokeComMethod of hDispatchDriver 120 OLE_VT_BSTR to retVal
+        Function_Return retVal
+    End_Function
+
+    Function ComExtract String lldirPath Returns Integer
+        Handle hDispatchDriver
+        Integer retVal
+        Get phDispatchDriver to hDispatchDriver
+        Send PrepareParams to hDispatchDriver 1
+        Send DefineParam to hDispatchDriver OLE_VT_BSTR lldirPath
+        Get InvokeComMethod of hDispatchDriver 121 OLE_VT_I4 to retVal
+        Function_Return retVal
+    End_Function
+
+    Function ComExtractAsync String lldirPath Returns Variant
+        Handle hDispatchDriver
+        Variant retVal
+        Get phDispatchDriver to hDispatchDriver
+        Send PrepareParams to hDispatchDriver 1
+        Send DefineParam to hDispatchDriver OLE_VT_BSTR lldirPath
+        Get InvokeComMethod of hDispatchDriver 621 OLE_VT_DISPATCH to retVal
+        Function_Return retVal
+    End_Function
+
+    Function ComExtractInto String lldirPath Returns Integer
+        Handle hDispatchDriver
+        Integer retVal
+        Get phDispatchDriver to hDispatchDriver
+        Send PrepareParams to hDispatchDriver 1
+        Send DefineParam to hDispatchDriver OLE_VT_BSTR lldirPath
+        Get InvokeComMethod of hDispatchDriver 122 OLE_VT_I4 to retVal
+        Function_Return retVal
+    End_Function
+
+    Function ComExtractIntoAsync String lldirPath Returns Variant
+        Handle hDispatchDriver
+        Variant retVal
+        Get phDispatchDriver to hDispatchDriver
+        Send PrepareParams to hDispatchDriver 1
+        Send DefineParam to hDispatchDriver OLE_VT_BSTR lldirPath
+        Get InvokeComMethod of hDispatchDriver 622 OLE_VT_DISPATCH to retVal
+        Function_Return retVal
+    End_Function
+
+    Function ComGetDt Returns Variant
+        Handle hDispatchDriver
+        Variant retVal
+        Get phDispatchDriver to hDispatchDriver
+        Get InvokeComMethod of hDispatchDriver 123 OLE_VT_DISPATCH to retVal
+        Function_Return retVal
+    End_Function
+
+    Function ComInflate Returns Variant
+        Handle hDispatchDriver
+        Variant retVal
+        Get phDispatchDriver to hDispatchDriver
+        Get InvokeComMethod of hDispatchDriver 124 OLE_VT_VARIANT to retVal
+        Function_Return retVal
+    End_Function
+
+    Function ComInflateAsync Returns Variant
+        Handle hDispatchDriver
+        Variant retVal
+        Get phDispatchDriver to hDispatchDriver
+        Get InvokeComMethod of hDispatchDriver 624 OLE_VT_DISPATCH to retVal
+        Function_Return retVal
+    End_Function
+
+    Function ComNextEntry Returns Variant
+        Handle hDispatchDriver
+        Variant retVal
+        Get phDispatchDriver to hDispatchDriver
+        Get InvokeComMethod of hDispatchDriver 125 OLE_VT_DISPATCH to retVal
+        Function_Return retVal
+    End_Function
+
+    Function ComReplaceData Variant llinData Returns Integer
+        Handle hDispatchDriver
+        Integer retVal
+        Get phDispatchDriver to hDispatchDriver
+        Send PrepareParams to hDispatchDriver 1
+        Send DefineParam to hDispatchDriver OLE_VT_VARIANT llinData
+        Get InvokeComMethod of hDispatchDriver 126 OLE_VT_I4 to retVal
+        Function_Return retVal
+    End_Function
+
+    Function ComReplaceString String llstrContent String llcharset Returns Integer
+        Handle hDispatchDriver
+        Integer retVal
+        Get phDispatchDriver to hDispatchDriver
+        Send PrepareParams to hDispatchDriver 2
+        Send DefineParam to hDispatchDriver OLE_VT_BSTR llstrContent
+        Send DefineParam to hDispatchDriver OLE_VT_BSTR llcharset
+        Get InvokeComMethod of hDispatchDriver 127 OLE_VT_I4 to retVal
+        Function_Return retVal
+    End_Function
+
+    Procedure ComSetDt Variant lldt
+        Handle hDispatchDriver
+        Get phDispatchDriver to hDispatchDriver
+        Send PrepareParams to hDispatchDriver 1
+        Send DefineParam to hDispatchDriver OLE_VT_DISPATCH lldt
+        Send InvokeComMethod to hDispatchDriver 128 OLE_VT_VOID
+    End_Procedure
+
+    Function ComUnzipToString Integer lllineEndingBehavior String llsrcCharset Returns String
+        Handle hDispatchDriver
+        String retVal
+        Get phDispatchDriver to hDispatchDriver
+        Send PrepareParams to hDispatchDriver 2
+        Send DefineParam to hDispatchDriver OLE_VT_I4 lllineEndingBehavior
+        Send DefineParam to hDispatchDriver OLE_VT_BSTR llsrcCharset
+        Get InvokeComMethod of hDispatchDriver 129 OLE_VT_BSTR to retVal
+        Function_Return retVal
+    End_Function
+
+    Function ComUnzipToStringAsync Integer lllineEndingBehavior String llsrcCharset Returns Variant
+        Handle hDispatchDriver
+        Variant retVal
+        Get phDispatchDriver to hDispatchDriver
+        Send PrepareParams to hDispatchDriver 2
+        Send DefineParam to hDispatchDriver OLE_VT_I4 lllineEndingBehavior
+        Send DefineParam to hDispatchDriver OLE_VT_BSTR llsrcCharset
+        Get InvokeComMethod of hDispatchDriver 629 OLE_VT_DISPATCH to retVal
+        Function_Return retVal
+    End_Function
+
+    { MethodType=Property DesignTime=False }
+    Function ComFileNameHex Returns String
+        Handle hDispatchDriver
+        String retVal
+        Get phDispatchDriver to hDispatchDriver
+        Get InvokeComMethod of hDispatchDriver 133 OLE_VT_BSTR to retVal
+        Function_Return retVal
+    End_Function
+
+    Function ComNextMatchingEntry String llmatchStr Returns Variant
+        Handle hDispatchDriver
+        Variant retVal
+        Get phDispatchDriver to hDispatchDriver
+        Send PrepareParams to hDispatchDriver 1
+        Send DefineParam to hDispatchDriver OLE_VT_BSTR llmatchStr
+        Get InvokeComMethod of hDispatchDriver 134 OLE_VT_DISPATCH to retVal
+        Function_Return retVal
+    End_Function
+
+    Function ComUnzipToStream Variant lltoStream Returns Integer
+        Handle hDispatchDriver
+        Integer retVal
+        Get phDispatchDriver to hDispatchDriver
+        Send PrepareParams to hDispatchDriver 1
+        Send DefineParam to hDispatchDriver OLE_VT_DISPATCH lltoStream
+        Get InvokeComMethod of hDispatchDriver 135 OLE_VT_I4 to retVal
+        Function_Return retVal
+    End_Function
+
+    Function ComUnzipToStreamAsync Variant lltoStream Returns Variant
+        Handle hDispatchDriver
+        Variant retVal
+        Get phDispatchDriver to hDispatchDriver
+        Send PrepareParams to hDispatchDriver 1
+        Send DefineParam to hDispatchDriver OLE_VT_DISPATCH lltoStream
+        Get InvokeComMethod of hDispatchDriver 635 OLE_VT_DISPATCH to retVal
+        Function_Return retVal
+    End_Function
+
+    Function ComUnzipToBd Variant llbinData Returns Integer
+        Handle hDispatchDriver
+        Integer retVal
+        Get phDispatchDriver to hDispatchDriver
+        Send PrepareParams to hDispatchDriver 1
+        Send DefineParam to hDispatchDriver OLE_VT_DISPATCH llbinData
+        Get InvokeComMethod of hDispatchDriver 136 OLE_VT_I4 to retVal
+        Function_Return retVal
+    End_Function
+
+    Function ComUnzipToBdAsync Variant llbinData Returns Variant
+        Handle hDispatchDriver
+        Variant retVal
+        Get phDispatchDriver to hDispatchDriver
+        Send PrepareParams to hDispatchDriver 1
+        Send DefineParam to hDispatchDriver OLE_VT_DISPATCH llbinData
+        Get InvokeComMethod of hDispatchDriver 636 OLE_VT_DISPATCH to retVal
+        Function_Return retVal
+    End_Function
+
+    Function ComUnzipToSb Integer lllineEndingBehavior String llsrcCharset Variant llsb Returns Integer
+        Handle hDispatchDriver
+        Integer retVal
+        Get phDispatchDriver to hDispatchDriver
+        Send PrepareParams to hDispatchDriver 3
+        Send DefineParam to hDispatchDriver OLE_VT_I4 lllineEndingBehavior
+        Send DefineParam to hDispatchDriver OLE_VT_BSTR llsrcCharset
+        Send DefineParam to hDispatchDriver OLE_VT_DISPATCH llsb
+        Get InvokeComMethod of hDispatchDriver 137 OLE_VT_I4 to retVal
+        Function_Return retVal
+    End_Function
+
+    Function ComUnzipToSbAsync Integer lllineEndingBehavior String llsrcCharset Variant llsb Returns Variant
+        Handle hDispatchDriver
+        Variant retVal
+        Get phDispatchDriver to hDispatchDriver
+        Send PrepareParams to hDispatchDriver 3
+        Send DefineParam to hDispatchDriver OLE_VT_I4 lllineEndingBehavior
+        Send DefineParam to hDispatchDriver OLE_VT_BSTR llsrcCharset
+        Send DefineParam to hDispatchDriver OLE_VT_DISPATCH llsb
+        Get InvokeComMethod of hDispatchDriver 637 OLE_VT_DISPATCH to retVal
+        Function_Return retVal
+    End_Function
+
+    { MethodType=Property DesignTime=False }
+    Function ComIsAesEncrypted Returns Integer
+        Handle hDispatchDriver
+        Integer retVal
+        Get phDispatchDriver to hDispatchDriver
+        Get InvokeComMethod of hDispatchDriver 138 OLE_VT_I4 to retVal
+        Function_Return retVal
+    End_Function
+
+    { MethodType=Property DesignTime=False }
+    Function ComEncryptionKeyLen Returns Integer
+        Handle hDispatchDriver
+        Integer retVal
+        Get phDispatchDriver to hDispatchDriver
+        Get InvokeComMethod of hDispatchDriver 139 OLE_VT_I4 to retVal
+        Function_Return retVal
+    End_Function
+
+    Function ComLoadTaskCaller Variant lltask Returns Integer
+        Handle hDispatchDriver
+        Integer retVal
+        Get phDispatchDriver to hDispatchDriver
+        Send PrepareParams to hDispatchDriver 1
+        Send DefineParam to hDispatchDriver OLE_VT_DISPATCH lltask
+        Get InvokeComMethod of hDispatchDriver 140 OLE_VT_I4 to retVal
+        Function_Return retVal
+    End_Function
+End_Class
+
+// CoClass
+// ProgID: Chilkat_9_5_0.ZipEntry.1
+// CLSID: {69E3A666-7F49-4B53-A77F-A8D14217E442}
+// ChilkatZipEntry Class 9.5.0
+{ CLSID="{69E3A666-7F49-4B53-A77F-A8D14217E442}" }
+Class cComChilkatZipEntry is a cComActiveXControl
+    Import_Class_Protocol cComIChilkatZipEntry
+    Import_Class_Protocol cCom_IChilkatEvents
+
+    Procedure Construct_Object
+        Forward Send Construct_Object
+        Set psProgID to "{69E3A666-7F49-4B53-A77F-A8D14217E442}"
+        Set psEventId to "{91D24DB1-0F9E-4E77-B629-70BEE2F61D36}"
+        Set peAutoCreate to acAutoCreate
+    End_Procedure
+End_Class

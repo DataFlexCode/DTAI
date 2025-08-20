@@ -1,0 +1,112 @@
+Use claudeai.h
+
+// class to build a basic Claude Request with text and a file attached
+Register_Function psModelId Returns String
+
+Class cClaudeRequest is a cJsonObject
+
+    Procedure construct_object 
+        Forward Send Construct_Object
+    End_Procedure
+    
+    // create a JSON object for an Anthropic Claude AI request
+    //  a prompt is required and attachments are optional
+    //  attachments can be PDFs, images, or additional text
+    Function CreateClaudeApiRequest String sPrompt tClaudeAttachment[] Attachments Returns Handle 
+        Handle hoRoot hoMessages hoMessage hoContent hoDocument hoSource hoText
+        Integer iDoc
+        
+        // Create the root JSON object
+        Get Create (RefClass(cJsonObject)) to hoRoot
+        Send InitializeJsonType of hoRoot jsonTypeObject
+        
+        // Set top-level properties
+        // expects psModelId must exist in parent object
+        Send SetMemberValue of hoRoot "model" jsonTypeString (psModelId(Self))      
+        Send SetMemberValue of hoRoot "max_tokens" jsonTypeInteger 1024
+        
+        // Create the messages array of objects
+        Get Create (RefClass(cJsonObject)) to hoMessages
+        Send InitializeJsonType of hoMessages jsonTypeArray
+        Send SetMember of hoRoot "messages" hoMessages      
+        
+        // Create the first (and only) message object
+        Get Create (RefClass(cJsonObject)) to hoMessage
+        Send InitializeJsonType of hoMessage jsonTypeObject
+        Send AddMember of hoMessages hoMessage
+        
+        // Set message role
+        Send SetMemberValue of hoMessage "role" jsonTypeString "user"
+        
+        // Create the content array, this will contain the text prompt and any files associated
+        Get Create (RefClass(cJsonObject)) to hoContent
+        Send InitializeJsonType of hoContent jsonTypeArray
+        Send SetMember of hoMessage "content" hoContent
+        
+        If (SizeOfArray(Attachments)>0) Begin
+            // Create the document content object
+            For iDoc from 0 to (SizeOfArray(Attachments)-1)
+                Move False to Err
+                If (Attachments[iDoc].sMimeType='application/pdf') Send SetMemberValue of hoDocument "type" jsonTypeString "document"
+                Else If (Left(Attachments[iDoc].sMimeType,5)='image') Send SetMemberValue of hoDocument "type" jsonTypeString "image"
+                Else If (Left(Attachments[iDoc].sMimeType,4)='text') Send SetMemberValue of hoDocument "type" jsonTypeString "text"
+                Else Error DFERR_PROGRAM ("Unknown attachment type:"*Attachments[iDoc].sMimeType) 
+                //
+                // only attach document if we have a valid type
+                If (not(Err)) Begin
+                    // attach text attachments as... text 
+                    If (Left(Attachments[iDoc].sMimeType,4)='text') Begin
+                        Get Create (RefClass(cJsonObject)) to hoText
+                        Send InitializeJsonType of hoText jsonTypeObject
+                        
+                        Send AddMember of hoContent hoText
+                        Send SetMemberValue of hoText "type" jsonTypeString "text"
+                        Send SetMemberValue of hoText "text" jsonTypeString (UCharArrayToString(Attachments[iDoc].ubase64file))
+                        Send Destroy of hoText
+                        Send Destroy of hoContent
+                    End
+                    Else Begin
+                        // images and documents (PDFs) have the same object structure
+                        Get Create (RefClass(cJsonObject)) to hoDocument
+                        Send InitializeJsonType of hoDocument jsonTypeObject
+                        Send AddMember of hoContent hoDocument
+        
+                        // Create the source object for the document
+                        Get Create (RefClass(cJsonObject)) to hoSource
+                        Send InitializeJsonType of hoSource jsonTypeObject
+                        Send SetMember of hoDocument "source" hoSource
+                        If (Attachments[iDoc].sFileID<>'') Begin
+                            Send SetMemberValue of hoSource "type" jsonTypeString "base64"
+                            Send SetMemberValue of hoSource "file_id" jsonTypeString Attachments[iDoc].sFileID                                    
+                        End
+                        Else Begin
+                            Send SetMemberValue of hoSource "type" jsonTypeString "base64"
+                            Send SetMemberValue of hoSource "media_type" jsonTypeString Attachments[iDoc].sMimeType
+                            Send SetMemberValue of hoSource "data" jsonTypeString (uCharArrayToString(Attachments[iDoc].uBase64File))
+                        End
+                        Send Destroy of hoSource
+                        Send Destroy of hoDocument
+                    End
+                End
+            Loop
+        End
+        
+        // Create the text content object
+        Get Create (RefClass(cJsonObject)) to hoText
+        Send InitializeJsonType of hoText jsonTypeObject
+        
+        Send AddMember of hoContent hoText
+        Send SetMemberValue of hoText "type" jsonTypeString "text"
+        Send SetMemberValue of hoText "text" jsonTypeString sPrompt
+        
+        // Clean up objects
+        Send Destroy of hoText
+        Send Destroy of hoContent
+        Send Destroy of hoMessage
+        Send Destroy of hoMessages
+        
+        Function_Return hoRoot
+        
+    End_Procedure
+    
+End_Class

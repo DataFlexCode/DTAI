@@ -1,0 +1,17 @@
+**/*.dep
+**/*.prn
+**/*.cch
+**/*.eml
+**/*.dll
+**/*.dbg
+**/*.exe
+**/*.log
+**/*.pdf
+**/*.err
+**/*.env
+**/*.dat
+**/*.k*
+**/*.hdr
+**/*.tag
+**/*.vld
+IdeSrc/**

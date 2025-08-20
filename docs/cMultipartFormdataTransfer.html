@@ -1,0 +1,586 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="" xml:lang="">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>cMultipartFormdataTransfer</title>
+  <style>
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+        font-size: 12pt;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    svg {
+      height: auto;
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      border: none;
+      border-top: 1px solid #1a1a1a;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: min(4vw, 1.5em);}
+    div.column{flex: auto; overflow-x: auto;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+  </style>
+</head>
+<body>
+<h1
+id="cmultipartformdatatransfer-class-documentation">cMultipartFormdataTransfer
+Class Documentation</h1>
+<h2 id="overview">Overview</h2>
+<p>The <code>cMultipartFormdataTransfer</code> class is a specialized
+subclass of <code>cHttpTransfer</code> designed for uploading files and
+form data using HTTP multipart/form-data encoding. This class simplifies
+the process of creating and sending multipart HTTP POST requests, making
+it ideal for file upload scenarios and forms that combine text fields
+with file attachments.</p>
+<h2 id="inheritance">Inheritance</h2>
+<pre><code>cHttpTransfer (superclass)
+└── cMultipartFormdataTransfer</code></pre>
+<p>For detailed information about the parent class capabilities, refer
+to the <a
+href="https://docs.dataaccess.com/dataflexhelp/mergedProjects/VDFClassRef/cHttpTransfer.htm">cHttpTransfer
+documentation</a>.</p>
+<h2 id="key-features">Key Features</h2>
+<ul>
+<li><strong>File Upload Support</strong>: Upload multiple files with
+different content types</li>
+<li><strong>Form Data Integration</strong>: Combine files with
+traditional form field values</li>
+<li><strong>Memory Efficient</strong>: Reads large files in chunks to
+minimize memory usage</li>
+<li><strong>Automatic Boundary Generation</strong>: Handles multipart
+boundary creation automatically</li>
+<li><strong>Response Processing</strong>: Built-in methods to handle
+server responses as strings or JSON</li>
+<li><strong>Testing Support</strong>: Loopback testing mode for
+development and debugging</li>
+</ul>
+<h2 id="class-structure">Class Structure</h2>
+<h3 id="structs">Structs</h3>
+<h4 id="tpostfile">tPostfile</h4>
+<p>Represents a file to be uploaded:</p>
+<pre class="dataflex"><code>Struct tPostfile
+    String sPath         // Full path to the file
+    String sName         // Form field name for the file
+    String sContentType  // MIME content type (e.g., &quot;image/jpeg&quot;, &quot;text/plain&quot;)
+End_Struct</code></pre>
+<h4 id="tpostvalue">tPostValue</h4>
+<p>Represents a form field value:</p>
+<pre class="dataflex"><code>Struct tPostValue
+    String sName   // Form field name
+    String sValue  // Field value
+End_Struct</code></pre>
+<h3 id="properties">Properties</h3>
+<h4 id="public-properties">Public Properties</h4>
+<table>
+<colgroup>
+<col style="width: 26%" />
+<col style="width: 15%" />
+<col style="width: 23%" />
+<col style="width: 34%" />
+</colgroup>
+<thead>
+<tr>
+<th>Property</th>
+<th>Type</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>psBoundary</code></td>
+<td>String</td>
+<td>“—dfyoEniJtfokydpuyM7aT1”</td>
+<td>Multipart boundary string used to separate form parts</td>
+</tr>
+<tr>
+<td><code>pbClearHeaders</code></td>
+<td>Boolean</td>
+<td>True</td>
+<td>Whether to automatically clear HTTP headers between requests</td>
+</tr>
+<tr>
+<td><code>psContentTypeReceived</code></td>
+<td>String</td>
+<td>’’</td>
+<td>Content type of the received response (read-only)</td>
+</tr>
+<tr>
+<td><code>pbPostLoopTest</code></td>
+<td>Boolean</td>
+<td>False</td>
+<td>Testing mode - returns posted data instead of sending to server</td>
+</tr>
+</tbody>
+</table>
+<h4 id="private-properties">Private Properties</h4>
+<table>
+<colgroup>
+<col style="width: 34%" />
+<col style="width: 20%" />
+<col style="width: 44%" />
+</colgroup>
+<thead>
+<tr>
+<th>Property</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>paValues</code></td>
+<td>tPostValue[]</td>
+<td>Array of form field values</td>
+</tr>
+<tr>
+<td><code>paFiles</code></td>
+<td>tPostfile[]</td>
+<td>Array of files to upload</td>
+</tr>
+<tr>
+<td><code>paDataReceived</code></td>
+<td>Address</td>
+<td>Memory address of received response data</td>
+</tr>
+<tr>
+<td><code>piDataReceivedLength</code></td>
+<td>Integer</td>
+<td>Length of received response data</td>
+</tr>
+</tbody>
+</table>
+<h2 id="public-methods">Public Methods</h2>
+<h3 id="addformvalue">AddFormValue</h3>
+<p>Adds a form field value to the request.</p>
+<pre class="dataflex"><code>Procedure AddFormValue String sName String sValue</code></pre>
+<p><strong>Parameters:</strong> - <code>sName</code>: The form field
+name - <code>sValue</code>: The field value</p>
+<p><strong>Example:</strong></p>
+<pre class="dataflex"><code>Send AddFormValue &quot;username&quot; &quot;john_doe&quot;
+Send AddFormValue &quot;description&quot; &quot;File upload test&quot;</code></pre>
+<h3 id="addfile">AddFile</h3>
+<p>Adds a file to be uploaded.</p>
+<pre class="dataflex"><code>Procedure AddFile String sName String sPath String sContentType</code></pre>
+<p><strong>Parameters:</strong> - <code>sName</code>: The form field
+name for the file input - <code>sPath</code>: Full path to the file to
+upload - <code>sContentType</code>: MIME type of the file (e.g.,
+“image/jpeg”, “application/pdf”)</p>
+<p><strong>Example:</strong></p>
+<pre class="dataflex"><code>Send AddFile &quot;profile_image&quot; &quot;C:\Users\John\Pictures\avatar.jpg&quot; &quot;image/jpeg&quot;
+Send AddFile &quot;document&quot; &quot;C:\Documents\report.pdf&quot; &quot;application/pdf&quot;</code></pre>
+<h3 id="httppostfiles">HttpPostFiles</h3>
+<p>Performs the HTTP POST request with all added files and form
+values.</p>
+<pre class="dataflex"><code>Function HttpPostFiles String sHost String sFilePath Returns Boolean</code></pre>
+<p><strong>Parameters:</strong> - <code>sHost</code>: Target server
+hostname or IP address - <code>sFilePath</code>: Server path/endpoint
+for the upload</p>
+<p><strong>Returns:</strong> - <code>Boolean</code>: True if the request
+was successful, False otherwise</p>
+<p><strong>Example:</strong></p>
+<pre class="dataflex"><code>Boolean bOk
+Get HttpPostFiles &quot;api.example.com&quot; &quot;/upload/files&quot; to bOk
+If (bOk) Begin
+    // Handle successful upload
+End</code></pre>
+<h3 id="responsestring">ResponseString</h3>
+<p>Retrieves the server response as a properly converted string.</p>
+<pre class="dataflex"><code>Function ResponseString Returns String</code></pre>
+<p><strong>Returns:</strong> - <code>String</code>: Server response
+converted from UTF-8 to OEM codepage</p>
+<p><strong>Example:</strong></p>
+<pre class="dataflex"><code>String sResponse
+Get ResponseString to sResponse
+Showln &quot;Server responded: &quot; sResponse</code></pre>
+<h3 id="responsejson">ResponseJson</h3>
+<p>Parses the server response as JSON and returns a JSON object
+handle.</p>
+<pre class="dataflex"><code>Function ResponseJson Boolean ByRef bOk Returns Handle</code></pre>
+<p><strong>Parameters:</strong> - <code>bOk</code> (ByRef): Set to True
+if JSON parsing succeeded, False otherwise</p>
+<p><strong>Returns:</strong> - <code>Handle</code>: Handle to
+cJsonObject (must be destroyed even if parsing failed)</p>
+<p><strong>Example:</strong></p>
+<pre class="dataflex"><code>Boolean bJsonOk
+Handle hoJson
+String sMessage
+
+Get ResponseJson (&amp;bJsonOk) to hoJson
+If (bJsonOk) Begin
+    Get Member &quot;message&quot; of hoJson to sMessage
+    Showln &quot;JSON message: &quot; sMessage
+End
+If (hoJson) Begin
+    Send Destroy of hoJson
+End</code></pre>
+<h2 id="usage-examples">Usage Examples</h2>
+<h3 id="basic-file-upload">Basic File Upload</h3>
+<pre class="dataflex"><code>Object oUploader is a cMultipartFormdataTransfer
+End_Object
+
+// Add form fields
+Send AddFormValue of oUploader &quot;user_id&quot; &quot;12345&quot;
+Send AddFormValue of oUploader &quot;category&quot; &quot;documents&quot;
+
+// Add files
+Send AddFile of oUploader &quot;file1&quot; &quot;C:\temp\document.pdf&quot; &quot;application/pdf&quot;
+Send AddFile of oUploader &quot;file2&quot; &quot;C:\temp\image.jpg&quot; &quot;image/jpeg&quot;
+
+// Perform upload
+Boolean bOk
+Get HttpPostFiles of oUploader &quot;myserver.com&quot; &quot;/api/upload&quot; to bOk
+
+If (bOk) Begin
+    String sResponse
+    Get ResponseString of oUploader to sResponse
+    Showln &quot;Upload successful: &quot; sResponse
+End
+Else Begin
+    Integer iStatus
+    Get ResponseStatusCode of oUploader to iStatus
+    Showln &quot;Upload failed with HTTP status: &quot; iStatus
+End</code></pre>
+<h3 id="json-response-handling">JSON Response Handling</h3>
+<pre class="dataflex"><code>Object oUploader is a cMultipartFormdataTransfer
+End_Object
+
+// ... add files and form data ...
+
+Boolean bOk bJsonOk
+Handle hoJson
+String sStatus sMessage
+
+Get HttpPostFiles of oUploader &quot;api.example.com&quot; &quot;/upload&quot; to bOk
+
+If (bOk) Begin
+    Get ResponseJson of oUploader (&amp;bJsonOk) to hoJson
+    If (bJsonOk) Begin
+        Get Member &quot;status&quot; of hoJson to sStatus
+        Get Member &quot;message&quot; of hoJson to sMessage
+        Showln &quot;Status: &quot; sStatus &quot;, Message: &quot; sMessage
+    End
+    
+    If (hoJson) Begin
+        Send Destroy of hoJson
+    End
+End</code></pre>
+<h3 id="testing-mode-loopback">Testing Mode (Loopback)</h3>
+<pre class="dataflex"><code>Object oUploader is a cMultipartFormdataTransfer
+    Set pbPostLoopTest to True  // Enable testing mode
+End_Object
+
+// Add test data
+Send AddFormValue of oUploader &quot;test_field&quot; &quot;test_value&quot;
+Send AddFile of oUploader &quot;test_file&quot; &quot;test.txt&quot; &quot;text/plain&quot;
+
+// This will return the posted data without sending to server
+Boolean bOk
+Get HttpPostFiles of oUploader &quot;localhost&quot; &quot;/test&quot; to bOk
+
+If (bOk) Begin
+    String sResponse
+    Get ResponseString of oUploader to sResponse
+    Showln &quot;Loopback response: &quot; sResponse
+End</code></pre>
+<h2 id="content-type-examples">Content Type Examples</h2>
+<p>Common MIME types for different file formats:</p>
+<table>
+<thead>
+<tr>
+<th>File Type</th>
+<th>MIME Type</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>JPEG Image</td>
+<td><code>image/jpeg</code></td>
+</tr>
+<tr>
+<td>PNG Image</td>
+<td><code>image/png</code></td>
+</tr>
+<tr>
+<td>GIF Image</td>
+<td><code>image/gif</code></td>
+</tr>
+<tr>
+<td>PDF Document</td>
+<td><code>application/pdf</code></td>
+</tr>
+<tr>
+<td>Plain Text</td>
+<td><code>text/plain</code></td>
+</tr>
+<tr>
+<td>HTML</td>
+<td><code>text/html</code></td>
+</tr>
+<tr>
+<td>CSS</td>
+<td><code>text/css</code></td>
+</tr>
+<tr>
+<td>JavaScript</td>
+<td><code>application/javascript</code></td>
+</tr>
+<tr>
+<td>XML</td>
+<td><code>application/xml</code></td>
+</tr>
+<tr>
+<td>JSON</td>
+<td><code>application/json</code></td>
+</tr>
+<tr>
+<td>ZIP Archive</td>
+<td><code>application/zip</code></td>
+</tr>
+<tr>
+<td>Microsoft Word</td>
+<td><code>application/msword</code></td>
+</tr>
+<tr>
+<td>Microsoft Excel</td>
+<td><code>application/vnd.ms-excel</code></td>
+</tr>
+<tr>
+<td>Video (MP4)</td>
+<td><code>video/mp4</code></td>
+</tr>
+<tr>
+<td>Video (MOV)</td>
+<td><code>video/quicktime</code></td>
+</tr>
+<tr>
+<td>Audio (MP3)</td>
+<td><code>audio/mpeg</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="error-handling">Error Handling</h2>
+<p>The class inherits error handling capabilities from
+<code>cHttpTransfer</code>. Common error scenarios include:</p>
+<ol type="1">
+<li><strong>Network Errors</strong>: Check the return value of
+<code>HttpPostFiles</code></li>
+<li><strong>HTTP Status Errors</strong>: Use
+<code>ResponseStatusCode</code> to get HTTP status codes</li>
+<li><strong>File Access Errors</strong>: Ensure files exist and are
+readable before calling <code>AddFile</code></li>
+<li><strong>Memory Allocation</strong>: The class handles memory
+management internally, but large files may cause issues on systems with
+limited memory</li>
+</ol>
+<pre class="dataflex"><code>Boolean bOk
+Integer iStatus
+
+Get HttpPostFiles of oUploader &quot;server.com&quot; &quot;/upload&quot; to bOk
+
+If (not bOk) Begin
+    Get ResponseStatusCode of oUploader to iStatus
+    Case Begin
+        Case (iStatus = 404)
+            Showln &quot;Endpoint not found&quot;
+        Case (iStatus = 413) 
+            Showln &quot;File too large&quot;
+        Case (iStatus = 500)
+            Showln &quot;Server error&quot;
+        Case_Else
+            Showln &quot;HTTP Error: &quot; iStatus
+    Case End
+End</code></pre>
+<h2 id="best-practices">Best Practices</h2>
+<ol type="1">
+<li><p><strong>Memory Management</strong>: The class automatically
+manages memory for response data, but ensure you destroy JSON objects
+returned by <code>ResponseJson</code></p></li>
+<li><p><strong>File Paths</strong>: Use full absolute paths for files to
+avoid path resolution issues</p></li>
+<li><p><strong>Content Types</strong>: Specify accurate MIME types for
+better server-side processing</p></li>
+<li><p><strong>Testing</strong>: Use the loopback mode
+(<code>pbPostLoopTest</code>) during development to test your multipart
+data structure</p></li>
+<li><p><strong>Error Handling</strong>: Always check the return value of
+<code>HttpPostFiles</code> and handle different HTTP status codes
+appropriately</p></li>
+<li><p><strong>Headers</strong>: If you need custom headers, set
+<code>pbClearHeaders</code> to False and manage headers
+manually</p></li>
+<li><p><strong>Large Files</strong>: The class reads files in 1MB chunks
+to handle large files efficiently, but be aware of server upload
+limits</p></li>
+</ol>
+<h2 id="security-considerations">Security Considerations</h2>
+<ol type="1">
+<li><strong>File Validation</strong>: Validate file types and sizes
+before upload</li>
+<li><strong>Path Sanitization</strong>: Ensure file paths don’t contain
+malicious content</li>
+<li><strong>Authentication</strong>: Use inherited
+<code>cHttpTransfer</code> properties for authentication when
+required</li>
+<li><strong>HTTPS</strong>: For sensitive data, use HTTPS by setting
+appropriate transfer flags in the parent class</li>
+</ol>
+<h2 id="revision-history">Revision History</h2>
+<ul>
+<li><strong>Version 0.1</strong> (DAE 2017/02/21): Initial
+implementation by HW</li>
+</ul>
+<hr />
+<p><em>This documentation is based on the cMultipartFormdataTransfer
+class implementation and the TestFileUpload.vw example. For additional
+HTTP transfer capabilities, refer to the cHttpTransfer class
+documentation.</em></p>
+</body>
+</html>

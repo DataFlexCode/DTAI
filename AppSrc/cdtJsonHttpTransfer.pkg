@@ -1,0 +1,92 @@
+Use cJsonHttpTransfer.pkg
+Use cJSON_Mixin.pkg
+
+Class cdtJsonHttpTransfer is a cJsonHttpTransfer
+    
+    Import_Class_Protocol cJson_mixin
+
+    Procedure construct_object
+        Forward Send Construct_Object
+        // 
+        Property String psSiteName ''           // support debugging with web apps, psSiteName gets inserted in front of all URLs
+        Property String psLastRequestUrl ''        
+        Property String psLastVerb ''
+
+        Send define_cJson_mixin
+    End_Procedure
+
+    // get the data received into a string, useful if non-JSON data is returned
+    //      
+    Function DataReceived Returns String
+        Integer iLen
+        Boolean bOk
+        String sRetVal
+
+#IF (!@>191) 
+        UChar[] uDataReceived
+        Get pucDataReceived to uDataReceived
+        Move (UCharArrayToString(uDataReceived)) to sRetVal
+#ELSE        
+        Address aDataReceived
+        Get paDataReceived to aDataReceived
+        If (aDataReceived) Begin
+            Move (CString(aDataReceived)) to sRetVal
+        End
+#ENDIF        
+        Function_Return sRetVal
+    End_Function
+
+    // to support logging the actual URL hit, set psLastRequestURL
+    Function HttpVerbJson String sHost String sFilePath Handle hoJsonRequest String sVerb Boolean ByRef bOk Returns Handle
+        Handle hoResponse
+        String sSite        
+        // for debugging with WebApps
+        Get psSiteName to sSite
+        If (sSite<>'') Move (sSite+'/'+sFilePath) to sFilePath
+        Set psLastRequestURL to (sHost+'/'+sFilePath)
+        Set psLastVerb to sVerb
+        Forward Get HttpVerbJson sHost sFilePath hoJsonRequest sVerb (&bOk) to hoResponse
+        Function_Return hoResponse
+    End_Function
+
+    // a substitute for TransferErrorDescription that provides a little more information
+    Function psJsonTransferStatus Returns String 
+        Integer iJsonTransferStatus
+        String sStatus
+            
+        Get peJsonTransferStatus to iJsonTransferStatus
+        If (iJsonTransferStatus=jtsOk) Move "Response succeeded/no data returned" to sStatus
+        If (iJsonTransferStatus=jtsNotJson) Move ('Return value not JSON:\n'*psJsonParseError(Self)) to sStatus
+        If (iJsonTransferStatus=jtsError) Move 'Unspecified error' to sStatus
+        If (iJsonTransferStatus=jtsInvalidContentType) Move ('Response content type: '+psContentTypeReceived(Self)+', expected: '+psContentTypeExpected(Self)) to sStatus
+        If (iJsonTransferStatus=jtsHttpRequestFailed) Move ('HTTP request failed:'*psLastRequestURL(Self)+"\nResponse code:"+String(ResponseStatusCode(Self))) to sStatus
+        If (sStatus<>'') Move (psLastVerb(Self)*sStatus) to sStatus
+        Else Move "Unknown Transfer Status" to sStatus
+
+        Function_Return sStatus        
+    End_Function
+
+    Procedure DisplayUIGRESTError Handle hoResponse
+        Handle hoErrorList hoError
+        Integer iError iErrorCount
+        String sErrorNum sErrorLine sErrorTable sErrorMsg sErrorColumn
+        
+        Get Member of hoResponse "errors" to hoErrorList
+        Get MemberCount of hoErrorList to iErrorCount
+        For iError from 0 to (iErrorCount-1)
+            Get MemberByIndex of hoErrorList iError to hoError
+            Get MemberValue of hoError "errMsg" to sErrorMsg
+            Get MemberValue of hoError "errNum" to sErrorNum
+            Get MemberValue of hoError "errLine" to sErrorLine
+            Get MemberValue of hoError "errTable" to sErrorTable
+//            Get MemberValue of hoError "errColumn" to sErrorColumn
+            Send Stop_Box ("Error #"*sErrorNum*sErrorMsg+'\n'+;
+                "Line #"*sErrorLine*"\n"+;
+                If(sErrorTable<>'0',"Table #:"*sErrorTable+'\n','')+;
+                If(sErrorColumn<>'0',"Column #:"*sErrorColumn+'\n',''))
+                
+            Send Destroy of hoError
+        Loop
+        Send Destroy of hoErrorList
+    End_Procedure
+End_Class

@@ -1,0 +1,202 @@
+DATAFLEX RULES
+==============
+
+# Dataflex basics
+- in Dataflex, a line that ends with a semicolon is continued on the next line
+- The second parameter of the MID function is the length of the substring, not the position
+- structs are defined using the STRUCT command and end with the END_STRUCT command
+- a struct variable is declared by simply adding a line with [struct_name] [variable_name]
+- For each database table that DataFlex knows about, there is a global record buffer that can reference a single row in the table.
+- Database tables 
+- Columns are referenced by using the syntax "[table_name].[column_name]"
+- For each table, there is a ".FD" file that contains the column definitions.
+- The ".FD" files are located in the "DDsrc" subdirectory of the project.
+- When suggesting column names after typing a table name and a period, use the column names in the ".FD" file
+- The format of the ".FD" file is:  #REPLACE [table_name].[column_name] |F[type][file_number],[column_number]
+- The [Type] is one of the following:
+  - N - Number
+  - D - Date
+  - S - String
+- All tables in Dataflex are assigned a table number, this is referenced as "[table_name].File_Number"
+- Table numbers range from 1 to 4095
+- literal strings may be enclosed either in single quotes or double quotes
+- to include a single quote in a literal string, use double quotes to enclose the string
+- to incldue a double quote in a literal string, use single quotes to enclose the string
+- Do not include an exclamation point (!) in a literal string, instead use the function character(33)
+- String expressions must be enclosed in parenthesis
+
+#Procedure and Function declarations
+- Procedures are declared using the "PROCEDURE" command followed by the procedure name and parameters.
+- A Procedure to set a property values is declared using "PROCEDURE SET" followed by the procedure name.
+- Functions are declared using the "FUNCTION" command followed by the function name, parameters the keyword "RETURNS" and return type
+- Parameters are listed with the type followed by the name of the parameter.
+- Parameters can be passed by value or by reference.
+- Parameters passed by reference are declared with the "BYREF" keyword after the type
+- All local variables declared in a procedure of function should be declared at the beginning of the procedure or function
+- All local variables will automatically be deallocated automatically when the procedure or function ends
+- Arrays do not need to be initialized or set to a specific size, they will be automatically allocated when the procedure or function starts
+
+#Object properties
+##Declaring properties
+- properties are declared using the "PROPERTY" command followed by the type, name and default value
+##Setting property values
+- Property values are set using the "Set" command followed by the property name, the keyword "TO" and the value.
+##Getting property values
+- To get the value of a property, use the "Get" command followed by the property name and the local variable to store the value.
+##Getting and setting properties for a specific object
+- When getting or setting a property for a specific object, use the keyword "OF" followed by the object name after the property name.
+- The syntax for getting a property is: "Get [property name] OF [object name] to [variable]"
+- The syntax for setting a property is: "Set [property name] OF [object name] to [value]"
+- If the object name is used when getting or setting a property, the property will either be a property of the current object or a property of a parent object
+##Private properties
+- A property that starts with an underscore is a private property and should not be accessed directly via the "Get" or "Set" commands out side of the class definition
+- Automatically create a "procedure set" to set the private property value, using the property name without the underscore, for example:
+  - Procedure SET [property name] String sLabel
+      SET _[property name] to sLabel
+    End_Procedure
+
+- Automatically create a function to get the private property value, using the property name without the underscore, for example:
+  - Function [property name] RETURNS String
+      String sLabel
+      Get _[property name] to sLabel
+      Function_return return sLabel
+    End_Function
+
+
+#Naming conventions
+- Object names are prefixed with "o"
+- Class names are prefixed with "c"
+
+##Variable naming conventions
+- Array variables are prefixed with "a" before the type prefix
+- Boolean variables are prefixed with "b"
+- Integer variables are prefixed with "i"
+- Number variables are prefixed with "n"
+- Handle variables are prefixed with "h"
+- String variables are prefixed with "s"
+- Date variables are prefixed with "d"
+- DateTime variables are prefixed with "dt"
+- Rowid variables are prefixed with "ri"
+
+##Property naming conventions
+- Property names are prefixed with "p"
+- Array properties are prefixed with "pa"
+- Struct properties are prefixed with "p"
+- Integer, number, string, date, datetime, and rowid properties have the same prefixes as variables after the "p"
+- When a property name starts with an underscore, it is a private property and should not be accessed directly.
+- Automatically create a procedure set to set the private property value and a function to get the private property value
+
+# Creating a new Dataflex subclass
+- Create a new Dataflex subclass by extending an existing class.
+- Add properties to the subclass to store the data for the new class in the construct_object method
+- Define any child objects in the construct_object method.
+- Keyboard shortcuts defined with the ON_KEY command should be defined in the construct_object method.
+- If child objects need their own procedures, these must be defined in the subclass that the child object is based on.
+
+# Convert DataFlex objects to classes
+- The class name should be prefixed with a "c"
+- Any properties defined inside an object need to go into the construct_object method
+- Any code that initializes properties for an object should be moved to the construct_object method.
+- Any procedures defined inside an object need to go into the subclass that the object is based on.
+- If the child objects have their own procedures, first create a subclass for the child object and define the procedures in that subclass.
+- Any child objects defined inside an object need to be defined in the construct_object method.
+
+#Modernizing Dataflex code
+- Change all references to current_object to self
+- Remove comments that start with //AB/
+- In expressions:
+  - Update conditionals that use the EQ operator to use the "=" operator, enclose the condition in parentheses
+  - Update conditionals that use the NE operator to use the "<>" operator, enclose the condition in parentheses
+  - Update conditionals that use the GT operator to use the ">" operator, enclose the condition in parentheses
+  - Update conditionals that use the LT operator to use the "<" operator, enclose the condition in parentheses
+  - Update conditionals that use the GE operator to use the ">=" operator, enclose the condition in parentheses
+  - Update conditionals that use the LE operator to use the "<=" operator, enclose the condition in parentheses
+- In FIND commands, leave the EQ, GT, LT, GE, and LE operators unchanged.
+
+##Modernizing Dataflex string commands
+- The APPEND command can be replaced with the "+" operator, APPEND A B is the equivalent of MOVE (A+B) to A
+- The APPEND command can take mulitple parameters, APPEND A B C is the equivalent of MOVE (A+B+C) to A
+- The APPEND function can be also be used and will implicity convert non-string parameters to strings.
+- The ParseString2 function can be replaced with the StrSplitToArray function.
+- The ConcatenateStringArray function can be replaced with the StrJoinFromArray function
+
+##Updating RECNUM based code to use RowIds
+- Both RECNUM and RowId can be used to reference a single row in a database table
+- RECNUMs are used for embedded DataFlex tables
+- SQL tables do not need a RECNUM column.  They may have one but it is not required
+- If a SQL table has a RECNUM column, it is the identity column that is automatically generated by the SQL Server.
+- RowIDs can be used with both RECNUM and Non-RECNUM tables 
+- To get the RowID of the record currently in the global record buffer, use the function GetRowID
+- GetRowID usage:  Move (GetRowid([table number])) to [rowid variable]
+- To declare an array of RowIDs, use the syntax "RowId[] ari[table_name]"
+- To declare a property of an array of RowIDs, use the syntax "RowId[] pari[table_name]"
+- To Find a record using a Rowid, use the FindByRowID global function.  The parameters are the table number and the RowID and it returns a boolean value.
+- FindByRowID usage:  Move (FindByRowId([table number],[RowID])) to [boolean variable]
+- the table number is referenced as "[table_name].File_Number"
+- The FindByRowId function will set the FOUND indicator based on whether a record was found.
+
+# Adding SQL filters to an existing Dataflex REPEAT/FIND/UNTIL loop
+- A REPEAT/FIND/UNTIL loop consists of code to initialize the global record buffer of the table that is being found, a REPEAT command to begin the loop, a FIND or VFIND command to find the next record, selection logic to determine if the record should be processed, and a UNTIL command to terminate the loop.
+- SQL filters are only used if the pbSQL(self) property is true
+- SQL filters are added via the command set_attribute DF_FILE_SQL_FILTER OF [table number] to [string with SQL test]
+- The table number is referenced as "[table name].File_Number"
+- The SQL filter is activate by setting the DF_FILE_SQL_FILTER_ACTIVE attribute to 1.
+- The SQL filter is deactivated by setting the DF_FILE_SQL_FILTER_ACTIVE attribute to 0.
+- SQL filters should be activated before the loop and deactivated after the loop.
+- SQL filters are used to improve find performance by adding tests on columsn that are not part of the index that can be done by the SQL Server.
+
+# Code refactoring
+## Extracting code from a procedure to create new procedure
+- Determine what local variables are used in the code
+- Determine what local variables need to be parameters that are passed to the new procedure
+- Any local variables that are initialized in the code can be declared as local variables in the new procedure.
+- Any local variables that are modified in the code and used after that code can be passed as byref parameters.
+
+## Refactoring old DataFlex code to modern DataFlex code.
+
+### Refactoring Dataflex array objects to use struct arrays.
+- Dataflex array objects include Array and dtArray classes (dtarray is a datatech specific class).
+- When multiple arrays objects are used to store related data, refactor to use a struct array.
+ - Each array object stores one member of the struct.
+ - The struct definition should have a member corresponding to each array object.
+ - The same item numbers for each array object are used to store related data.
+
+- When a single array object is used to store related data, refactor to use a struct.
+  - The items in the array objects may store different types of data.
+  - The struct definition should have a member for each item of data.
+  - For a dtarray, the add_values method may be used to add mulitple data items to the array.
+  - Data items are retrieved from the array using an index multipled by the number of items in the struct.
+  - The struct definition should have a member for each type of data.
+  
+### Refactoring FIND loops to use booleans instead of obsolete indicators FOUND and SELECT
+- Indicators are used to control the flow of a program.
+- Indicators are tested by the use of square brackets at the beginning of a line.
+- When refactoring, first convert obsolete syntax detailed below to expressions
+  - The INDICATE command is used to set the value of an indicator, "INDICATE [indicator] [value]" can be rewritten as "MOVE [value] TO [indicator]"
+  - The INDICATE command can also be used with an expression, "INDICATE [indicator] AS [expression]" can be rewritten as "MOVE ([expression]) TO [indicator]"
+  - Comparison operations used in INDICATE expressionscan be rewritten using the "=", "<>", ">", ">=", "<", "<=" operators to replace the EQ, NE, GT, GE, LT, and LE operators.
+  - "[FOUND]" is equivalent to "if (Found)"
+  - "[FOUND SELECT]" is equivalent to "if (found and select)"
+  - The tilde (~) is used to negate the indicator that it appears before.
+  - "[FOUND ~SELECT]" is equivalent to "if (found and not(select))"
+  - "[FOUND] loop" is equivalent to "until (not(found))"
+  - "[~FINDERR] loop" is equivalent to "until (not(found))"
+  - The FINDERR indicator is always equivalent to "[~FOUND]"
+  - "If (Found) indicate Found as [expression]" can be rewritten as "Move (Found and [expression]) to Found"
+- After updating the syntax, replace the indicators with boolean variables.
+- The FOUND indicator is set by each FIND or VFIND statement
+- The first reference to the FOUND indicator can be retained, but it should be moved to the bFound boolean variable.
+- Subsequent references to the FOUND indicator can be replaced with references to the bFound variable.
+- After the last statement that sets the bFound variable, a new block can be started if there are additional statements that set the value of the bSelect variable
+- After a FIND or VFIND statement, replace references to FOUND with references to the bFound variable.
+- Tests that set the FOUND indicator are based on columns that are in the index being used by the FIND or VFIND statement.
+- The SELECT indicator should be replaced with the bSelect boolean variable.
+- Tests on the SELECT indicator are on columns that are not in the index being used by the FIND or VFIND statement.
+- The bSelect variable should be tested in a new block after the last statement that sets the bFound variable.
+- In multi level FIND loops, add the table name to the bFound and bSelect variables to avoid conflicts.
+- When there are multiple tests for the bSelect variable, keep the tests in the same block.
+- When there are multiple tests for the bFound variable, keep the tests in the same block.
+- Always enclose tests on bFound and bSelect in parentheses, for example: Use "if (bFound)" instead of "if found", "until (not(bFound))" instead of "until not(bFound)".
+- After an inner loop that is terminated with "until (not(bFound))" add a line to set bFound to true
+- After an outer loop that is terminated with "until (not(bFound))" it is not necessary to set bFound to true.
+

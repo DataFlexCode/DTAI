@@ -1,0 +1,66 @@
+Global_Variable Handle ghoEnvironment
+
+Class cEnvironment is a cObject
+
+    Procedure construct_object
+        Forward Send Construct_Object
+        Property String[][] pasEnvironment 
+
+        Move Self to ghoEnvironment
+    End_Procedure
+
+    Procedure end_construct_object
+        Forward Send End_Construct_Object
+        
+        Send ReadEnvironmentVariables        
+    End_Procedure
+
+    Procedure ReadEnvironmentVariables
+        String sProgram sProgramPath sEnv sEnvValue
+        String[][2] asEnv
+        Boolean bExist
+        Handle hoWorkspace
+        Integer i iCnt
+        
+        Get phoWorkspace of ghoApplication to hoWorkspace
+        Get psProgram of ghoApplication to sProgram
+        
+        Get psProgramPath of hoWorkspace to sProgramPath
+        If (sProgramPath='') Get_Current_Directory to sProgramPath
+        Move (sProgrampath+'\'+sProgram+".env") to sProgram
+        File_Exist sProgram bExist
+        If (bExist) Begin
+            Direct_Input sProgram
+            While (not(SeqEof))
+                Readln asEnv[SizeofArray(asEnv)][0]
+            Loop
+            Close_Input
+
+            For i from 0 to (SizeOfArray(asEnv)-1)
+                Move (StrSplitToArray(asEnv[i][0],'=')) to asEnv[i]
+                Move (Lowercase(asEnv[i][0])) to asEnv[i][0]
+            Loop
+        End
+        
+        Set pasEnvironment to asEnv
+    End_Procedure
+    
+    Function EnvironmentVariable String sName Returns String
+        String[][] asEnv
+        String[][] sSearch
+        Integer i iCnt
+        String sRetVal
+        
+        Get pasEnvironment to asEnv
+        Move (Lowercase(sName)) to sName
+        Move (SizeOfArray(asEnv)) to iCnt
+        For i from 0 to (iCnt-1)
+            If (asEnv[i][0]=sName) Move asEnv[i][1] to sRetVal
+        Loop
+        
+        If (sRetVal='') Get_Environment sName to sRetVal
+
+        Function_Return sRetVal
+    End_Function
+End_Class
+

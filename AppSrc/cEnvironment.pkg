@@ -1,3 +1,6 @@
+// Global handle to the environment object that manages environment variables
+// This is set in the cEnvironment constructor and can be used to access environment variables
+// from anywhere in the application
 Global_Variable Handle ghoEnvironment
 
 Class cEnvironment is a cObject
@@ -15,6 +18,11 @@ Class cEnvironment is a cObject
         Send ReadEnvironmentVariables        
     End_Procedure
 
+    // Reads environment variables from a .env file in the application directory
+    // The .env file should contain key=value pairs, one per line
+    // The keys are converted to lowercase for case-insensitive lookups
+    // The environment variables are stored in the pasEnvironment property
+    // If no .env file exists, pasEnvironment will be empty
     Procedure ReadEnvironmentVariables
         String sProgram sProgramPath sEnv sEnvValue
         String[][2] asEnv
@@ -45,19 +53,29 @@ Class cEnvironment is a cObject
         Set pasEnvironment to asEnv
     End_Procedure
     
+    // Returns the value of an environment variable by looking first in the .env file
+    // and then in the system environment variables if not found in .env
+    // Parameters:
+    //   sName - Name of environment variable to look up (case-insensitive)
+    // Returns:
+    //   String value of environment variable or empty string if not found
     Function EnvironmentVariable String sName Returns String
         String[][] asEnv
         String[][] sSearch
         Integer i iCnt
         String sRetVal
         
+        // Get environment variables array from .env file
         Get pasEnvironment to asEnv
+        // Convert name to lowercase for case-insensitive comparison
         Move (Lowercase(sName)) to sName
         Move (SizeOfArray(asEnv)) to iCnt
+        // Search through .env variables
         For i from 0 to (iCnt-1)
             If (asEnv[i][0]=sName) Move asEnv[i][1] to sRetVal
         Loop
         
+        // If not found in .env, check system environment variables
         If (sRetVal='') Get_Environment sName to sRetVal
 
         Function_Return sRetVal

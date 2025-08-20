@@ -363,7 +363,7 @@ Class cMultipartFormdataTransfer is a cHttpTransfer
         Address aDataReceived
         Integer iReceived iLen
         String sResult
-        UChar ucJsonReceived
+        UChar[] ucJsonReceived
         Handle hoJson
         Boolean bRes
         

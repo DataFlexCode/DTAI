@@ -26,6 +26,7 @@ Class cClaudeInterface is a cdtJsonHttpTransfer
         Property String psApiKey (EnvironmentVariable(ghoEnvironment,'claude-api-key')) // "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" to iRetVal
         Property String psAnthropicVersion "2023-06-01"
         Property String psModelId "claude-sonnet-4-20250514"
+        Property Integer piMaxTokens 1024
         // set to true if using files API
         Property Boolean pbEnableFilesApi False
         
@@ -48,7 +49,7 @@ Class cClaudeInterface is a cdtJsonHttpTransfer
         If (pbEnableFilesApi(Self)) Get AddHeader "anthropic-beta" "files-api-2025-04-14" to iRetVal
     End_Procedure
     
-    Function MakeClaudeRequest Handle hoRequest Returns Handle
+    Function MakeRequest Handle hoRequest Returns Handle
         Integer iRetVal
         Handle hoResponse hoError
         String sResponseType sMessage

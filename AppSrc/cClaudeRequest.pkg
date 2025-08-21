@@ -1,7 +1,10 @@
 Use claudeai.h
 
 // class to build a basic Claude Request with text and a file attached
+
+// these properties/functions should exist in parent class that handles making the request
 Register_Function psModelId Returns String
+Register_Function piMaxTokens Returns Integer 
 
 Class cClaudeRequest is a cJsonObject
 
@@ -23,7 +26,7 @@ Class cClaudeRequest is a cJsonObject
         // Set top-level properties
         // expects psModelId must exist in parent object
         Send SetMemberValue of hoRoot "model" jsonTypeString (psModelId(Self))      
-        Send SetMemberValue of hoRoot "max_tokens" jsonTypeInteger 1024
+        Send SetMemberValue of hoRoot "max_tokens" jsonTypeInteger (piMaxTokens(Self))
         
         // Create the messages array of objects
         Get Create (RefClass(cJsonObject)) to hoMessages

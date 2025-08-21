@@ -1,6 +1,9 @@
 Use cJsonHttpTransfer.pkg
 Use cJSON_Mixin.pkg
 
+External_Function InternetSetOption   "InternetSetOptionA" wininet.dll Handle hInet DWord dwOption Pointer buf DWord bufLen Returns Boolean
+External_Function InternetQueryOption "InternetQueryOptionA" wininet.dll Handle hInet DWord dwOption Pointer buf DWord bufLen Returns Boolean
+
 Class cdtJsonHttpTransfer is a cJsonHttpTransfer
     
     Import_Class_Protocol cJson_mixin
@@ -89,4 +92,29 @@ Class cdtJsonHttpTransfer is a cJsonHttpTransfer
         Loop
         Send Destroy of hoErrorList
     End_Procedure
+    
+    // added because Grok is SLOOOOWWW
+    // https://support.dataaccess.com/Forums/showthread.php?53291-cHttpTransfer-and-TimeOuts&highlight=cHttpTransfer+timeout
+    Procedure SetTimeout Integer iSeconds
+        Handle hInet
+        Integer  iSize  val retval
+        Pointer valPtr
+        String tmp
+        //
+        // Following code set the timeout values
+        
+        Move "XXXXX" to tmp              // Make room for the response in memmory.
+        Move 0 to val                    // Make room for the response in memmory.
+        Move (AddressOf(val)) to valptr  // Set up the pointer in memory for the response
+              
+        Get RootHandle to hInet          // What Http/ftp transfer object are we using - SELF
+        Move ( SizeOfType(Integer)) to iSize               
+        Move (iSeconds*1000) to val     // 30 second timeout
+        Move (AddressOf(val)) to valptr             // Identify pointer to the value
+         
+        Move (InternetSetOption( Addressof(hInet), 2, valptr, Addressof(iSize) )) to tmp   // data receive timeout ??
+        Move (InternetSetOption( Addressof(hInet), 5, valptr, Addressof(iSize ))) to tmp   // data send timeout ??
+        Move (InternetSetOption( Addressof(hInet), 6, valptr, Addressof(iSize) )) to tmp   // connect time out ??
+        
+     End_Procedure
 End_Class

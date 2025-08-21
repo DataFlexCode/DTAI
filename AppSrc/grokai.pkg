@@ -1,0 +1,117 @@
+Use claudeai.h      // for Anthropic messages structs
+Use grokai.h        // Grok AI model list
+Use cEnvironment.pkg
+Use cJsonObject.pkg
+Use cdtJsonHttpTransfer.pkg
+Use cClaudeRequest.pkg // Consider renaming to cGrokRequest.pkg
+Use cMarkdown_mixin.pkg
+
+If (ghoEnvironment=0) Begin
+    Object oEnvironment is a cEnvironment
+    End_Object
+End
+
+Class cGrokInterface is a cdtJsonHttpTransfer // Renamed class for clarity
+
+    Import_Class_Protocol cMarkdown_mixin
+    
+    Procedure construct_object
+        Forward Send Construct_Object
+        
+        Send define_cMarkdown_mixin
+        
+        Set peTransferFlags to ifSecure
+        Set piRemotePort to rpHttpSSL
+        
+        Property String psHost "api.x.ai" // Updated to xAI API endpoint
+        Property String psApiKey (EnvironmentVariable(ghoEnvironment,'grok-api-key')) // Updated environment variable
+        Property String psModelId "grok-4-0709" // Updated to Grok model ID
+        Property Integer piMaxTokens 256000
+        
+        // Removed pbEnableFilesApi unless confirmed supported by xAI API
+        
+        Object oGrokRequest is a cClaudeRequest // Consider renaming to cGrokRequest
+        End_Object
+    End_Procedure
+
+    Procedure end_construct_object
+        Forward Send End_Construct_Object
+    End_Procedure
+
+ 
+    Procedure AddStandardHeaders String sContentType
+        Integer iRetVal 
+        Set pbClearHeaders to False
+        Send ClearHeaders
+        String sContentTypeSent
+        Get psContentTypeSent to sContentTypeSent
+        Set psContentTypeSent to "application/json" 
+        
+        Get AddHeader "Cache-Control" "no-cache" to iRetVal
+        Get AddHeader "Accept" "*/*" to iRetVal
+        Get AddHeader "Authorization" ("Bearer "+psApiKey(Self)) to iRetVal // Updated to Bearer token
+        // Removed anthropic-version and anthropic-beta headers
+    End_Procedure
+    
+    Function MakeRequest Handle hoRequest Returns Handle
+        Integer iRetVal
+        Boolean bError
+        Handle hoResponse hoError
+        String sResponseType sMessage
+        Boolean bOk
+        
+        Send SetTimeout 45
+        
+        Send AddStandardHeaders
+        Get httpPostJson (psHost(Self)) "v1/messages" hoRequest (&bOk) to hoResponse
+        If (not(bOk)) Begin
+            If (left(psContentTypeReceived(Self),10)='text/plain') Begin
+                Send info_box (DataReceived(Self)) "Text Response"
+            End
+            Send UserError (TransferErrorDescription(Self)) "Transfer failed!"
+        End
+        Else Begin
+            Send RemoveNullMembers hoResponse
+            // Check for error and display
+            Get HasMember of hoResponse 'error' to bError
+            If (bError) Begin
+                Get MemberValue of hoResponse "code" to sResponseType
+                Get MemberValue of hoResponse "error" to sMessage
+                Send Stop_Box sMessage sResponseType                
+            End
+        End
+        Function_Return hoResponse
+    End_Function
+    
+    Function GrokModelList Returns tGrokModelList // Consider renaming tClaudeModelList to tGrokModelList
+        Boolean bOk
+        Handle hoResponse
+        tGrokModelList ModelList
+        
+        Send AddStandardHeaders
+        Get HttpGetJson (psHost(Self)) "v1/models" (&bOk) to hoResponse // Verify endpoint with xAI API docs
+        If (not(bOk)) Begin
+            Send UserError (TransferErrorDescription(Self)) "Transfer failed!"
+        End
+        Else Begin
+            Get JsonToDataType of hoResponse to ModelList
+            Send Destroy of hoResponse
+        End
+        Function_Return ModelList
+    End_Function
+    
+    Function CreateGrokApiRequest String sPrompt tClaudeAttachment[] Attachments Returns Handle 
+        Handle hoRequest
+        tClaudeAttachment[] NoAttachments
+        
+        If (num_arguments=1) Get CreateClaudeApiRequest of (oGrokRequest(Self)) sPrompt NoAttachments to hoRequest
+        If (num_arguments=2) Get CreateClaudeApiRequest of (oGrokRequest(Self)) sPrompt Attachments to hoRequest // Verify file support
+        Function_Return hoRequest
+    End_Function
+End_Class
+
+Global_Variable Handle ghoGrokAI
+
+Object oGrokAI is a cGrokInterface 
+    Move Self to ghoGrokAI
+End_Object

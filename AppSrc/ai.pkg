@@ -1,0 +1,49 @@
+Use ai.h
+Use cdtJsonHttpTransfer.pkg
+Use cMarkdown_mixin.pkg
+
+// TODO: refactor inheritance of all AI classes
+// subclass of cdtJsonHttpTransfer gets the cMarkdownMixin (so it doesn't have to be included in each AI subclass 
+// and also a new "helper" mixin with procedure/functions for handling attachments.
+//  new function which should take a string array with path/filenames and return a struct array of tClaudeAttachment (or equivalent)
+//  which can then be passed to MakeRequest
+//
+
+Class cAiInterface is a cdtJsonHttpTransfer
+    Import_Class_Protocol cMarkdown_mixin
+    
+    Procedure construct_object
+        Forward Send Construct_Object
+        
+        Send define_cMarkdown_mixin
+        
+        Set peTransferFlags to ifSecure
+        Set piRemotePort to rpHttpSSL
+    End_Procedure
+    
+    Procedure end_construct_object
+        Forward Send End_Construct_Object
+    End_Procedure
+    
+    // following functions define the standard inteface for talking to AI models
+    // no functionality is provided here, all are intended to be overriden in subclass
+    
+    // send the request to the AI and return a JSON object containing its response 
+    Function MakeRequest Handle hoRequest Returns Handle
+        Handle hoRetVal
+        Function_Return hoRetVal
+    End_Function
+
+    // return a list of models available for this AI
+    Function ModelList Returns tAIModel[]
+        tAIModel[] ModelList        
+        Function_Return ModelList
+    End_Function
+
+    // create and return a JSON object containing a request suitable for this AI    
+    Function CreateRequest String sPrompt tAIAttachment[] Attachments Returns Handle 
+        Handle hoRequest
+        Function_Return hoRequest
+    End_Function
+    
+End_Class

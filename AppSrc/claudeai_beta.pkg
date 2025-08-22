@@ -1,5 +1,4 @@
 Use claudeai.pkg
-Use ChilkatAx-9.5.0-win32.pkg
 Use cMultipartFormdataTransfer.pkg
 
 // Files API is in beta as of 8/19/25

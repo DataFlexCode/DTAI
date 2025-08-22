@@ -1,0 +1,35 @@
+Use cJsonObject.pkg
+Use chatgptai.h
+
+Class cChatGPTRequest is a cObject
+
+    Function ConstructRequest String sModel tChatGPTMessage[] Messages Integer iMaxTokens String sTemperature Returns Handle
+        Handle hoJson hoMsgs hoMsg
+        Integer i iCount
+
+        Get Create (RefClass(cJsonObject)) to hoJson
+        Send InitializeJsonType of hoJson jsonTypeObject
+
+        Send SetMemberValue of hoJson "model" jsonTypeString sModel
+        Send SetMemberValue of hoJson "max_tokens" jsontypeInteger iMaxTokens
+        // Send SetMemberValue of hoJson "temperature" jsonTypeDouble sTemperature
+
+        Get Create (RefClass(cJsonObject)) to hoMsgs
+        Send InitializeJsonType of hoMsgs jsonTypeArray
+
+        Move (SizeOfArray(Messages)) to iCount
+        For i from 0 to (iCount-1)
+            Get Create (RefClass(cJsonObject)) to hoMsg
+            Send InitializeJsonType of hoMsg jsonTypeObject
+            Send SetMemberValue of hoMsg "role" jsonTypeString Messages[i].role
+            Send SetMemberValue of hoMsg "content" jsonTypeString Messages[i].content
+            Send AddMember of hoMsgs hoMsg
+            Send Destroy of hoMsg
+        Loop
+
+        Send SetMember of hoJson "messages" hoMsgs
+        Send Destroy of hoMsgs
+
+        Function_Return hoJson
+    End_Function
+End_Class

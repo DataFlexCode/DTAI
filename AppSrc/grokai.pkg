@@ -42,15 +42,12 @@ Class cGrokInterface is a cdtJsonHttpTransfer // Renamed class for clarity
     Procedure AddStandardHeaders String sContentType
         Integer iRetVal 
         Set pbClearHeaders to False
+
         Send ClearHeaders
-        String sContentTypeSent
-        Get psContentTypeSent to sContentTypeSent
-        Set psContentTypeSent to "application/json" 
-        
+        Set psContentTypeSent to "application/json" // grok is sensitive about this
         Get AddHeader "Cache-Control" "no-cache" to iRetVal
         Get AddHeader "Accept" "*/*" to iRetVal
         Get AddHeader "Authorization" ("Bearer "+psApiKey(Self)) to iRetVal // Updated to Bearer token
-        // Removed anthropic-version and anthropic-beta headers
     End_Procedure
     
     Function MakeRequest Handle hoRequest Returns Handle
@@ -100,7 +97,7 @@ Class cGrokInterface is a cdtJsonHttpTransfer // Renamed class for clarity
         Function_Return ModelList
     End_Function
     
-    Function CreateGrokApiRequest String sPrompt tClaudeAttachment[] Attachments Returns Handle 
+    Function CreateRequest String sPrompt tClaudeAttachment[] Attachments Returns Handle 
         Handle hoRequest
         tClaudeAttachment[] NoAttachments
         

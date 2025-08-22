@@ -1,0 +1,114 @@
+Use geminiai.h
+Use cJsonObject.pkg
+
+
+Class cGeminiRequest is a cJsonObject
+    
+    //-----------------------------------------------------------------------------
+    // function to Construct a Gemini API JSON Request
+    //-----------------------------------------------------------------------------
+    
+    Function CreateGeminiApiJsonRequest String sModelId tGeminiPart[] aParts tGenerationConfig tGenConfig Returns String
+        Handle hoJsonRequest hoContentsArray hoContentObject hoPartsArray hoPartObject
+        String sJsonString
+        Integer i
+        
+        // Create the main JSON object for the request payload
+        Get Create (RefClass(cJsonObject)) to hoJsonRequest
+        Send InitializeJsonType of hoJsonRequest jsonTypeObject
+        
+        // Create the 'contents' array, which holds the conversation history
+        Get Create (RefClass(cJsonObject)) to hoContentsArray
+        Send InitializeJsonType of hoContentsArray jsonTypeArray
+        
+        // Iterate through the array of parts and build the JSON structure
+        For i from 0 to (SizeOfArray(aParts) - 1)
+            
+            // Create a JSON object for the role and its parts
+            Get Create (RefClass(cJsonObject)) to hoContentObject
+            Send InitializeJsonType of hoContentObject jsonTypeObject
+            
+            // Add the 'role' property (e.g., "user")
+            Send SetMemberValue of hoContentObject "role" jsonTypeString (aParts[i].sRole)
+            
+            // Create the 'parts' array
+            Get Create (RefClass(cJsonObject)) to hoPartsArray
+            Send InitializeJsonType of hoPartsArray jsonTypeArray
+            
+            // Create the part object based on its type
+            Get Create (RefClass(cJsonObject)) to hoPartObject
+            Send InitializeJsonType of hoPartObject jsonTypeObject
+            
+            // Add the appropriate part based on the sPartType
+            If (aParts[i].sPartType='text') Begin
+                Send SetMemberValue of hoPartObject "text" jsonTypeString (aParts[i].sText) 
+            End
+            If (aParts[i].sPartType='inlineData') Begin
+                Handle hoInlineData
+                Get Create (RefClass(cJsonObject)) to hoInlineData
+                Send InitializeJsonType of hoInlineData jsonTypeObject
+                Send SetMemberValue of hoInlineData "mimeType"      jsonTypeString (aParts[i].sMimeType) 
+                Send SetMemberValue of hoInlineData "data"          jsonTypeString (aParts[i].sData) 
+                Send SetMember of hoPartObject "inlineData" hoInlineData
+                Send Destroy of hoInlineData
+            End
+            If (aParts[i].sPartType="functionCall") Begin
+                Handle hoFunctionCall
+                Get Create (RefClass(cJsonObject)) to hoFunctionCall
+                Send InitializeJsonType of hoFunctionCall jsonTypeObject
+                Send SetMemberValue of hoFunctionCall "name"        jsonTypeString (aParts[i].sFunctionName) 
+                Send SetMemberValue of hoFunctionCall "args"        jsonTypeString (aParts[i].sFunctionArgs) 
+                Send SetMember of hoPartObject "functionCall" hoFunctionCall
+                Send Destroy of hoFunctionCall
+            End
+            If (aParts[i].sPartType="functionResponse") Begin
+                Handle hoFunctionResponse
+                Get Create (RefClass(cJsonObject)) to hoFunctionResponse
+                Send InitializeJsonType of hoFunctionResponse jsonTypeObject
+                Send SetMemberValue of hoFunctionResponse "name"        jsonTypeString (aParts[i].sFunctionName) 
+                Send SetMemberValue of hoFunctionResponse "content"     jsonTypeString (aParts[i].sFunctionContent) 
+                Send SetMember of hoPartObject "functionResponse" hoFunctionResponse
+                Send Destroy of hoFunctionResponse
+            End
+            
+            // Add the completed part object to the parts array
+            Send AddMember of hoPartsArray hoPartObject
+            
+            // Add the parts array to the content object
+            Send SetMember of hoContentObject "parts" hoPartsArray
+            
+            // Add the completed content object to the main 'contents' array
+            Send AddMember of hoContentsArray hoContentObject            
+            
+            // Destroy the handles for the inner objects to free memory
+            Send Destroy of hoPartObject
+            Send Destroy of hoPartsArray
+            Send Destroy of hoContentObject
+        Loop
+        
+        // Add the 'contents' array to the main request JSON
+        Send SetMember of hoJsonRequest "contents" hoContentsArray
+        Send Destroy of hoContentsArray
+    
+        // Add optional parameters from the tGenerationConfig structure
+        If (tGenConfig.iMaxOutputTokens > 0) Begin
+            Handle hoGenConfig
+            Get Create (RefClass(cJsonObject)) to hoGenConfig
+            Send InitializeJsonType of hoGenConfig jsonTypeObject
+            
+            Send SetMemberValue of hoGenConfig "maxOutputTokens"    jsonTypeInteger tGenConfig.iMaxOutputTokens
+            Send SetMemberValue of hoGenConfig "temperature"        jsonTypeDouble  tGenConfig.nTemperature
+            Send SetMemberValue of hoGenConfig "topP"               jsonTypeDouble  tGenConfig.nTopP
+            Send SetMemberValue of hoGenConfig "topK"               jsonTypeInteger tGenConfig.iTopK
+            
+            Send SetMember of hoJsonRequest "generationConfig" hoGenConfig
+            Send Destroy of hoGenConfig
+        End
+        
+        // Add the model parameter
+        Send SetMemberValue of hoJsonRequest "model" jsonTypeString sModelId
+        
+        Function_Return hoJsonRequest
+    End_Function
+    
+End_Class

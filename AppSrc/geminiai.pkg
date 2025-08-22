@@ -1,0 +1,157 @@
+Use ai.pkg
+Use geminiai.h
+
+Use cGeminiRequest.pkg
+
+Use cEnvironment.pkg
+Use cJsonObject.pkg
+
+If (ghoEnvironment=0) Begin
+    Object oEnvironment is a cEnvironment
+    End_Object
+End
+
+Class cGeminiInterface is a cAIInterface
+
+    Procedure Construct_object
+        Forward Send Construct_Object
+
+        Property String psHost "generativelanguage.googleapis.com"
+        Property String psApiKey (EnvironmentVariable(ghoEnvironment,'gemini-api-key')) 
+        Property String psModelId "gemini-1.5-flash"
+        Property Integer piMaxTokens 1024
+        Property tGenerationConfig pGenerationConfig        
+        Object oGeminiRequest is a cGeminiRequest
+        End_Object
+    End_Procedure
+
+    Procedure AddStandardHeaders 
+        Integer iRetVal 
+        Set pbClearHeaders to False
+        Send ClearHeaders
+        Set psContentTypeSent to "application/json"
+    End_Procedure
+
+    // send the request to the AI and return a JSON object containing its response 
+    Function MakeRequest Handle hoRequest Returns Handle
+        Handle hoResponse
+        String sUrl
+        Boolean bOk
+
+        // Construct the full URL with the model ID and API key
+        Move ("/v1beta/models/" + psModelId(Self) + ":generateContent?key=" + psApiKey(Self)) to sUrl
+
+        Send AddStandardHeaders
+        
+        Get httpPostJson (psHost(Self)) sUrl hoRequest (&bOk) to hoResponse
+
+        If (not(bOk)) Begin
+            Send UserError (TransferErrorDescription(Self)) "Transfer failed!"
+        End
+        Else Begin
+            Send RemoveNullMembers hoResponse
+            If (HasMember(hoResponse,'candidates')) Begin
+                // success!
+                // Just return the handle
+            End
+            // check for an error object in the response
+            If (HasMember(hoResponse, "error")) Begin
+                Handle hoError
+                String sMessage
+                
+                Get Member of hoResponse "error" to hoError
+                Get MemberValue of hoError "message" to sMessage
+                
+                Send Stop_Box sMessage "API Error"                
+                Send Destroy of hoResponse
+                Move 0 to hoResponse
+            End
+        End
+        Function_Return hoResponse
+    End_Function
+
+    //-----------------------------------------------------------------------------
+    // Function to retrieve the list of available Gemini models
+    //-----------------------------------------------------------------------------
+    Function ModelList Returns tAIModel[]
+        Boolean bOk
+        Handle hoResponse
+        tGeminiModelList geminiModelList
+        tAIModel[] ModelList        
+        Integer i iCnt
+    
+        // Add required headers for the API call
+        Send AddStandardHeaders
+    
+        // Construct the full URL with the API key
+        Get HttpGetJson (psHost(Self)) ("/v1beta/models?key=" + psApiKey(Self)) (&bOk) to hoResponse
+    
+        // Check for a successful transfer
+        If (not(bOk)) Begin
+            Send UserError (TransferErrorDescription(Self)) "Transfer failed!"
+        End
+        Else Begin
+            // Deserialize the JSON response into our DataFlex struct
+            Get JsonToDataType of hoResponse to geminiModelList
+            Send Destroy of hoResponse
+        End
+    
+        // Populate the return array with model information
+        Move (Sizeofarray(geminiModelList.models)-1) to iCnt
+        For i from 0 to iCnt
+            Move (geminiModelList.models[i].name) to ModelList[i].id
+            Move (geminiModelList.models[i].displayName) to ModelList[i].display_name
+            
+            // Note: The Gemini API does not provide created_at or type fields in this response.
+            // These will remain empty in the tAIModel struct.
+            Move "" to ModelList[i].created_at
+            Move "" to ModelList[i].type
+        Loop
+    
+        Function_Return ModelList
+    End_Function
+
+    // standard entry point for creating all AI requests. the first paramter is a text prompt that needs to
+    //  be supplied to the AI, the tAIAttachments array has optional files in base64 format
+    //  both need to be converted into equivalent Gemini "parts", then call the CreateGeminiApiJsonRequest 
+    // function in the oGeminiRequest object to create the request
+    //  
+    //  Struct tAIAttachment
+    //      UChar[] uBase64File
+    //      String sMimeType
+    //      String sFileID
+    //  End_Struct
+
+    Function CreateRequest String sPrompt tAIAttachment[] Attachments Returns Handle 
+        Handle hoRequest
+        tGeminiPart[] aParts
+        Integer iAttachmentCount i
+
+        // Convert the prompt into a Gemini part and add it to the parts array
+        Move "user" to aParts[0].sRole
+        Move "text" to aParts[0].sPartType
+        Move sPrompt to aParts[0].sText
+
+        // Convert the attachments into Gemini parts and add them to the parts array
+        Move (SizeOfArray(Attachments)-1) to iAttachmentCount
+        For i from 0 to iAttachmentCount
+            Move "user" to aParts[i+1].sRole
+            Move "inlineData" to aParts[i+1].sPartType
+            Move Attachments[i].sMimeType to aParts[i+1].sMimeType
+            Move (UCharArrayToString(Attachments[i].uBase64File)) to aParts[i+1].sData
+        Loop
+
+        // Call the cGeminiRequest object's function to build the JSON request
+        Get CreateGeminiApiJsonRequest of oGeminiRequest (psModelId(Self)) aParts (pGenerationConfig(Self))  to hoRequest
+        
+        Function_Return hoRequest
+    End_Function
+
+End_Class
+
+
+Global_Variable Handle ghoGeminiAI
+
+Object oGeminiAI is a cGeminiInterface 
+    Move Self to ghoGeminiAI
+End_Object

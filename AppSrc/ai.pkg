@@ -28,21 +28,38 @@ Class cAiInterface is a cdtJsonHttpTransfer
     // following functions define the standard inteface for talking to AI models
     // no functionality is provided here, all are intended to be overriden in subclass
     
-    // send the request to the AI and return a JSON object containing its response 
+    // send the request to the AI 
+    // NOTE:  The intention is for this procedure to return a struct with the response  
+    //  rather than a JSON handle, so this interface will change.  The struct is not yet
+    //  defined, so this is really a placeholder
+    // Use MakeRequestJSON for testing rather than this message
+    
     Function MakeRequest Handle hoRequest Returns Handle
         Handle hoRetVal
+        Error DFERR_PROGRAM "MakeRequest not implemented"
+        Function_Return hoRetVal
+    End_Function
+
+    // send the request to the AI and return a JSON object containing its response 
+    // this should be considered lower level than MakeRequest as it provides access
+    //  to the raw JSON response
+    Function MakeRequestJSON Handle hoRequest Returns Handle
+        Handle hoRetVal
+        Error DFERR_PROGRAM "MakeRequestJSON not implemented"
         Function_Return hoRetVal
     End_Function
 
     // return a list of models available for this AI
     Function ModelList Returns tAIModel[]
         tAIModel[] ModelList        
+        Error DFERR_PROGRAM "ModelList not implemented"
         Function_Return ModelList
     End_Function
 
-    // create and return a JSON object containing a request suitable for this AI    
+    // create and return a JSON object containing a request suitable for this AI  
     Function CreateRequest String sPrompt tAIAttachment[] Attachments Returns Handle 
         Handle hoRequest
+        Error DFERR_PROGRAM "CreateRequest not implemented"
         Function_Return hoRequest
     End_Function
     

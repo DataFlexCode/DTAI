@@ -139,7 +139,7 @@ Class cChatGPTInterface is a cAIInterface
     //-----------------------------------------------------------------------------
     // Send the request to ChatGPT and return a JSON object containing its response
     //-----------------------------------------------------------------------------
-    Function MakeRequest Handle hoRequest Returns Handle
+    Function MakeRequestJSON Handle hoRequest Returns Handle
         Handle hoResponse hoError
         Boolean bOk
         String sMessage

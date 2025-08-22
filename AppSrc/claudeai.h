@@ -1,3 +1,5 @@
+Use ai.h
+
 Struct tClaudeError
     String type
     String message

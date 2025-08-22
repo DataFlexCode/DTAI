@@ -22,6 +22,11 @@ End_Object
 Use oEditContextMenu.pkg
 Use oDEOEditContextMenu17.pkg
 
+Use claudeai.pkg
+Use geminiai.pkg
+Use grokai.pkg
+Use chatgptai.pkg
+
 Object oMain is a Panel
     Set Label To "My Project"
     Set Location to 4 3

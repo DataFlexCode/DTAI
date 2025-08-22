@@ -1,29 +1,25 @@
-use claudeai.h
-use cEnvironment.pkg
-Use cJsonObject.pkg
-Use cdtJsonHttpTransfer.pkg
+Use ai.pkg
+Use claudeai.h
 Use cClaudeRequest.pkg
-Use cMarkdown_mixin.pkg
+
+Use cEnvironment.pkg
+Use cJsonObject.pkg
 
 If (ghoEnvironment=0) Begin
     Object oEnvironment is a cEnvironment
     End_Object
 End
 
-Class cClaudeInterface is a cdtJsonHttpTransfer
+Class cClaudeInterface is a cAIInterface
 
-    Import_Class_Protocol cMarkdown_mixin
-    
     Procedure construct_object
         Forward Send Construct_Object
-        
-        Send define_cMarkdown_mixin
         
         Set peTransferFlags to ifSecure
         Set piRemotePort to rpHttpSSL
         
         Property String psHost "api.anthropic.com"
-        Property String psApiKey (EnvironmentVariable(ghoEnvironment,'claude-api-key')) // "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" to iRetVal
+        Property String psApiKey (EnvironmentVariable(ghoEnvironment,'claude-api-key')) 
         Property String psAnthropicVersion "2023-06-01"
         Property String psModelId "claude-sonnet-4-20250514"
         Property Integer piMaxTokens 1024
@@ -49,7 +45,7 @@ Class cClaudeInterface is a cdtJsonHttpTransfer
         If (pbEnableFilesApi(Self)) Get AddHeader "anthropic-beta" "files-api-2025-04-14" to iRetVal
     End_Procedure
     
-    Function MakeRequest Handle hoRequest Returns Handle
+    Function MakeRequestJSON Handle hoRequest Returns Handle
         Integer iRetVal
         Handle hoResponse hoError
         String sResponseType sMessage
@@ -74,25 +70,33 @@ Class cClaudeInterface is a cdtJsonHttpTransfer
         Function_Return hoResponse
     End_Function
     
-    Function ClaudeModelList Returns tClaudeModelList
+    Function ModelList Returns tAIModel[]
         Boolean bOk
         Handle hoResponse
-        tClaudeModelList ModelList
-        
-        
+        tClaudeModelList claudeModelList
+        tAIModel[] ModelList        
+        Integer i iCnt
+            
         Send AddStandardHeaders
         Get HttpGetJson (psHost(Self)) "v1/models" (&bok) to hoResponse
         If (not(bOk)) Begin
             Send UserError (TransferErrorDescription(Self)) "Transfer failed!"
         End
         Else Begin
-            Get JsonToDataType of hoResponse to ModelList
+            Get JsonToDataType of hoResponse to claudeModelList
             Send Destroy of hoResponse
         End
+        Move (Sizeofarray(claudeModelList.data)-1) to iCnt
+        For i from 0 to iCnt
+            Move (claudeModellist.data[i].id) to ModelList[i].id
+            Move (claudeModellist.data[i].display_name) to ModelList[i].display_name
+            Move (claudeModellist.data[i].created_at) to ModelList[i].created_at
+            Move (claudeModellist.data[i].type) to ModelList[i].type
+        Loop
         Function_Return ModelList
     End_Function
     
-    Function CreateClaudeApiRequest String sPrompt tClaudeAttachment[] Attachments Returns Handle 
+    Function CreateRequest String sPrompt tAIAttachment[] Attachments Returns Handle 
         Handle hoRequest
         tClaudeAttachment[] NoAttachments
         

@@ -1,3 +1,4 @@
+Use ai.pkg
 Use claudeai.h      // for Anthropic messages structs
 Use grokai.h        // Grok AI model list
 Use cEnvironment.pkg
@@ -11,24 +12,15 @@ If (ghoEnvironment=0) Begin
     End_Object
 End
 
-Class cGrokInterface is a cdtJsonHttpTransfer // Renamed class for clarity
+Class cGrokInterface is a cAiInterface
 
-    Import_Class_Protocol cMarkdown_mixin
-    
     Procedure construct_object
         Forward Send Construct_Object
-        
-        Send define_cMarkdown_mixin
-        
-        Set peTransferFlags to ifSecure
-        Set piRemotePort to rpHttpSSL
         
         Property String psHost "api.x.ai" // Updated to xAI API endpoint
         Property String psApiKey (EnvironmentVariable(ghoEnvironment,'grok-api-key')) // Updated environment variable
         Property String psModelId "grok-4-0709" // Updated to Grok model ID
         Property Integer piMaxTokens 256000
-        
-        // Removed pbEnableFilesApi unless confirmed supported by xAI API
         
         Object oGrokRequest is a cClaudeRequest // Consider renaming to cGrokRequest
         End_Object
@@ -50,7 +42,7 @@ Class cGrokInterface is a cdtJsonHttpTransfer // Renamed class for clarity
         Get AddHeader "Authorization" ("Bearer "+psApiKey(Self)) to iRetVal // Updated to Bearer token
     End_Procedure
     
-    Function MakeRequest Handle hoRequest Returns Handle
+    Function MakeRequestJSON Handle hoRequest Returns Handle
         Integer iRetVal
         Boolean bError
         Handle hoResponse hoError

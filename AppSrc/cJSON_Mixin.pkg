@@ -1,5 +1,9 @@
 // a mixin class with JSON related helper functions that will be useful for other classes
-//  that deal with JSON
+//  that deal with JSON, mostly functions from the UIG REST Library and forum posts by Harm
+//  
+// This can be mixed into any class that deals with JSON to provide extra functionality
+//  (here we Use it with the cdtJsonHttpTransfer class)
+
 Use WebConvertClient.pkg
 Use cCharTranslate.pkg
 

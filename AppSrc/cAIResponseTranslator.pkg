@@ -1,0 +1,247 @@
+//=============================================================================
+// AI Response Translation Classes
+// Purpose: Convert individual AI response structures to unified tAIResponse
+//=============================================================================
+
+Use ai.h
+Use chatgptai.h
+Use claudeai.h 
+Use geminiai.h
+
+//=============================================================================
+// ChatGPT Response Translator
+//=============================================================================
+Class cChatGPTTranslator is a cObject
+    
+    // Translates ChatGPT response to unified AI response structure
+    Function TranslateToUnified tChatGPTResponse chatGPTResponse Returns tAIResponse
+        tAIResponse aiResponse
+        tAIChoice aiChoice
+        tAIResponseContentPart contentPart
+        Integer i
+        
+        // Map basic response fields
+        Move chatGPTResponse.id to aiResponse.sId
+        Move chatGPTResponse.Object to aiResponse.sObjectOrType
+        Move chatGPTResponse.created to aiResponse.dtCreated
+        Move chatGPTResponse.model to aiResponse.sModel
+        Move "" to aiResponse.sRole // ChatGPT doesn't have a top-level role
+        
+        // Map usage information
+        Move chatGPTResponse.usage.prompt_tokens to aiResponse.Usage.iPromptTokens
+        Move chatGPTResponse.usage.completion_tokens to aiResponse.Usage.iCompletionTokens
+        Move chatGPTResponse.usage.total_tokens to aiResponse.Usage.iTotalTokens
+        Move chatGPTResponse.usage.completion_tokens to aiResponse.Usage.iOutputTokens
+        Move chatGPTResponse.usage.prompt_tokens to aiResponse.Usage.iInputTokens
+        Move 0 to aiResponse.Usage.iCacheCreationInputTokens
+        Move 0 to aiResponse.Usage.iCacheReadInputTokens
+        Move "" to aiResponse.Usage.sServiceTier
+        
+        // Map choices
+        For i from 0 to (SizeOfArray(chatGPTResponse.choices) - 1)
+            Move chatGPTResponse.choices[i].Index to aiChoice.iIndex
+            Move chatGPTResponse.choices[i].finish_reason to aiChoice.sFinishReason
+            Move "" to aiChoice.sStopReason
+            Move "" to aiChoice.sStopSequence
+            
+            // Create content part from message
+            Move "text" to contentPart.sType
+            Move chatGPTResponse.choices[i].message.role to contentPart.sRole
+            Move chatGPTResponse.choices[i].message.content to contentPart.sText
+            Move "" to contentPart.sMimeType
+            Move "" to contentPart.sData
+            Move "" to contentPart.sFunctionName
+            Move "" to contentPart.sFunctionArgs
+            Move "" to contentPart.sFunctionContent
+            
+            Move contentPart to aiChoice.ContentParts[0]
+            Move aiChoice to aiResponse.Choices[i]
+        Loop
+        
+        Function_Return aiResponse
+    End_Function
+    
+End_Class
+
+//=============================================================================
+// Claude Response Translator  
+//=============================================================================
+Class cClaudeTranslator is a cObject
+    
+    // Translates Claude response to unified AI response structure
+    Function TranslateToUnified tClaudeResponse claudeResponse Returns tAIResponse
+        tAIResponse aiResponse
+        tAIChoice aiChoice
+        tAIResponseContentPart contentPart
+        Integer i
+        
+        // Map basic response fields
+        Move claudeResponse.id to aiResponse.sId
+        Move claudeResponse.type to aiResponse.sObjectOrType
+        Move (CurrentDateTime()) to aiResponse.dtCreated // Claude doesn't provide created timestamp
+        Move claudeResponse.model to aiResponse.sModel
+        Move claudeResponse.role to aiResponse.sRole
+        
+        // Map usage information
+        Move claudeResponse.usage.input_tokens to aiResponse.Usage.iInputTokens
+        Move claudeResponse.usage.output_tokesn to aiResponse.Usage.iOutputTokens
+        Move (claudeResponse.usage.input_tokens + claudeResponse.usage.output_tokesn) to aiResponse.Usage.iTotalTokens
+        Move claudeResponse.usage.input_tokens to aiResponse.Usage.iPromptTokens
+        Move claudeResponse.usage.output_tokesn to aiResponse.Usage.iCompletionTokens
+        Move claudeResponse.usage.cache_creation_input_tokens to aiResponse.Usage.iCacheCreationInputTokens
+        Move claudeResponse.usage.cache_read_input_tokens to aiResponse.Usage.iCacheReadInputTokens
+        Move claudeResponse.usage.service_tier to aiResponse.Usage.sServiceTier
+        
+        // Claude has a single choice with multiple content parts
+        Move 0 to aiChoice.iIndex
+        Move "" to aiChoice.sFinishReason
+        Move claudeResponse.stop_reason to aiChoice.sStopReason
+        Move claudeResponse.stop_sequence to aiChoice.sStopSequence
+        
+        // Map content parts
+        For i from 0 to (SizeOfArray(claudeResponse.content) - 1)
+            Move claudeResponse.content[i].type to contentPart.sType
+            Move claudeResponse.role to contentPart.sRole
+            Move claudeResponse.content[i].text to contentPart.sText
+            Move "" to contentPart.sMimeType
+            Move "" to contentPart.sData
+            Move "" to contentPart.sFunctionName
+            Move "" to contentPart.sFunctionArgs
+            Move "" to contentPart.sFunctionContent
+            
+            Move contentPart to aiChoice.ContentParts[i]
+        Loop
+        
+        Move aiChoice to aiResponse.Choices[0]
+        
+        Function_Return aiResponse
+    End_Function
+    
+End_Class
+
+//=============================================================================
+// Gemini Response Translator
+//=============================================================================
+Class cGeminiTranslator is a cObject
+    
+    // Translates Gemini response to unified AI response structure
+    Function TranslateToUnified tGeminiMasterResponse geminiMasterResponse Returns tAIResponse
+        tAIResponse aiResponse
+        tAIChoice aiChoice
+        tAIResponseContentPart contentPart
+        tAISafetyRating safetyRating
+        Integer i, j, k
+        
+        // Check if this is an error response
+        If (geminiMasterResponse.Error.code <> 0) Begin
+            Move "" to aiResponse.sId
+            Move "error" to aiResponse.sObjectOrType
+            Move (CurrentDateTime()) to aiResponse.dtCreated
+            Move "" to aiResponse.sModel
+            Move "error" to aiResponse.sRole
+            Function_Return aiResponse
+        End
+        
+        // Map basic response fields (Gemini doesn't provide most of these)
+        Move "" to aiResponse.sId
+        Move "response" to aiResponse.sObjectOrType
+        Move (CurrentDateTime()) to aiResponse.dtCreated
+        Move "" to aiResponse.sModel
+        Move "" to aiResponse.sRole
+        
+        // Gemini doesn't provide usage information in basic responses
+        Move 0 to aiResponse.Usage.iPromptTokens
+        Move 0 to aiResponse.Usage.iCompletionTokens
+        Move 0 to aiResponse.Usage.iTotalTokens
+        Move 0 to aiResponse.Usage.iInputTokens
+        Move 0 to aiResponse.Usage.iOutputTokens
+        Move 0 to aiResponse.Usage.iCacheCreationInputTokens
+        Move 0 to aiResponse.Usage.iCacheReadInputTokens
+        Move "" to aiResponse.Usage.sServiceTier
+        
+        // Map safety ratings from prompt feedback
+        For k from 0 to (SizeOfArray(geminiMasterResponse.response.promptFeedback.safetyRatings) - 1)
+            Move geminiMasterResponse.response.promptFeedback.safetyRatings[k].category to safetyRating.sCategory
+            Move geminiMasterResponse.response.promptFeedback.safetyRatings[k].probability to safetyRating.sProbability
+            Move safetyRating to aiResponse.PromptFeedback.safetyRatings[k]
+        Loop
+        
+        // Map candidates as choices
+        For i from 0 to (SizeOfArray(geminiMasterResponse.response.candidates) - 1)
+            Move geminiMasterResponse.response.candidates[i].Index to aiChoice.iIndex
+            Move geminiMasterResponse.response.candidates[i].finishReason to aiChoice.sFinishReason
+            Move "" to aiChoice.sStopReason
+            Move "" to aiChoice.sStopSequence
+            
+            // Map content parts from candidate
+            For j from 0 to (SizeOfArray(geminiMasterResponse.response.candidates[i].content.parts) - 1)
+                Move "text" to contentPart.sType
+                Move geminiMasterResponse.response.candidates[i].content.role to contentPart.sRole
+                Move geminiMasterResponse.response.candidates[i].content.parts[j].text to contentPart.sText
+                Move "" to contentPart.sMimeType
+                Move "" to contentPart.sData
+                Move "" to contentPart.sFunctionName
+                Move "" to contentPart.sFunctionArgs
+                Move "" to contentPart.sFunctionContent
+                
+                Move contentPart to aiChoice.ContentParts[j]
+            Loop
+            
+            Move aiChoice to aiResponse.Choices[i]
+        Loop
+        
+        Function_Return aiResponse
+    End_Function
+    
+End_Class
+
+//=============================================================================
+// AI Response Translator Factory
+// This class provides a unified interface for all AI response translations
+//=============================================================================
+Class cAIResponseTranslator is a cObject
+    
+    // Constructor - initialize translator objects
+    Procedure Construct_Object
+        Forward Send Construct_Object
+            
+        Property Handle phoChatGPTTranslator
+        Property Handle phoClaudeTranslator  
+        Property Handle phoGeminiTranslator
+        
+        
+        Object oChatGPTTranslator is a cChatGPTTranslator
+        End_Object
+        Set phoChatGPTTranslator to oChatGPTTranslator
+        
+        Object oClaudeTranslator is a cClaudeTranslator
+        End_Object
+        Set phoClaudeTranslator to oClaudeTranslator
+        
+        Object oGeminiTranslator is a cGeminiTranslator  
+        End_Object
+        Set phoGeminiTranslator to oGeminiTranslator
+    End_Procedure
+    
+    // Translate ChatGPT response
+    Function TranslateChatGPT tChatGPTResponse chatGPTResponse Returns tAIResponse
+        Handle hoTranslator
+        Get phoChatGPTTranslator to hoTranslator
+        Function_Return (TranslateToUnified(hoTranslator,chatGPTResponse))
+    End_Function
+    
+    // Translate Claude response  
+    Function TranslateClaude tClaudeResponse claudeResponse Returns tAIResponse
+        Handle hoTranslator
+        Get phoClaudeTranslator to hoTranslator
+        Function_Return (TranslateToUnified(hoTranslator,claudeResponse))
+    End_Function
+    
+    // Translate Gemini response
+    Function TranslateGemini tGeminiMasterResponse geminiResponse Returns tAIResponse
+        Handle hoTranslator
+        Get phoGeminiTranslator to hoTranslator
+        Function_Return (TranslateToUnified(hoTranslator,geminiResponse))
+    End_Function
+    
+End_Class

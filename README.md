@@ -80,9 +80,19 @@ gemini-api-key=AIxyzzy977352k;lasdj%^$&fa90lskdnf;awe
 chilkat-unlock-code=DATATECH_;kldfjha;dsl*@#$^knfaioetyh
 chatgpt-api-key=sk-proj-i34752894jnkln;fkl347[0sdfhgPOIW;E4!#$#$956UJHDSFPOGIHN;]
 
+# DATABASE
+
+Currently there are no database table specific to this project.  When/if logging capabilities are added, this could change.
+
+A SQL Server 2022 backup file in the Data folder only has CODEMAST/CODETYPE migrated to SQL.  You can restore this, or alternatively connect to your own blank database with those tables.
+
+The Connection ID is set up for the local database server (i.e. ".") and DTAI as the database.
+
 # CURRENT STATUS
 
 It works!
+
+The only project currently included is AI.SRC, used to test the file upload capability for Claude.
 
 # TODO ITEMS
  [ ] The current library is being used with DataFlex 19.1.  It needs to be migrated to 25.0, while retaining 19.1 compatibility.
@@ -91,6 +101,7 @@ It works!
  [ ] A unified struct needs to be defined to contain the responses received from the AIs and MakeRequest implemented in all interfaces using this struct as a return value
  [ ] More post processing support for the response.  AIs generate markdown text (unless instructed othewise), this needs to be converted to something displayable (e.g. HTML, looking at pandoc for this)
  [ ] Determine some way to control timeout-Grok and some OpenAI models in particular do not return a response before the standard 30 second timeout results in a "Http Transfer Failed" error
+ [ ] Logging of AI requests/responses/stats
  [ ] A demonstration program that has:
    - A radio group to select the AI to use
    - A comboform that allows you to select the model to use for the currently select AI

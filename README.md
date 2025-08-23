@@ -2,7 +2,9 @@
 
 Version 0.1
 
-This is a library intended to provide a standard interface for sending text prompts to AIs and receiving text responses back.
+This is a library intended to provide a standard interface for sending text prompts to AIs and receiving text responses back.  
+
+This library can be used for both Windows and Web applications.  It has no dependencies on other libraries or ActiveX components.
 
 The approach is to have a class defined for each AI that implements the REST API calls necessary to communicate with the AI.
 
@@ -61,7 +63,9 @@ This will use the MakeRequestJSON function and then convert the JSON response to
 
 # API Keys
 
-API keys can be stored in a {program_name}.env file.  The cEnvironment class is is used to load API keys so that they are not stored in the source code.
+API keys can be stored in a {program_name}.env file.  This file will normally be stored in the Programs folder.  
+
+The cEnvironment class is is used to load API keys so that they are not stored in the source code.
 
 cEnvironment will first search the .env file and if a key is not found then it will use the get_environment command to get the environment variable.
 
@@ -71,19 +75,21 @@ The .env file should have the format:
 
 Example (no these are not valid!):
 claude-api-key=sk-ant-api03-kasdf;jaksld45384adslkha;dlk
-grok-api-key=xai-kfdan;IH325n;kajdfyhnaeiht;hn;sgedinrg;ioh
-gemini-api-key=AIxyzzy977352k;lasdjfalskdnf;awe
-chilkat-unlock-code=DATATECH_;kldfjha;dslknfaioetyh
-chatgpt-api-key=sk-proj-i34752894jnkln;fkl347[0sdfhgPOIW;E4H534956UJHDSFPOGIHN;]
+grok-api-key=xai-kfdan;IH325n;kajdf$)yhnaeiht;hn;s@g^e*dinrg;ioh
+gemini-api-key=AIxyzzy977352k;lasdj%^$&fa90lskdnf;awe
+chilkat-unlock-code=DATATECH_;kldfjha;dsl*@#$^knfaioetyh
+chatgpt-api-key=sk-proj-i34752894jnkln;fkl347[0sdfhgPOIW;E4!#$#$956UJHDSFPOGIHN;]
 
 # CURRENT STATUS
+
+It works!
 
 # TODO ITEMS
  [ ] The current library is being used with DataFlex 19.1.  It needs to be migrated to 25.0, while retaining 19.1 compatibility.
  [ ] On the Request side, support other parameters besides the max tokens, model id (e.g. Temperature, number of completions, top_p, etc)
  [ ] Add a Mixin class to provide common base64 / MIME type / file attachment code 
  [ ] A unified struct needs to be defined to contain the responses received from the AIs and MakeRequest implemented in all interfaces using this struct as a return value
- [ ] More post processing support for the response.  AIs generate markdown, this needs to be converted to something displayable (e.g. HTML, looking at pandoc for this)
+ [ ] More post processing support for the response.  AIs generate markdown text (unless instructed othewise), this needs to be converted to something displayable (e.g. HTML, looking at pandoc for this)
  [ ] Determine some way to control timeout-Grok and some OpenAI models in particular do not return a response before the standard 30 second timeout results in a "Http Transfer Failed" error
  [ ] A demonstration program that has:
    - A radio group to select the AI to use
@@ -91,5 +97,6 @@ chatgpt-api-key=sk-proj-i34752894jnkln;fkl347[0sdfhgPOIW;E4H534956UJHDSFPOGIHN;]
    - A text edit control to enter a text prompt
    - A file selection dialog to select optional attachments to send with the prompt
    - A HTML control displaying the response
+
 
 Matt Davidian August 2025

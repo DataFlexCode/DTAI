@@ -1,6 +1,5 @@
 Use DFAllEnt.pkg
 Use cCJStandardCommandBarSystem.pkg
-Use cComChilkatGlobal.pkg
 
 Object oHtmlHelp is a cHtmlHelp
 End_Object
@@ -335,30 +334,6 @@ Object oMain is a Panel
 
     End_Object
 
-    Procedure UnlockChilKat
-        String sError sVersion
-        Handle hoGlob
-        Integer iSuccess
-        String sUnlockCode
-        
-        Move 0 to LastErr
-        Send Ignore_Error to error_object_id 4399
-        Get Create (RefClass(cComChilkatGlobal)) to hoGlob
-        If (not(IsComObjectCreated(hoGlob))) Begin
-            Send CreateComObject of hoGlob
-        End
-        Move (EnvironmentVariable(ghoEnvironment,'chilkat-unlock-code')) to sUnlockCode
-        Get ComUnlockBundle of hoGlob sUnlockCode to iSuccess    
-        Send trap_Error to error_object_id 4399
-        If (lasterr=0 and iSuccess <> True) Begin
-            Get ComLastErrorText of hoGlob to sError
-            Send Stop_Box sError "ChilKat Unlock Error"
-            Procedure_Return
-        End
-        Get ComVersion of hoGlob to sVersion
-        Send Destroy of hoGlob
-    End_Procedure
-        
 End_Object
 
 Start_UI

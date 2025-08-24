@@ -1,0 +1,97 @@
+﻿Class cGrokInterface is a cAiInterface
+
+    Procedure construct_object
+        Forward Send Construct_Object
+        
+        Property String psHost "api.x.ai" // Updated to xAI API endpoint
+        Property String psApiKey (EnvironmentVariable(ghoEnvironment,'grok-api-key')) // Updated environment variable
+        Property String psModelId "grok-4-0709" // Updated to Grok model ID
+        Property Integer piMaxTokens 256000
+        
+        Object oGrokRequest is a cClaudeRequest // Consider renaming to cGrokRequest
+        End_Object
+    End_Procedure
+
+    Procedure end_construct_object
+        Forward Send End_Construct_Object
+    End_Procedure
+
+ 
+    Procedure AddStandardHeaders String sContentType
+        Integer iRetVal 
+        Set pbClearHeaders to False
+
+        Send ClearHeaders
+        Set psContentTypeSent to "application/json" // grok is sensitive about this
+        Get AddHeader "Cache-Control" "no-cache" to iRetVal
+        Get AddHeader "Accept" "*/*" to iRetVal
+        Get AddHeader "Authorization" ("Bearer "+psApiKey(Self)) to iRetVal // Updated to Bearer token
+    End_Procedure
+    
+    Function MakeRequestJSON Handle hoRequest Returns Handle
+        Integer iRetVal
+        Boolean bError
+        Handle hoResponse hoError
+        String sResponseType sMessage
+        Boolean bOk
+        
+        Send SetTimeout 45
+        
+        Send AddStandardHeaders
+        Get httpPostJson (psHost(Self)) "v1/messages" hoRequest (&bOk) to hoResponse
+        If (not(bOk)) Begin
+            If (left(psContentTypeReceived(Self),10)='text/plain') Begin
+                Send info_box (DataReceived(Self)) "Text Response"
+            End
+            Send UserError (TransferErrorDescription(Self)) "Transfer failed!"
+        End
+        Else Begin
+            Send RemoveNullMembers hoResponse
+            // Check for error and display
+            Get HasMember of hoResponse 'error' to bError
+            If (bError) Begin
+                Get MemberValue of hoResponse "code" to sResponseType
+                Get MemberValue of hoResponse "error" to sMessage
+                Send Stop_Box sMessage sResponseType                
+            End
+        End
+        Function_Return hoResponse
+    End_Function
+    
+    Function ModelList Returns tAIModel[]
+        Integer i iCnt
+        Boolean bOk
+        Handle hoResponse
+        tGrokModelList GrokModelList
+        tAIModel[] ModelList
+        
+        
+        Send AddStandardHeaders
+        Get HttpGetJson (psHost(Self)) "v1/models" (&bOk) to hoResponse // Verify endpoint with xAI API docs
+        If (not(bOk)) Begin
+            Send UserError (TransferErrorDescription(Self)) "Transfer failed!"
+        End
+        Else Begin
+            Set pbRequireAllMembers of hoResponse to False
+            Get JsonToDataType of hoResponse to GrokModelList
+            Send Destroy of hoResponse
+        End
+        Move (Sizeofarray(GrokModelList.data)-1) to iCnt
+        For i from 0 to iCnt
+            Move (GrokModelList.data[i].id) to ModelList[i].id
+            Move ModelList[i].id to ModelList[i].display_name       // no separate display name
+            Move GrokModelList.data[i].type to ModelList[i].type
+        Loop
+        
+        Function_Return ModelList
+    End_Function
+    
+    Function CreateRequest String sPrompt tClaudeAttachment[] Attachments Returns Handle 
+        Handle hoRequest
+        tClaudeAttachment[] NoAttachments
+        
+        If (num_arguments=1) Get CreateClaudeApiRequest of (oGrokRequest(Self)) sPrompt NoAttachments to hoRequest
+        If (num_arguments=2) Get CreateClaudeApiRequest of (oGrokRequest(Self)) sPrompt Attachments to hoRequest // Verify file support
+        Function_Return hoRequest
+    End_Function
+End_Class

@@ -1,4 +1,4 @@
-Use DFAllEnt.pkg
+﻿Use DFAllEnt.pkg
 Use cCJStandardCommandBarSystem.pkg
 
 Object oHtmlHelp is a cHtmlHelp
@@ -113,6 +113,17 @@ Object oMain is a Panel
                         Handle hoClient
                         Get Client_Id to hoClient
                         Send Activate_oClaudeConsole of hoClient
+                    End_Procedure
+                End_Object
+
+                Object oAIPromptDemoMenuItem is a cCJMenuItem
+                    Set psCaption to "AI Prompt Demo"
+                    Set psTooltip to "AI Prompt Demo"
+                
+                    Procedure OnExecute Variant vCommandBarControl
+                        Handle hoClient
+                        Get Client_Id to hoClient
+                        Send Activate_oAIDemo of hoClient
                     End_Procedure
                 End_Object
             End_Object
@@ -327,6 +338,7 @@ Object oMain is a Panel
     Object oClientArea is a ClientArea
         Use StdAbout.pkg
         Use ClaudeConsole.vw
+        Use AIDemo.vw
 
         Procedure Activate_About
             Send DoAbout "" "" "" "" ""

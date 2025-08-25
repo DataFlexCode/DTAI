@@ -195,9 +195,14 @@ Object oAIDemo is a dbView
         
         
         Get MakeRequest of hoAi hoRequest to Response
-        Showln Response.Choices[0].ContentParts[0].sText
-        Get Markdown2Html of hoAi Response.Choices[0].ContentParts[0].sText to sHtml
-        Send NavigateToString of oResponseHtml sHtml
+        If (SizeOfArray(Response.Choices)>0) Begin
+            Showln Response.Choices[0].ContentParts[0].sText
+            Get Markdown2Html of hoAi Response.Choices[0].ContentParts[0].sText to sHtml
+            Send NavigateToString of oResponseHtml sHtml
+        End
+        Else Begin
+            Send Stop_Box "No response received!"
+        End
     End_Procedure
 
 Cd_End_Object

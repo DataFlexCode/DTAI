@@ -1,4 +1,4 @@
-Use DoStartDocument.pkg
+﻿Use DoStartDocument.pkg
 
 Class cMarkdown_mixin is a Mixin
     
@@ -29,7 +29,6 @@ Class cMarkdown_mixin is a Mixin
         Else Begin
             Error DFERR_PROGRAM ("PANDOC conversion error.  HTML file is missing.  Expected:"*sHtmlFile)
         End
-        Send dostartdocument "OPEN" sHtmlFile ''
         
         EraseFile sMarkdownFile    
         EraseFile sHtmlFile

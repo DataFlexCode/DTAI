@@ -29,6 +29,10 @@ OCD took over and soon there were interfaces for Grok, Gemini, and ChatGPT.
  -cGrokRequest
  -cGeminiRequest
  -cChatGPTRequest
+ -cClaudeTranslator
+ -cGrokTranslator
+ -cGeminiTranslator
+ -cChatGPTranslator
 
  - cMultipartFormdataTransfer (used for Claude Files API, authored by Harm Wibier)
 
@@ -40,26 +44,26 @@ Each AI class supports the following messages
 ## ModelList 
 Returns a struct array with a list of available models to use.
 
-## CreateRequest
+## CreateRequest String sPrompt tAIAttachment[] Attachments Returns Handle (a handle to a JSON Request object)
 Given a string parameter with a text prompt and optional array of files encoded as base64, construct a JSON request that can be sent to the AI.
 
 This is implemented in the "Request" classes.  The developer will normally not need to use the "Request" classes directly.
 
 Returns a handle to a JSON object that can be sent to MakeRequest / MakeRequestJSON
 
-## MakeRequestJSON
+## MakeRequestJSON handle hoRequest returns handle (a handle to a JSON response object)
 Sends a request to the AI and returns it's response as a handle to a JSON object.
 
 This is a low level way of accessing the response because each AI has quite different JSON structures for their responses.  
 When this is used, separate code (or serialization to a struct) must be used if dealing with multiple AIs.  If you are only
 sending requests to a specific AI, it may be just fine to use this.
 
-## MakeRequest (To be implemented)
-Sends a request to the AI and returns its response in a DataFlex struct (undefined currently)
+## MakeRequest handle hoRequest returns tAIResponse
+Sends a request to the AI and returns its response in a DataFlex struct 
 
 This is the intended high level access for the AI interface as this will return a well defined easy to work with struct to the calling procedure no matter which AI is used.
 
-This will use the MakeRequestJSON function and then convert the JSON response to the standard response struct.
+This will use the MakeRequestJSON function and then convert the JSON response to the standard response struct using the Translator helper class.
 
 # API Keys
 
@@ -95,19 +99,28 @@ It works!
 The only project currently included is AI.SRC, used to test the file upload capability for Claude.
 
 # TODO ITEMS
- [ ] The current library is being used with DataFlex 19.1.  It needs to be migrated to 25.0, while retaining 19.1 compatibility.
+ [ ] Add error message if a request is made without an API key 
+ [X] The current library is being used with DataFlex 19.1.  It needs to be migrated to 25.0, while retaining 19.1 compatibility.
  [ ] On the Request side, support other parameters besides the max tokens, model id (e.g. Temperature, number of completions, top_p, etc)
- [ ] Add a Mixin class to provide common base64 / MIME type / file attachment code 
- [ ] A unified struct needs to be defined to contain the responses received from the AIs and MakeRequest implemented in all interfaces using this struct as a return value
+ [X] Add a Mixin class to provide common base64 / MIME type / file attachment code 
+ [x] A unified struct needs to be defined to contain the responses received from the AIs and MakeRequest implemented in all interfaces using this struct as a return value
+     [X] Update MakeRequest for cClaudeInterface
+     [ ] Update MakeRequest for cGrokInterface
+     [ ] Update MakeRequest for cGeminiInterface
+     [ ] Update MakeRequest for cChatGPTInterface
  [ ] More post processing support for the response.  AIs generate markdown text (unless instructed othewise), this needs to be converted to something displayable (e.g. HTML, looking at pandoc for this)
  [ ] Determine some way to control timeout-Grok and some OpenAI models in particular do not return a response before the standard 30 second timeout results in a "Http Transfer Failed" error
  [ ] Logging of AI requests/responses/stats
  [ ] A demonstration program that has:
-   - A radio group to select the AI to use
-   - A comboform that allows you to select the model to use for the currently select AI
-   - A text edit control to enter a text prompt
-   - A file selection dialog to select optional attachments to send with the prompt
-   - A HTML control displaying the response
+     [X] A radio group to select the AI to use
+     [x] A comboform that allows you to select the model to use for the currently select AI
+        [X] Comboform automatically updated when model changed
+        [ ] Store model list in property of AI subclass so that API request is not needed everytime
+     [X] A text edit control to enter a text prompt
+     [x] A file selection dialog to select optional attachments to send with the prompt
+        [X] procedure OnFileDropped implemented to add files to grid
+        [ ] Add ability to delete files in the grid
+     [X] A HTML control displaying the response (cWebBrowser2)
 
 
 Matt Davidian August 2025

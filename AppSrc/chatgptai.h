@@ -65,7 +65,7 @@ End_Struct
 Struct tChatGPTResponse
     String id
     String Object
-    DateTime created
+    integer created
     String model
     tChatGPTChoice[] choices
     tChatGPTUsage usage

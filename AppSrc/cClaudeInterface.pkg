@@ -12,7 +12,6 @@ Class cClaudeInterface is a cAIInterface
         Property String psApiKey (EnvironmentVariable(ghoEnvironment,'claude-api-key')) 
         Property String psAnthropicVersion "2023-06-01"
         Property String psModelId "claude-sonnet-4-20250514"
-        Property String psDefaultModelID ''
         Property Integer piMaxTokens 1024
         // set to true if using files API
         Property Boolean pbEnableFilesApi False
@@ -76,22 +75,26 @@ Class cClaudeInterface is a cAIInterface
         tAIModel[] ModelList        
         Integer i iCnt
             
-        Send AddStandardHeaders
-        Get HttpGetJson (psHost(Self)) "v1/models" (&bok) to hoResponse
-        If (not(bOk)) Begin
-            Send UserError (TransferErrorDescription(Self)) "Transfer failed!"
-        End
-        Else Begin
-            Get JsonToDataType of hoResponse to claudeModelList
-            Send Destroy of hoResponse
-        End
-        Move (Sizeofarray(claudeModelList.data)-1) to iCnt
-        For i from 0 to iCnt
-            Move (claudeModellist.data[i].id) to ModelList[i].id
-            Move (claudeModellist.data[i].display_name) to ModelList[i].display_name
-            Move (claudeModellist.data[i].created_at) to ModelList[i].created_at
-            Move (claudeModellist.data[i].type) to ModelList[i].type
-        Loop
+        Get paModels to ModelList
+        If (SizeOfArray(ModelList)=0) Begin
+            Send AddStandardHeaders
+            Get HttpGetJson (psHost(Self)) "v1/models" (&bok) to hoResponse
+            If (not(bOk)) Begin
+                Send UserError (TransferErrorDescription(Self)) "Transfer failed!"
+            End
+            Else Begin
+                Get JsonToDataType of hoResponse to claudeModelList
+                Send Destroy of hoResponse
+            End
+            Move (Sizeofarray(claudeModelList.data)-1) to iCnt
+            For i from 0 to iCnt
+                Move (claudeModellist.data[i].id) to ModelList[i].id
+                Move (claudeModellist.data[i].display_name) to ModelList[i].display_name
+                Move (claudeModellist.data[i].created_at) to ModelList[i].created_at
+                Move (claudeModellist.data[i].type) to ModelList[i].type
+            Loop
+            Set paModels to ModelList
+        End        
         Function_Return ModelList
     End_Function
     

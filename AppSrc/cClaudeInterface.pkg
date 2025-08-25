@@ -1,4 +1,6 @@
-﻿Class cClaudeInterface is a cAIInterface
+﻿Use cAIResponseTranslator.pkg
+
+Class cClaudeInterface is a cAIInterface
 
     Procedure construct_object
         Forward Send Construct_Object
@@ -10,11 +12,15 @@
         Property String psApiKey (EnvironmentVariable(ghoEnvironment,'claude-api-key')) 
         Property String psAnthropicVersion "2023-06-01"
         Property String psModelId "claude-sonnet-4-20250514"
+        Property String psDefaultModelID ''
         Property Integer piMaxTokens 1024
         // set to true if using files API
         Property Boolean pbEnableFilesApi False
         
         Object oClaudeRequest is a cClaudeRequest
+        End_Object
+        
+        Object oClaudeTranslator is a cClaudeTranslator
         End_Object
     End_Procedure
 
@@ -33,6 +39,8 @@
         If (pbEnableFilesApi(Self)) Get AddHeader "anthropic-beta" "files-api-2025-04-14" to iRetVal
     End_Procedure
     
+    // returns a handle to a valid response JSON object that is intended to be be deserialized 
+    //  into a struct.  If error, display message and return 0
     Function MakeRequestJSON Handle hoRequest Returns Handle
         Integer iRetVal
         Handle hoResponse hoError
@@ -52,7 +60,10 @@
                 Get Member of hoResponse "error" to hoError
                 Get MemberValue of hoError "type" to sResponseType
                 Get MemberValue of hoError "message" to sMessage
-                Send Stop_Box sMessage sResponseType                
+                Send Stop_Box sMessage sResponseType   
+                //
+                Send Destroy of hoResponse
+                Move 0 to hoResponse
             End
         End
         Function_Return hoResponse
@@ -91,5 +102,21 @@
         If (num_arguments=1) Get CreateClaudeApiRequest of (oClaudeRequest(Self)) sPrompt NoAttachments to hoRequest
         If (num_arguments=2) Get CreateClaudeApiRequest of (oClaudeRequest(Self)) sPrompt Attachments to hoRequest
         Function_Return hoRequest
+    End_Function
+    
+    Function MakeRequest Handle hoRequest Returns tAIResponse
+        Handle hoResponse
+        tClaudeResponse ClaudeResponse
+        tAIResponse Response
+        
+        Get MakeRequestJSON hoRequest to hoResponse
+        If (hoResponse) Begin
+            Set pbRequireAllMembers of hoResponse to False
+            Get JsonToDataType of hoResponse to ClaudeResponse
+            //
+            Get TranslateToUnified of oClaudeTranslator ClaudeResponse to Response
+        End
+        
+        Function_Return Response
     End_Function
 End_Class

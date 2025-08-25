@@ -20,6 +20,8 @@ Class cAiInterface is a cdtJsonHttpTransfer
         Send define_cMarkdown_mixin
         Send Define_cBase64Attachment_mixin
         
+        Property tAIModel[] paModels 
+        
         Set peTransferFlags to ifSecure
         Set piRemotePort to rpHttpSSL
     End_Procedure

@@ -114,26 +114,48 @@ Object oAIDemo is a dbView
             
             End_Object
 
-            Object oTextEdit1 is a cTextEdit
+            Object oPromptTextEdit is a cTextEdit
                 Set Location to 32 2
                 Set Size to 126 292
                 Set peAnchors to anTopBottomLeft
             End_Object
 
-            Object oCJGrid1 is a cCJGrid
+            Object oFileAttachmentGrid is a cCJGrid
                 Set Location to 32 298
                 Set Size to 126 100
                 Set peAnchors to anAll
+                Set pbReadOnly to True
 
-                Object oCJGridColumn1 is a cCJGridColumn
+                Object oFileAttachmentGridColumn is a cCJGridColumn
                     Set piWidth to 100
                     Set psCaption to "Files"
                 End_Object
             End_Object
+
+            Object oSubmitButton is a Button
+                Set Location to 160 244
+                Set Label to "Submit"
+                Set Size to 12 50
+            
+                // fires when the button is clicked
+                Procedure OnClick
+                    Send SubmitPrompt (oPromptTextEdit(Self)) (oFileAttachmentGrid(Self))
+                End_Procedure
+            
+            End_Object
+
+            procedure OnFileDropped String sFilename
+                tDataSourceRow[] GridData
+                handle hoDataSource
+                Get phoDataSource of oFileAttachmentGrid to hoDataSource
+                get DataSource of hoDataSource to GridData
+                Move sFilename to GridData[Sizeofarray(GridData)].sValue[0]
+                Send ReinitializeData of oFileAttachmentGrid GridData False
+            End_Procedure
         End_Object
 
         Object oSplitterContainerChild2 is a cSplitterContainerChild
-            Object oResponse is a cWebView2Browser
+            Object oResponseHtml is a cWebView2Browser
                 Set psLocationURL to "https://www.dataaccess.com/"
                 Set Location to 0 0
                 Set Size to 189 399
@@ -141,5 +163,41 @@ Object oAIDemo is a dbView
             End_Object
         End_Object
     End_Object
+
+    Procedure SubmitPrompt handle hoPromptTextEdit handle hoFileAttachmentGrid
+        String sPrompt
+        String sFileAttachments sHtml
+        Handle hoDataSource hoRequest
+        integer i iCnt
+        tDataSourceRow[] GridData
+        String[] asFileAttachments
+        tAIAttachment[] aAttachments
+        tAIResponse Response
+        handle hoAI
+
+        get phoAI to hoAI
+        // text prompt
+        Get Value of hoPromptTextEdit to sPrompt
+
+        // file attachments
+        get phoDataSource of hoFileAttachmentGrid to hoDataSource
+        get DataSource of hoDataSource to GridData
+        for i from 0 to (Sizeofarray(GridData)-1)
+            Move GridData[i].sValue[0] to asFileAttachments[i]
+            Get CreateAttachment of hoAI asFileAttachments[i] to aAttachments[i]
+        loop
+        
+        Get CreateRequest of hoAi sPrompt aAttachments to hoRequest
+
+        // debugging purposes, take out or log in a console
+        // Set peWhiteSpace of hoRequest to jpWhitespace_Pretty
+        // Get Stringify of hoRequest to sRequest
+        
+        
+        Get MakeRequest of hoAi hoRequest to Response
+        Showln Response.Choices[0].ContentParts[0].sText
+        Get Markdown2Html of hoAi Response.Choices[0].ContentParts[0].sText to sHtml
+        Send NavigateToString of oResponseHtml sHtml
+    End_Procedure
 
 Cd_End_Object

@@ -74,7 +74,8 @@ End_Struct
 // You will need to check which member is populated after deserializing.
 Struct tGeminiMasterResponse
     tGeminiResponse response
-    tGeminiError Error
+    { Name="Error" }
+    tGeminiError GeminiError
 End_Struct
 
 //-----------------------------------------------------------------------------

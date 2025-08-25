@@ -1,4 +1,4 @@
-//=============================================================================
+﻿//=============================================================================
 // AI Response Translation Classes
 // Purpose: Convert individual AI response structures to unified tAIResponse
 //=============================================================================
@@ -119,6 +119,11 @@ Class cClaudeTranslator is a cObject
     
 End_Class
 
+Class cGrokTranslator is a cClaudeTranslator
+    // grok uses the same message API as Anthropic, 
+    //  so we just create a name Class for Grok in case it ever changes
+End_Class
+
 //=============================================================================
 // Gemini Response Translator
 //=============================================================================
@@ -133,7 +138,7 @@ Class cGeminiTranslator is a cObject
         Integer i, j, k
         
         // Check if this is an error response
-        If (geminiMasterResponse.Error.code <> 0) Begin
+        If (geminiMasterResponse.GeminiError.code <> 0) Begin
             Move "" to aiResponse.sId
             Move "error" to aiResponse.sObjectOrType
             Move (CurrentDateTime()) to aiResponse.dtCreated

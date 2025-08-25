@@ -78,21 +78,25 @@ Object oAIDemo is a dbView
                     Set Label_Justification_Mode to JMode_Right
                 
                     Procedure Combo_Fill_List
-                        // Fill the combo list with Send Combo_Add_Item
-                        Send Combo_Delete_Data
                         tAIModel[] aModelList
                         Handle hoAI
-                        Get phoAI to hoAI
                         Integer i iCnt
+                        String sModelId sValue
+                        
+                        Get phoAi to hoAi
+                        If (hoAI) Get psModelId of hoAI to sModelId
+
+                        Send Combo_Delete_Data
                         
                         If (hoAI) begin
                             Get ModelList of hoAi to aModelList
                             Set paModelList to aModelList
                             For i from 0 to (SizeOfArray(aModelList)-1)
                                 Send Combo_Add_Item aModelList[i].display_name
+                                If (sModelId=aModelList[i].id) Move aModelList[i].display_name to sValue
                             Loop
                         End
-                        
+                        If (sValue<>'') Set Value to sValue
                     End_Procedure
                   
                     // OnChange is called on every changed character
@@ -196,7 +200,6 @@ Object oAIDemo is a dbView
         
         Get MakeRequest of hoAi hoRequest to Response
         If (SizeOfArray(Response.Choices)>0) Begin
-            Showln Response.Choices[0].ContentParts[0].sText
             Get Markdown2Html of hoAi Response.Choices[0].ContentParts[0].sText to sHtml
             Send NavigateToString of oResponseHtml sHtml
         End

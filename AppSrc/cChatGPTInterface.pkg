@@ -1,4 +1,6 @@
-﻿Class cChatGPTInterface is a cAIInterface
+﻿Use cAIResponseTranslator.pkg
+
+Class cChatGPTInterface is a cAIInterface
     Procedure Construct_Object
         Forward Send Construct_Object
 
@@ -9,6 +11,9 @@
         Property Integer piMaxTokens 1024
         
         Object oChatGPTRequest is a cChatGPTRequest
+        End_Object
+        
+        Object oChatGPTTranslator is a cChatGPTTranslator
         End_Object
 
     End_Procedure
@@ -161,5 +166,21 @@
         End
 
         Function_Return hoResponse
+    End_Function
+
+    Function MakeRequest Handle hoRequest Returns tAIResponse
+        Handle hoResponse
+        tChatGPTResponse ChatGPTResponse
+        tAIResponse Response
+        
+        Get MakeRequestJSON hoRequest to hoResponse
+        If (hoResponse) Begin
+            Set pbRequireAllMembers of hoResponse to False
+            Get JsonToDataType of hoResponse to ChatGPTResponse
+            //
+            Get TranslateToUnified of oChatGPTTranslator ChatGPTResponse to Response
+        End
+        
+        Function_Return Response
     End_Function
 End_Class

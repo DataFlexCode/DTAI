@@ -1,0 +1,57 @@
+﻿// base64 conversion support for 19.1 and 25.0
+Use cCharTranslate.pkg
+
+Class cBase64Attachment_mixin is a Mixin
+    
+    Procedure Define_cBase64Attachment_mixin
+        Object oCharTranslate is a cCharTranslate
+        End_Object
+    End_Procedure
+    
+    Function MimeType String sFilename Returns String
+        Integer iPer
+        String sExt sMimeType
+        Move (RightPos('.',sFilename)) to iPer
+        If (iPer<>0) Begin
+            Move (lowercase(Right(sFilename,Length(sFilename)-iPer))) to sExt
+        End
+        If (sExt='pdf') Move 'application/pdf' to sMimeType
+        If (sExt='csv') Move 'text/csv' to sMimeType
+        If (sExt='txt') Move 'text/plain' to sMimeType
+        if (sExt='jpg') Move 'image/jpeg' to sMimeType
+        if (sExt='png') Move 'image/png' to sMimeType
+        if (sExt='gif') Move 'image/gif' to sMimeType
+        if (sExt='bmp') Move 'image/bmp' to sMimeType
+        if (sExt='tiff') Move 'image/tiff' to sMimeType
+        if (sExt='ico') Move 'image/x-icon' to sMimeType
+        if (sExt='webp') Move 'image/webp' to sMimeType
+        if (sExt='doc') Move 'application/msword' to sMimeType
+        if (sExt='docx') Move 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' to sMimeType
+        if (sExt='xls') Move 'application/vnd.ms-excel' to sMimeType
+        if (sExt='xlsx') Move 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' to sMimeType
+        if (sExt='ppt') Move 'application/vnd.ms-powerpoint' to sMimeType
+        if (sExt='pptx') Move 'application/vnd.openxmlformats-officedocument.presentationml.presentation' to sMimeType
+        
+        Function_Return sMimeType
+    End_Function
+    
+    Function CreateAttachment String sFilename Returns tAIAttachment
+        tAIAttachment Attachment
+        UChar[] uFilename
+        Integer iSize
+        
+        Direct_Input ("BINARY:"+sFilename)
+        Read_Block uFilename -1
+        Close_Input
+        // prior to DF 2022, need to set argument size, ignored for 2022+
+        Get_Argument_Size to iSize
+        Set_Argument_Size (SizeOfArray(uFilename)*1.4)
+
+        Get Base64EncodeUCharArray of oCharTranslate uFilename to Attachment.uBase64File
+        Get MimeType sFilename to Attachment.sMimeType
+
+        Set_Argument_Size iSize
+
+        Function_Return Attachment
+    End_Function
+End_Class

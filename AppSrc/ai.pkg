@@ -1,6 +1,7 @@
-Use ai.h
+﻿Use ai.h
 Use cdtJsonHttpTransfer.pkg
 Use cMarkdown_mixin.pkg
+Use cBase64Attachment_mixin.pkg
 
 // TODO: refactor inheritance of all AI classes
 // subclass of cdtJsonHttpTransfer gets the cMarkdownMixin (so it doesn't have to be included in each AI subclass 
@@ -11,11 +12,13 @@ Use cMarkdown_mixin.pkg
 
 Class cAiInterface is a cdtJsonHttpTransfer
     Import_Class_Protocol cMarkdown_mixin
+    Import_Class_Protocol cBase64Attachment_mixin
     
     Procedure construct_object
         Forward Send Construct_Object
         
         Send define_cMarkdown_mixin
+        Send Define_cBase64Attachment_mixin
         
         Set peTransferFlags to ifSecure
         Set piRemotePort to rpHttpSSL
@@ -34,9 +37,9 @@ Class cAiInterface is a cdtJsonHttpTransfer
     //  defined, so this is really a placeholder
     // Use MakeRequestJSON for testing rather than this message
     
-    Function MakeRequest Handle hoRequest Returns Handle
+    Function MakeRequest Handle hoRequest Returns tAIResponse
         Handle hoRetVal
-        Error DFERR_PROGRAM "MakeRequest not implemented"
+        Error DFERR_PROGRAM ("MakeRequest not implemented"*name(Self)) 
         Function_Return hoRetVal
     End_Function
 
@@ -45,21 +48,21 @@ Class cAiInterface is a cdtJsonHttpTransfer
     //  to the raw JSON response
     Function MakeRequestJSON Handle hoRequest Returns Handle
         Handle hoRetVal
-        Error DFERR_PROGRAM "MakeRequestJSON not implemented"
+        Error DFERR_PROGRAM ("MakeRequestJSON not implemented"*name(Self)) 
         Function_Return hoRetVal
     End_Function
 
     // return a list of models available for this AI
     Function ModelList Returns tAIModel[]
         tAIModel[] ModelList        
-        Error DFERR_PROGRAM "ModelList not implemented"
+        Error DFERR_PROGRAM ("ModelList not implemented"*name(Self)) 
         Function_Return ModelList
     End_Function
 
     // create and return a JSON object containing a request suitable for this AI  
     Function CreateRequest String sPrompt tAIAttachment[] Attachments Returns Handle 
         Handle hoRequest
-        Error DFERR_PROGRAM "CreateRequest not implemented"
+        Error DFERR_PROGRAM ("CreateRequest not implemented"*name(Self)) 
         Function_Return hoRequest
     End_Function
     

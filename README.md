@@ -105,29 +105,40 @@ It works!  The demo project included is AI.SRC.
 There are two views, one that allows you to submit a request to any of the four supported AIs, and one to test the file upload capability for Claude.
 
 # TODO ITEMS
- [ ] Add error message if a request is made without an API key 
+ (X = completed, x = In Progress)
+ [X] Add error message if a request is made without an API key to all four interface classes
  [X] The current library is being used with DataFlex 19.1.  It needs to be migrated to 25.0, while retaining 19.1 compatibility.
  [ ] On the Request side, support other parameters besides the max tokens, model id (e.g. Temperature, number of completions, top_p, etc)
- [ ] Migrate the cClaudeInterface_beta code into cClaudeInterface (this was initially split up so as to not require ChilKat for basic Claude support)
+ [X] Migrate the cClaudeInterface_beta code into cClaudeInterface (this was initially split up so as to not require ChilKat for basic Claude support)
  [X] Add a Mixin class to provide common base64 / MIME type / file attachment code 
- [x] A unified struct needs to be defined to contain the responses received from the AIs and MakeRequest implemented in all interfaces using this struct as a return value
+ [X] A unified struct needs to be defined to contain the responses received from the AIs and MakeRequest implemented in all interfaces using this struct as a return value
      [X] Update MakeRequest for cClaudeInterface
-     [ ] Update MakeRequest for cGrokInterface
-     [ ] Update MakeRequest for cGeminiInterface
+     [X] Update MakeRequest for cGrokInterface
+     [X] Update MakeRequest for cGeminiInterface
      [X] Update MakeRequest for cChatGPTInterface
  [x] More post processing support for the response.  AIs generate markdown text (unless instructed othewise), this needs to be converted to something displayable (e.g. HTML, looking at pandoc for this)
  [ ] Determine some way to control timeout-Grok and some OpenAI models in particular do not return a response before the standard 30 second timeout results in a "Http Transfer Failed" error
+      https://support.dataaccess.com/Forums/showthread.php?72515-Can-timeout-be-controlled-on-cJsonHttpTransfer
  [ ] Logging of AI requests/responses/stats
- [ ] A demonstration program that has:
+     [x] Track start/stop time, timeout status in the cAiInterface class, augment HttpPostJson
+     [ ] Log both complete request JSON and response JSON in Database
+     [ ] Tool to extract base64 files from request JSON
+     [ ] "Replay" a request from log
+     [ ] Tracks tokens in/out (important for billing!!)
+ [X] A demonstration program that has:
      [X] A radio group to select the AI to use
      [X] A comboform that allows you to select the model to use for the currently select AI
         [X] Comboform automatically updated when model changed
         [X] Store model list in property of AI subclass so that API request is not needed everytime
      [X] A text edit control to enter a text prompt
-     [x] A file selection dialog to select optional attachments to send with the prompt
+     [S] A file selection dialog to select optional attachments to send with the prompt
         [X] procedure OnFileDropped implemented to add files to grid
-        [ ] Add ability to delete files in the grid
+        [X] Add ability to delete files in the grid
+        [X] Open files in grid on double click in default Windows App
      [X] A HTML control displaying the response (cWebBrowser2)
-
+     [X] Text edit controls displaying the HTML source, Raw text Response, tAIResponse struct returned, model specific JSON returned
+ [ ] Claude Files API Console updates
+     [ ] Confirmation when file is uploaded
+     [ ] Refresh file list when file uploaded/deleted
 
 Matt Davidian August 2025

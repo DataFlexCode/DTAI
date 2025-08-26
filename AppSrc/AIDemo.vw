@@ -236,7 +236,7 @@ Object oAIDemo is a dbView
                     Set Label to 'Response'
 
                     Object oResponseHtml is a cWebView2Browser
-                        Set psLocationURL to "https://www.dataaccess.com/"
+                        // Set psLocationURL to "https://www.dataaccess.com/"
                         Set Location to 0 0
                         Set Size to 161 396
                         Set peAnchors to anAll
@@ -364,13 +364,8 @@ Object oAIDemo is a dbView
         loop
         
         Get CreateRequest of hoAi sPrompt aAttachments to hoRequest
-
-        // debugging purposes, take out or log in a console
-        // Set peWhiteSpace of hoRequest to jpWhitespace_Pretty
-        // Get Stringify of hoRequest to sRequest
-        
-        
         Get MakeRequest of hoAi hoRequest to Response
+        //
         If (SizeOfArray(Response.Choices)>0) Begin
             Get Markdown2Html of hoAi Response.Choices[0].ContentParts[0].sText to sHtml
             Get Create (RefClass(cJsonObject)) to hoAiResponse

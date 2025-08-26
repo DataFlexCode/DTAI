@@ -41,23 +41,24 @@ Object oAIDemo is a dbView
                 Object oRadio1 is a Radio
                     Set Label to "Claude"
                     Set Size to 10 32
-                    Set Location to 10 66
+                    Set Location to 10 53
                 End_Object
             
                 Object oRadio2 is a Radio
                     Set Label to "Gemini"
                     Set Size to 10 32
-                    Set Location to 10 127
+                    Set Location to 10 93
                 End_Object
             
                 Object oRadio3 is a Radio
                     Set Label to "Grok"
                     Set Size to 10 32
-                    Set Location to 10 188
+                    Set Location to 10 133
                 End_Object
             
                 Procedure Notify_Select_State Integer iToItem Integer iFromItem
                     Handle hoAI
+                    Integer iMaxTokens
                     Forward Send Notify_Select_State iToItem iFromItem
                     Set piSelectedAI to iToItem
                     If (iToItem=0) Move ghoChatGPTAI to hoAI
@@ -65,13 +66,20 @@ Object oAIDemo is a dbView
                     If (iToItem=2) Move ghoGeminiAI to hoAI
                     If (iToItem=3) Move ghoGrokAI to hoAI
                     Set phoAI to hoAI
-                    If (iToItem<>iFromItem) Send Combo_Fill_List of oSelectModel
+                    If (iToItem<>iFromItem) Begin
+                        Send Combo_Fill_List of oSelectModel
+                        // Update max tokens form when AI changes
+                        If (hoAI) Begin
+                            Get piMaxTokens of hoAI to iMaxTokens
+                            Set Value of oMaxTokensForm to iMaxTokens
+                        End
+                    End
                 End_Procedure
         
                 Object oSelectModel is a ComboForm
                     Property tAIModel[] paModelList
                     
-                    Set Location to 9 262
+                    Set Location to 9 197
                     Set Size to 12 100
                     Set Label to "Model:"
                     Set Label_Col_Offset to 2
@@ -114,6 +122,26 @@ Object oAIDemo is a dbView
                         Set psModelId of hoAi to aModelList[iCombo].id
                     End_Procedure
                 End_Object
+                
+                Object oMaxTokensForm is a Form
+                    Set Location to 9 355
+                    Set Size to 12 32
+                    Set Label to "Max Tokens:"
+                    Set Label_Col_Offset to 2
+                    Set Label_Justification_Mode to JMode_Right
+                    Set Form_Datatype to Mask_Numeric_Window
+                    
+                    // OnChange is called when the value changes
+                    Procedure OnChange
+                        Integer iMaxTokens
+                        Handle hoAI
+                        
+                        Get Value to iMaxTokens
+                        Get phoAI to hoAI
+                        
+                        If (hoAI) Set piMaxTokens of hoAI to iMaxTokens
+                    End_Procedure
+                End_Object
             
             
             End_Object
@@ -130,10 +158,50 @@ Object oAIDemo is a dbView
                 Set peAnchors to anAll
                 Set pbReadOnly to True
 
+                Set piSelectedRowBackColor to clYellow
+                Set piSelectedRowForeColor to clBlack
+                // color when control does have focus
+                Set piHighlightBackColor to clYellow
+                Set piHighlightForeColor to clBlack
+                // color of current cell when control has the focus
+                Set pbSelectionEnable to True
+                Set pbMultiSelectionMode to False
+                Set piFocusCellBackColor to clYellow
+                Set piFocusCellForeColor to clBlack
+
                 Object oFileAttachmentGridColumn is a cCJGridColumn
                     Set piWidth to 100
                     Set psCaption to "Files"
                 End_Object
+
+                                
+                Procedure Removefile
+                    Handle hoDataSource
+                    tDataSourceRow[] GridData
+                    Integer iRow
+                                        
+                    Get phoDataSource to hoDataSource
+                    Get DataSource of hoDataSource to GridData
+                    Get SelectedRow of hoDataSource to iRow
+                    Move (RemoveFromArray(GridData,iRow)) to GridData
+                    If (SizeOfArray(GridData)=0) Send InitializeData GridData
+                    Else Send ReInitializeData GridData False
+                    
+                End_Procedure
+
+                Procedure OnRowDoubleClick Integer iRow Integer iCol
+                    Forward Send OnRowDoubleClick iRow iCol
+                    tDataSourceRow[] GridData
+                    Handle hoDataSource
+                                        
+                    Get phoDataSource to hoDataSource
+                    Get DataSource of hoDataSource to GridData
+                    Get SelectedRow of hoDataSource to iRow
+                    If (iRow>=0) Send DoStartDocument "OPEN" GridData[iRow].sValue[0]
+                End_Procedure
+
+                On_Key Key_Delete Send RemoveFile
+                
             End_Object
 
             Object oSubmitButton is a Button
@@ -159,14 +227,59 @@ Object oAIDemo is a dbView
         End_Object
 
         Object oSplitterContainerChild2 is a cSplitterContainerChild
-            Object oResponseHtml is a cWebView2Browser
-                Set psLocationURL to "https://www.dataaccess.com/"
+            Object oTabDialog1 is a TabDialog
                 Set Location to 0 0
-                Set Size to 189 399
+                Set Size to 173 399
                 Set peAnchors to anAll
+
+                Object oTabPage1 is a TabPage
+                    Set Label to 'Response'
+
+                    Object oResponseHtml is a cWebView2Browser
+                        Set psLocationURL to "https://www.dataaccess.com/"
+                        Set Location to 0 0
+                        Set Size to 161 396
+                        Set peAnchors to anAll
+                    End_Object
+                End_Object
+
+                Object oTabPage2 is a TabPage
+                    Set Label to 'HTML Source'
+
+                    Object oHTMLSource is a cTextEdit
+                        Set Location to 0 0
+                        Set Size to 161 396
+                        Set peAnchors to anAll
+                        Set psTypeFace to "Consolas"
+                    End_Object
+                End_Object
+
+                Object oTabPage3 is a TabPage
+                    Set Label to 'Raw Response'
+
+                    Object oRawResponse is a cTextEdit
+                        Set Location to 0 0
+                        Set Size to 161 396
+                        Set peAnchors to anAll
+                        Set psTypeFace to "Consolas"
+                    End_Object
+                End_Object
             End_Object
         End_Object
     End_Object
+    
+    Procedure Activating
+        Handle hoAI
+        Integer iMaxTokens
+        Forward Send Activating
+        
+        // Initialize the max tokens form with the current AI's max tokens
+        Get phoAI to hoAI
+        If (hoAI) Begin
+            Get piMaxTokens of hoAI to iMaxTokens
+            Set Value of (oMaxTokensForm(oSelectAI(Self))) to iMaxTokens
+        End
+    End_Procedure
 
     Procedure SubmitPrompt handle hoPromptTextEdit handle hoFileAttachmentGrid
         String sPrompt
@@ -201,6 +314,8 @@ Object oAIDemo is a dbView
         Get MakeRequest of hoAi hoRequest to Response
         If (SizeOfArray(Response.Choices)>0) Begin
             Get Markdown2Html of hoAi Response.Choices[0].ContentParts[0].sText to sHtml
+            Set Value of oRawResponse to Response.Choices[0].ContentParts[0].sText 
+            Set value of oHTMLSource to sHtml
             Send NavigateToString of oResponseHtml sHtml
         End
         Else Begin

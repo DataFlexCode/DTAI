@@ -85,10 +85,10 @@ Class cClaudeTranslator is a cObject
         
         // Map usage information
         Move claudeResponse.usage.input_tokens to aiResponse.Usage.iInputTokens
-        Move claudeResponse.usage.output_tokesn to aiResponse.Usage.iOutputTokens
-        Move (claudeResponse.usage.input_tokens + claudeResponse.usage.output_tokesn) to aiResponse.Usage.iTotalTokens
+        Move claudeResponse.usage.output_tokens to aiResponse.Usage.iOutputTokens
+        Move (claudeResponse.usage.input_tokens + claudeResponse.usage.output_tokens) to aiResponse.Usage.iTotalTokens
         Move claudeResponse.usage.input_tokens to aiResponse.Usage.iPromptTokens
-        Move claudeResponse.usage.output_tokesn to aiResponse.Usage.iCompletionTokens
+        Move claudeResponse.usage.output_tokens to aiResponse.Usage.iCompletionTokens
         Move claudeResponse.usage.cache_creation_input_tokens to aiResponse.Usage.iCacheCreationInputTokens
         Move claudeResponse.usage.cache_read_input_tokens to aiResponse.Usage.iCacheReadInputTokens
         Move claudeResponse.usage.service_tier to aiResponse.Usage.sServiceTier

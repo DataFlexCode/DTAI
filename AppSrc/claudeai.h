@@ -28,7 +28,7 @@ Struct tClaudeResponseUsage
     Integer input_tokens
     Integer cache_creation_input_tokens
     Integer cache_read_input_tokens
-    Integer output_tokesn
+    Integer output_tokens
     String service_tier
 End_Struct
 

@@ -106,9 +106,10 @@ There are two views, one that allows you to submit a request to any of the four 
 
 # TODO ITEMS
  (X = completed, x = In Progress)
+ [ ] PDF support in Grok is only through reference to a URL, not base64 encoded PDF file as with other AIs.  This... complicates things.
+ [ ] On the Request side, support other parameters besides the max tokens, model id (e.g. Temperature, number of completions, top_p, etc)
  [X] Add error message if a request is made without an API key to all four interface classes
  [X] The current library is being used with DataFlex 19.1.  It needs to be migrated to 25.0, while retaining 19.1 compatibility.
- [ ] On the Request side, support other parameters besides the max tokens, model id (e.g. Temperature, number of completions, top_p, etc)
  [X] Migrate the cClaudeInterface_beta code into cClaudeInterface (this was initially split up so as to not require ChilKat for basic Claude support)
  [X] Add a Mixin class to provide common base64 / MIME type / file attachment code 
  [X] A unified struct needs to be defined to contain the responses received from the AIs and MakeRequest implemented in all interfaces using this struct as a return value
@@ -131,7 +132,7 @@ There are two views, one that allows you to submit a request to any of the four 
         [X] Comboform automatically updated when model changed
         [X] Store model list in property of AI subclass so that API request is not needed everytime
      [X] A text edit control to enter a text prompt
-     [S] A file selection dialog to select optional attachments to send with the prompt
+     [X] A file selection method to select optional attachments to send with the prompt
         [X] procedure OnFileDropped implemented to add files to grid
         [X] Add ability to delete files in the grid
         [X] Open files in grid on double click in default Windows App

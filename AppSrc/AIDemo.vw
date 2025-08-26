@@ -232,7 +232,7 @@ Object oAIDemo is a dbView
                 Set Size to 173 399
                 Set peAnchors to anAll
 
-                Object oTabPage1 is a TabPage
+                Object oResponseTabPage is a TabPage
                     Set Label to 'Response'
 
                     Object oResponseHtml is a cWebView2Browser
@@ -243,7 +243,7 @@ Object oAIDemo is a dbView
                     End_Object
                 End_Object
 
-                Object oTabPage2 is a TabPage
+                Object oHtmlSourceTabPage is a TabPage
                     Set Label to 'HTML Source'
 
                     Object oHTMLSource is a cTextEdit
@@ -254,14 +254,62 @@ Object oAIDemo is a dbView
                     End_Object
                 End_Object
 
-                Object oTabPage3 is a TabPage
-                    Set Label to 'Raw Response'
+                Object oRawResponseTabPage is a TabPage
+                    Set Label to 'Raw Text'
 
                     Object oRawResponse is a cTextEdit
                         Set Location to 0 0
                         Set Size to 161 396
                         Set peAnchors to anAll
                         Set psTypeFace to "Consolas"
+                    End_Object
+                End_Object
+
+                Object oAIResponseStructTagPage is a TabPage
+                    Set Label to 'Response Struct'
+                    Object oAIResponseStruct is a cTextEdit
+                        Set Location to 0 0
+                        Set Size to 161 396
+                        Set peAnchors to anAll
+                        Set psTypeFace to "Consolas"
+                    End_Object
+                End_Object
+
+                Object oModelResponseStructTagPage is a TabPage
+                    Set Label to 'Model Response Struct'
+                    Object oModelResponseStruct is a cTextEdit
+                        Set Location to 0 0
+                        Set Size to 161 396
+                        Set peAnchors to anAll
+                        Set psTypeFace to "Consolas"
+                    End_Object
+                End_Object
+
+                Object oStatsTabPage is a TabPage
+                    Set Label to 'Statistics'
+
+                    Object oStartTime is a Form
+                        Set Location to 6 71
+                        Set Size to 12 100
+                        Set Label to "Start Time:"
+                        Set Label_Col_Offset to 2
+                        Set Label_Justification_Mode to JMode_Right
+                    End_Object
+
+                    Object oStopTime is a Form
+                        Set Location to 20 71
+                        Set Size to 12 100
+                        Set Label to "Stop Time:"
+                        Set Label_Col_Offset to 2
+                        Set Label_Justification_Mode to JMode_Right
+                    End_Object
+
+                    Object oElapsed is a Form
+                        Set Location to 34 71
+                        Set Size to 12 100
+                        Set Label to "Elapsed:"
+                        Set Label_Col_Offset to 2
+                        Set Label_Justification_Mode to JMode_Right
                     End_Object
                 End_Object
             End_Object
@@ -282,9 +330,9 @@ Object oAIDemo is a dbView
     End_Procedure
 
     Procedure SubmitPrompt handle hoPromptTextEdit handle hoFileAttachmentGrid
-        String sPrompt
+        String sPrompt sResponse
         String sFileAttachments sHtml
-        Handle hoDataSource hoRequest
+        Handle hoDataSource hoRequest hoAiResponse
         integer i iCnt
         tDataSourceRow[] GridData
         String[] asFileAttachments
@@ -314,9 +362,25 @@ Object oAIDemo is a dbView
         Get MakeRequest of hoAi hoRequest to Response
         If (SizeOfArray(Response.Choices)>0) Begin
             Get Markdown2Html of hoAi Response.Choices[0].ContentParts[0].sText to sHtml
+            Get Create (RefClass(cJsonObject)) to hoAiResponse
+            Set peWhiteSpace of hoAiResponse to jpWhitespace_Pretty
+            Send DataTypeToJson of hoAiResponse Response
+            Get Stringify of hoAiResponse to sResponse
+            Send Destroy of hoAiResponse            
+            
+            // now update the text edit's with response info
+            Set Value of oModelResponseStruct to (psModelResponseJson(hoAI))
+            Set Value of oAIResponseStruct to sResponse
             Set Value of oRawResponse to Response.Choices[0].ContentParts[0].sText 
             Set value of oHTMLSource to sHtml
             Send NavigateToString of oResponseHtml sHtml
+            
+            // update statistics
+            tRestCallStats Stats
+            Get pLastCallStats of hoAI to Stats
+            Set Value of oStartTime to Stats.dtStart
+            Set Value of oStopTime to Stats.dtStop
+            Set Value of oElapsed to Stats.tElapsed
         End
         Else Begin
             Send Stop_Box "No response received!"

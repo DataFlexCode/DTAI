@@ -22,7 +22,9 @@ Class cAiInterface is a cdtJsonHttpTransfer
         
         Property tAIModel[] paModels 
         Property String psApiKey ''
-        
+        Property String psModelResponseJson ''
+        Property tRestCallStats pLastCallStats
+                
         Set peTransferFlags to ifSecure
         Set piRemotePort to rpHttpSSL
     End_Procedure
@@ -46,6 +48,18 @@ Class cAiInterface is a cdtJsonHttpTransfer
             Function_Return 0
         End
         Else Function_Return 1
+    End_Function
+    
+    Function HttpPostJson String sHost String sFilePath Handle hoJsonRequest Boolean ByRef bOk Returns Handle
+        tRestCallStats Stats
+        Handle hoResponse
+        
+        Move (CurrentDateTime()) to Stats.dtStart
+        Forward Get HttpPostJson sHost sFilePath hoJsonRequest (&bOk) to hoResponse
+        Move (CurrentDateTime()) to Stats.dtStop
+        Move (Stats.dtStop-Stats.dtStart) to Stats.tElapsed
+        Set pLastCallStats to Stats
+        Function_Return hoResponse
     End_Function
     
     Function MakeRequest Handle hoRequest Returns tAIResponse

@@ -1,5 +1,11 @@
 // General struct defintions for AI interface
-
+struct tRestCallStats
+    datetime dtStart
+    datetime dtStop
+    timespan tElapsed
+    // add size of request/response? add status code result, transfer error description?
+end_struct
+    
 // this is actually the same as the definition for tClaudeAttachment
 //  
 Struct tAIAttachment

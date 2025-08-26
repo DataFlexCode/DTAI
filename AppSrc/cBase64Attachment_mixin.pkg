@@ -15,6 +15,7 @@ Class cBase64Attachment_mixin is a Mixin
         If (iPer<>0) Begin
             Move (lowercase(Right(sFilename,Length(sFilename)-iPer))) to sExt
         End
+        If (sExt='json') Move 'application/json' to sMimeType
         If (sExt='pdf') Move 'application/pdf' to sMimeType
         If (sExt='csv') Move 'text/csv' to sMimeType
         If (sExt='txt') Move 'text/plain' to sMimeType

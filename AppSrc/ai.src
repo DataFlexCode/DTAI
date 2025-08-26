@@ -105,17 +105,6 @@ Object oMain is a Panel
                 Set psToolTip to "View"
                 Set psDescription to "Available Views"
 
-                Object oClaudeConsoleMenuItem is a cCJMenuItem
-                    Set psCaption to "Claude Console"
-                    Set psTooltip to "Claude Console"
-                
-                    Procedure OnExecute Variant vCommandBarControl
-                        Handle hoClient
-                        Get Client_Id to hoClient
-                        Send Activate_oClaudeConsole of hoClient
-                    End_Procedure
-                End_Object
-
                 Object oAIPromptDemoMenuItem is a cCJMenuItem
                     Set psCaption to "AI Prompt Demo"
                     Set psTooltip to "AI Prompt Demo"
@@ -124,6 +113,17 @@ Object oMain is a Panel
                         Handle hoClient
                         Get Client_Id to hoClient
                         Send Activate_oAIDemo of hoClient
+                    End_Procedure
+                End_Object
+
+                Object oClaudeConsoleMenuItem is a cCJMenuItem
+                    Set psCaption to "Claude Console"
+                    Set psTooltip to "Claude Console"
+                
+                    Procedure OnExecute Variant vCommandBarControl
+                        Handle hoClient
+                        Get Client_Id to hoClient
+                        Send Activate_oClaudeConsole of hoClient
                     End_Procedure
                 End_Object
             End_Object

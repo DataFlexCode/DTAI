@@ -1,7 +1,6 @@
 Use Windows.pkg
 Use DFClient.pkg
 
-Use claudeai_beta.pkg
 Use cCJGrid.pkg
 Use cCJGridColumn.pkg
 

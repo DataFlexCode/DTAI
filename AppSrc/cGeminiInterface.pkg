@@ -1,14 +1,19 @@
-﻿Class cGeminiInterface is a cAIInterface
+﻿Use cAIResponseTranslator.pkg
+
+Class cGeminiInterface is a cAIInterface
 
     Procedure Construct_object
         Forward Send Construct_Object
 
         Property String psHost "generativelanguage.googleapis.com"
         Property String psApiKey (EnvironmentVariable(ghoEnvironment,'gemini-api-key')) 
-        Property String psModelId "gemini-1.5-flash"
+        Property String psModelId "models/gemini-2.5-flash"
         Property Integer piMaxTokens 1024
         Property tGenerationConfig pGenerationConfig        
         Object oGeminiRequest is a cGeminiRequest
+        End_Object
+        
+        Object oGeminiTranslator is a cGeminiTranslator
         End_Object
     End_Procedure
 
@@ -26,7 +31,8 @@
         Boolean bOk
 
         // Construct the full URL with the model ID and API key
-        Move ("/v1beta/models/" + psModelId(Self) + ":generateContent?key=" + psApiKey(Self)) to sUrl
+         Move ("v1beta/" + psModelId(Self) + ":generateContent?key=" + psApiKey(Self)) to sUrl
+        // Move ("v1beta/models/" + psModelId(Self) + ":generateContent?key=" + psApiKey(Self)) to sUrl
 
         Send AddStandardHeaders
         
@@ -35,7 +41,7 @@
         If (not(bOk)) Begin
             Send UserError (TransferErrorDescription(Self)) "Transfer failed!"
         End
-        Else Begin
+        Else If (hoResponse<>0) Begin
             Send RemoveNullMembers hoResponse
             If (HasMember(hoResponse,'candidates')) Begin
                 // success!
@@ -54,6 +60,12 @@
                 Move 0 to hoResponse
             End
         End
+        Else Begin
+            String sResponse
+            Get DataReceived to sResponse
+            Showln 'Response Received:'
+            Showln sResponse
+        End
         Function_Return hoResponse
     End_Function
 
@@ -67,35 +79,39 @@
         tAIModel[] ModelList        
         Integer i iCnt
     
-        // Add required headers for the API call
-        Send AddStandardHeaders
-    
-        // Construct the full URL with the API key
-        Get HttpGetJson (psHost(Self)) ("/v1beta/models?key=" + psApiKey(Self)) (&bOk) to hoResponse
-    
-        // Check for a successful transfer
-        If (not(bOk)) Begin
-            Send UserError (TransferErrorDescription(Self)) "Transfer failed!"
+        Get paModels to ModelList
+        If (SizeOfArray(ModelList)=0) Begin
+            // Add required headers for the API call
+            Send AddStandardHeaders
+        
+            // Construct the full URL with the API key
+            Get HttpGetJson (psHost(Self)) ("/v1beta/models?key=" + psApiKey(Self)) (&bOk) to hoResponse
+        
+            // Check for a successful transfer
+            If (not(bOk)) Begin
+                Send UserError (TransferErrorDescription(Self)) "Transfer failed!"
+            End
+            Else Begin
+                // Deserialize the JSON response into our DataFlex struct
+                Set pbRequireAllMembers of hoResponse to False
+                Get JsonToDataType of hoResponse to geminiModelList
+                Send Destroy of hoResponse
+            End
+        
+            // Populate the return array with model information
+            Move (Sizeofarray(geminiModelList.models)-1) to iCnt
+            For i from 0 to iCnt
+                Move (geminiModelList.models[i].name) to ModelList[i].id
+                Move (geminiModelList.models[i].displayName) to ModelList[i].display_name
+                
+                // Note: The Gemini API does not provide created_at or type fields in this response.
+                // These will remain empty in the tAIModel struct.
+                Move "" to ModelList[i].created_at
+                Move "" to ModelList[i].type
+            Loop
+            Set paModels to ModelList
         End
-        Else Begin
-            // Deserialize the JSON response into our DataFlex struct
-            Set pbRequireAllMembers of hoResponse to False
-            Get JsonToDataType of hoResponse to geminiModelList
-            Send Destroy of hoResponse
-        End
-    
-        // Populate the return array with model information
-        Move (Sizeofarray(geminiModelList.models)-1) to iCnt
-        For i from 0 to iCnt
-            Move (geminiModelList.models[i].name) to ModelList[i].id
-            Move (geminiModelList.models[i].displayName) to ModelList[i].display_name
-            
-            // Note: The Gemini API does not provide created_at or type fields in this response.
-            // These will remain empty in the tAIModel struct.
-            Move "" to ModelList[i].created_at
-            Move "" to ModelList[i].type
-        Loop
-    
+        
         Function_Return ModelList
     End_Function
 
@@ -133,6 +149,22 @@
         Get CreateGeminiApiJsonRequest of oGeminiRequest (psModelId(Self)) aParts (pGenerationConfig(Self))  to hoRequest
         
         Function_Return hoRequest
+    End_Function
+
+    Function MakeRequest Handle hoRequest Returns tAIResponse
+        Handle hoResponse
+        tGeminiResponse GeminiResponse
+        tAIResponse Response
+        
+        Get MakeRequestJSON hoRequest to hoResponse
+        If (hoResponse) Begin
+            Set pbRequireAllMembers of hoResponse to False
+            Get JsonToDataType of hoResponse to GeminiResponse
+            //
+            Get TranslateToUnified of oGeminiTranslator GeminiResponse to Response
+        End
+        
+        Function_Return Response
     End_Function
 
 End_Class

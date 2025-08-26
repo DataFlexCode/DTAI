@@ -1,14 +1,19 @@
-﻿Class cGrokInterface is a cAiInterface
+﻿Use cAIResponseTranslator.pkg
+
+Class cGrokInterface is a cAiInterface
 
     Procedure construct_object
         Forward Send Construct_Object
         
         Property String psHost "api.x.ai" // Updated to xAI API endpoint
         Property String psApiKey (EnvironmentVariable(ghoEnvironment,'grok-api-key')) // Updated environment variable
-        Property String psModelId "grok-4-0709" // Updated to Grok model ID
+        Property String psModelId "grok-3" // Updated to Grok model ID
         Property Integer piMaxTokens 256000
         
         Object oGrokRequest is a cClaudeRequest // Consider renaming to cGrokRequest
+        End_Object
+        
+        Object oGrokTranslator is a cGrokTranslator
         End_Object
     End_Procedure
 
@@ -65,24 +70,27 @@
         tGrokModelList GrokModelList
         tAIModel[] ModelList
         
-        
-        Send AddStandardHeaders
-        Get HttpGetJson (psHost(Self)) "v1/models" (&bOk) to hoResponse // Verify endpoint with xAI API docs
-        If (not(bOk)) Begin
-            Send UserError (TransferErrorDescription(Self)) "Transfer failed!"
-        End
-        Else Begin
-            Set pbRequireAllMembers of hoResponse to False
-            Get JsonToDataType of hoResponse to GrokModelList
-            Send Destroy of hoResponse
-        End
-        Move (Sizeofarray(GrokModelList.data)-1) to iCnt
-        For i from 0 to iCnt
-            Move (GrokModelList.data[i].id) to ModelList[i].id
-            Move ModelList[i].id to ModelList[i].display_name       // no separate display name
-            Move GrokModelList.data[i].type to ModelList[i].type
-        Loop
-        
+        Get paModels to ModelList
+        If (SizeOfArray(ModelList)=0) Begin
+            
+            Send AddStandardHeaders
+            Get HttpGetJson (psHost(Self)) "v1/models" (&bOk) to hoResponse // Verify endpoint with xAI API docs
+            If (not(bOk)) Begin
+                Send UserError (TransferErrorDescription(Self)) "Transfer failed!"
+            End
+            Else Begin
+                Set pbRequireAllMembers of hoResponse to False
+                Get JsonToDataType of hoResponse to GrokModelList
+                Send Destroy of hoResponse
+            End
+            Move (Sizeofarray(GrokModelList.data)-1) to iCnt
+            For i from 0 to iCnt
+                Move (GrokModelList.data[i].id) to ModelList[i].id
+                Move ModelList[i].id to ModelList[i].display_name       // no separate display name
+                Move GrokModelList.data[i].type to ModelList[i].type
+            Loop
+            Set paModels to ModelList
+        End        
         Function_Return ModelList
     End_Function
     
@@ -93,5 +101,24 @@
         If (num_arguments=1) Get CreateClaudeApiRequest of (oGrokRequest(Self)) sPrompt NoAttachments to hoRequest
         If (num_arguments=2) Get CreateClaudeApiRequest of (oGrokRequest(Self)) sPrompt Attachments to hoRequest // Verify file support
         Function_Return hoRequest
+    End_Function
+    
+    Function MakeRequest Handle hoRequest Returns tAIResponse
+        Handle hoResponse
+        tClaudeResponse GrokResponse        // Grok uses anthropic message API
+        tAIResponse Response
+        
+        Get MakeRequestJSON hoRequest to hoResponse
+        If (hoResponse) Begin
+            Direct_Output "CLIPBOARD:"
+            Write (Stringify(hoResponse))
+            Close_Output
+            Set pbRequireAllMembers of hoResponse to False
+            Get JsonToDataType of hoResponse to GrokResponse
+            //
+            Get TranslateToUnified of oGrokTranslator GrokResponse to Response
+        End
+        
+        Function_Return Response
     End_Function
 End_Class

@@ -46,6 +46,14 @@ Class cClaudeRequest is a cJsonObject
         Send InitializeJsonType of hoContent jsonTypeArray
         Send SetMember of hoMessage "content" hoContent
         
+        // Create the text content object
+        Get Create (RefClass(cJsonObject)) to hoText
+        Send InitializeJsonType of hoText jsonTypeObject
+        
+        Send AddMember of hoContent hoText
+        Send SetMemberValue of hoText "type" jsonTypeString "text"
+        Send SetMemberValue of hoText "text" jsonTypeString sPrompt
+        
         If (SizeOfArray(Attachments)>0) Begin
             // Create the document content object
             For iDoc from 0 to (SizeOfArray(Attachments)-1)
@@ -94,14 +102,6 @@ Class cClaudeRequest is a cJsonObject
                 End
             Loop
         End
-        
-        // Create the text content object
-        Get Create (RefClass(cJsonObject)) to hoText
-        Send InitializeJsonType of hoText jsonTypeObject
-        
-        Send AddMember of hoContent hoText
-        Send SetMemberValue of hoText "type" jsonTypeString "text"
-        Send SetMemberValue of hoText "text" jsonTypeString sPrompt
         
         // Clean up objects
         Send Destroy of hoText

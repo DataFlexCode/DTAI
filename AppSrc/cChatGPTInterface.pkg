@@ -4,12 +4,13 @@ Class cChatGPTInterface is a cAIInterface
     Procedure Construct_Object
         Forward Send Construct_Object
 
-        Property String psApiKey (EnvironmentVariable(ghoEnvironment, "chatgpt-api-key"))
         Property String psHost "api.openai.com"
         Property String psTemperature '1.0'
         Property String psModelId "gpt-4.1-nano" // 'gpt-3.5-turbo' "gpt-4.1-nano" "gpt-4.1-mini" "gpt-4.1"
-        Property Integer piMaxTokens 1024
+        Property Integer piMaxTokens 8192
         
+        Set psApiKey to (EnvironmentVariable(ghoEnvironment, "chatgpt-api-key"))
+
         Object oChatGPTRequest is a cChatGPTRequest
         End_Object
         
@@ -43,38 +44,40 @@ Class cChatGPTInterface is a cAIInterface
 
         Get paModels to ModelList
         If (SizeOfArray(ModelList)=0) Begin
-            // Add required headers
-            Send AddStandardHeaders
+            If (CheckApiKeyExists(Self)) Begin
+                // Add required headers
+                Send AddStandardHeaders
     
-            // Call ChatGPT API
-            Get HttpGetJson (psHost(Self)) "v1/models" (&bOk) to hoResponse
-    
-            If (not(bOk)) Begin
-                Send UserError (TransferErrorDescription(Self)) "Transfer failed!"
+                // Call ChatGPT API
+                Get HttpGetJson (psHost(Self)) "v1/models" (&bOk) to hoResponse
+        
+                If (not(bOk)) Begin
+                    Send UserError (TransferErrorDescription(Self)) "Transfer failed!"
+                End
+                Else Begin
+                    // Parse JSON 2 DataFlex struct
+                    Set pbRequireAllMembers of hoResponse to False
+                    Get JsonToDataType of hoResponse to chatModelList
+                    Direct_Output "CLIPBOARD:"
+                    Writeln (Stringify(hoResponse))
+                    Close_Output
+                    Send Destroy of hoResponse
+                End
+                // Populate unified tAIModel array
+                Move (SizeOfArray(chatModelList.data)-1) to iCnt
+                For i from 0 to iCnt
+                    Move (chatModelList.data[i].id)       to ModelList[i].id
+                    Move ModelList[i].id to ModelList[i].display_name
+                    Move (chatModelList.data[i].sObject)   to ModelList[i]._object
+                    Move (chatModelList.data[i].created)  to ModelList[i].created
+                    Move (chatModelList.data[i].owned_by) to ModelList[i].owned_by
+        
+                    // Fields not provided by ChatGPT models API
+                    Move "" to ModelList[i].type
+                    Move "" to ModelList[i].created_at
+                Loop
+                Set paModels to ModelList
             End
-            Else Begin
-                // Parse JSON 2 DataFlex struct
-                Set pbRequireAllMembers of hoResponse to False
-                Get JsonToDataType of hoResponse to chatModelList
-                Direct_Output "CLIPBOARD:"
-                Writeln (Stringify(hoResponse))
-                Close_Output
-                Send Destroy of hoResponse
-            End
-            // Populate unified tAIModel array
-            Move (SizeOfArray(chatModelList.data)-1) to iCnt
-            For i from 0 to iCnt
-                Move (chatModelList.data[i].id)       to ModelList[i].id
-                Move ModelList[i].id to ModelList[i].display_name
-                Move (chatModelList.data[i].sObject)   to ModelList[i]._object
-                Move (chatModelList.data[i].created)  to ModelList[i].created
-                Move (chatModelList.data[i].owned_by) to ModelList[i].owned_by
-    
-                // Fields not provided by ChatGPT models API
-                Move "" to ModelList[i].type
-                Move "" to ModelList[i].created_at
-            Loop
-            Set paModels to ModelList
         End
         
         Function_Return ModelList
@@ -146,29 +149,31 @@ Class cChatGPTInterface is a cAIInterface
         Boolean bOk
         String sMessage
 
-        Send AddStandardHeaders
+        If (CheckApiKeyExists(Self)) Begin
+            Send AddStandardHeaders
 
-        // POST the request JSON to the Chat Completions endpoint
-        Get HttpPostJson (psHost(Self)) "v1/chat/completions" hoRequest (&bOk) to hoResponse
+            // POST the request JSON to the Chat Completions endpoint
+            Get HttpPostJson (psHost(Self)) "v1/chat/completions" hoRequest (&bOk) to hoResponse
 
-        If (not(bOk)) Begin
-            Send UserError (TransferErrorDescription(Self)) "Transfer failed!"
-            Move 0 to hoResponse
-        End
-        Else Begin
-            Send RemoveNullMembers hoResponse
-
-            // Check for error object in response
-            If (HasMember(hoResponse, "error")) Begin
-                Get Member of hoResponse "error" to hoError
-                Get MemberValue of hoError "message" to sMessage
-
-                Send Stop_Box sMessage "API Error"
-                Send Destroy of hoResponse
+            If (not(bOk)) Begin
+                Send UserError (TransferErrorDescription(Self)) "Transfer failed!"
                 Move 0 to hoResponse
             End
+            Else Begin
+                Send RemoveNullMembers hoResponse
+    
+                // Check for error object in response
+                If (HasMember(hoResponse, "error")) Begin
+                    Get Member of hoResponse "error" to hoError
+                    Get MemberValue of hoError "message" to sMessage
+    
+                    Send Stop_Box sMessage "API Error"
+                    Send Destroy of hoResponse
+                    Move 0 to hoResponse
+                End
+            End
         End
-
+        
         Function_Return hoResponse
     End_Function
 
@@ -179,8 +184,11 @@ Class cChatGPTInterface is a cAIInterface
         
         Get MakeRequestJSON hoRequest to hoResponse
         If (hoResponse) Begin
+            Set peWhiteSpace of hoResponse to jpWhitespace_Pretty
+            Set psModelResponseJson to (Stringify(hoResponse))
             Set pbRequireAllMembers of hoResponse to False
             Get JsonToDataType of hoResponse to ChatGPTResponse
+            Send Destroy of hoResponse
             //
             Get TranslateToUnified of oChatGPTTranslator ChatGPTResponse to Response
         End

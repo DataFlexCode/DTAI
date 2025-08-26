@@ -6,9 +6,10 @@ Class cGrokInterface is a cAiInterface
         Forward Send Construct_Object
         
         Property String psHost "api.x.ai" // Updated to xAI API endpoint
-        Property String psApiKey (EnvironmentVariable(ghoEnvironment,'grok-api-key')) // Updated environment variable
         Property String psModelId "grok-3" // Updated to Grok model ID
         Property Integer piMaxTokens 256000
+
+        Set psApiKey to (EnvironmentVariable(ghoEnvironment,'grok-api-key')) // Updated environment variable
         
         Object oGrokRequest is a cClaudeRequest // Consider renaming to cGrokRequest
         End_Object
@@ -40,26 +41,29 @@ Class cGrokInterface is a cAiInterface
         String sResponseType sMessage
         Boolean bOk
         
-        Send SetTimeout 45
+        If (CheckApiKeyExists(Self)) Begin
+            Send SetTimeout 45
+            
+            Send AddStandardHeaders
+            Get httpPostJson (psHost(Self)) "v1/messages" hoRequest (&bOk) to hoResponse
+            If (not(bOk)) Begin
+                If (left(psContentTypeReceived(Self),10)='text/plain') Begin
+                    Send info_box (DataReceived(Self)) "Text Response"
+                End
+                Send UserError (TransferErrorDescription(Self)) "Transfer failed!"
+            End
+            Else Begin
+                Send RemoveNullMembers hoResponse
+                // Check for error and display
+                Get HasMember of hoResponse 'error' to bError
+                If (bError) Begin
+                    Get MemberValue of hoResponse "code" to sResponseType
+                    Get MemberValue of hoResponse "error" to sMessage
+                    Send Stop_Box sMessage sResponseType                
+                End
+            End
+        End
         
-        Send AddStandardHeaders
-        Get httpPostJson (psHost(Self)) "v1/messages" hoRequest (&bOk) to hoResponse
-        If (not(bOk)) Begin
-            If (left(psContentTypeReceived(Self),10)='text/plain') Begin
-                Send info_box (DataReceived(Self)) "Text Response"
-            End
-            Send UserError (TransferErrorDescription(Self)) "Transfer failed!"
-        End
-        Else Begin
-            Send RemoveNullMembers hoResponse
-            // Check for error and display
-            Get HasMember of hoResponse 'error' to bError
-            If (bError) Begin
-                Get MemberValue of hoResponse "code" to sResponseType
-                Get MemberValue of hoResponse "error" to sMessage
-                Send Stop_Box sMessage sResponseType                
-            End
-        End
         Function_Return hoResponse
     End_Function
     
@@ -72,25 +76,27 @@ Class cGrokInterface is a cAiInterface
         
         Get paModels to ModelList
         If (SizeOfArray(ModelList)=0) Begin
-            
-            Send AddStandardHeaders
-            Get HttpGetJson (psHost(Self)) "v1/models" (&bOk) to hoResponse // Verify endpoint with xAI API docs
-            If (not(bOk)) Begin
-                Send UserError (TransferErrorDescription(Self)) "Transfer failed!"
+            If (CheckApiKeyExists(Self)) Begin
+                Send AddStandardHeaders
+                Get HttpGetJson (psHost(Self)) "v1/models" (&bOk) to hoResponse // Verify endpoint with xAI API docs
+                If (not(bOk)) Begin
+                    Send UserError (TransferErrorDescription(Self)) "Transfer failed!"
+                End
+                Else Begin
+                    Set pbRequireAllMembers of hoResponse to False
+                    Get JsonToDataType of hoResponse to GrokModelList
+                    Send Destroy of hoResponse
+                End
+                Move (Sizeofarray(GrokModelList.data)-1) to iCnt
+                For i from 0 to iCnt
+                    Move (GrokModelList.data[i].id) to ModelList[i].id
+                    Move ModelList[i].id to ModelList[i].display_name       // no separate display name
+                    Move GrokModelList.data[i].type to ModelList[i].type
+                Loop
+                Set paModels to ModelList
             End
-            Else Begin
-                Set pbRequireAllMembers of hoResponse to False
-                Get JsonToDataType of hoResponse to GrokModelList
-                Send Destroy of hoResponse
-            End
-            Move (Sizeofarray(GrokModelList.data)-1) to iCnt
-            For i from 0 to iCnt
-                Move (GrokModelList.data[i].id) to ModelList[i].id
-                Move ModelList[i].id to ModelList[i].display_name       // no separate display name
-                Move GrokModelList.data[i].type to ModelList[i].type
-            Loop
-            Set paModels to ModelList
         End        
+        
         Function_Return ModelList
     End_Function
     
@@ -110,11 +116,11 @@ Class cGrokInterface is a cAiInterface
         
         Get MakeRequestJSON hoRequest to hoResponse
         If (hoResponse) Begin
-            Direct_Output "CLIPBOARD:"
-            Write (Stringify(hoResponse))
-            Close_Output
+            Set peWhiteSpace of hoResponse to jpWhitespace_Pretty
+            Set psModelResponseJson to (Stringify(hoResponse))
             Set pbRequireAllMembers of hoResponse to False
             Get JsonToDataType of hoResponse to GrokResponse
+            Send Destroy of hoResponse
             //
             Get TranslateToUnified of oGrokTranslator GrokResponse to Response
         End

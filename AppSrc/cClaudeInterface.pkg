@@ -1,4 +1,5 @@
 ﻿Use cAIResponseTranslator.pkg
+Use cMultipartFormdataTransfer.pkg
 
 Class cClaudeInterface is a cAIInterface
 
@@ -9,12 +10,13 @@ Class cClaudeInterface is a cAIInterface
         Set piRemotePort to rpHttpSSL
         
         Property String psHost "api.anthropic.com"
-        Property String psApiKey (EnvironmentVariable(ghoEnvironment,'claude-api-key')) 
         Property String psAnthropicVersion "2023-06-01"
         Property String psModelId "claude-sonnet-4-20250514"
-        Property Integer piMaxTokens 1024
+        Property Integer piMaxTokens 8192
         // set to true if using files API
-        Property Boolean pbEnableFilesApi False
+        Property Boolean pbEnableFilesApi False  // tells AddStandardHeaders to add the necessary header for beta files API
+
+        Set psApiKey to (EnvironmentVariable(ghoEnvironment,'claude-api-key')) 
         
         Object oClaudeRequest is a cClaudeRequest
         End_Object
@@ -46,25 +48,28 @@ Class cClaudeInterface is a cAIInterface
         String sResponseType sMessage
         Boolean bOk
         
-        Send AddStandardHeaders
-        Get httpPostJson (psHost(Self)) "v1/messages" hoRequest (&bOk) to hoResponse
-        If (not(bOk)) Begin
-            Send UserError (TransferErrorDescription(Self)) "Transfer failed!"
-        End
-        Else Begin
-            Send RemoveNullMembers hoResponse
-            // check for error and display
-            Get MemberValue of hoResponse "type" to sResponseType
-            If (sResponseType='error') Begin
-                Get Member of hoResponse "error" to hoError
-                Get MemberValue of hoError "type" to sResponseType
-                Get MemberValue of hoError "message" to sMessage
-                Send Stop_Box sMessage sResponseType   
-                //
-                Send Destroy of hoResponse
-                Move 0 to hoResponse
+        If (CheckApiKeyExists(Self)) Begin 
+            Send AddStandardHeaders
+            Get httpPostJson (psHost(Self)) "v1/messages" hoRequest (&bOk) to hoResponse
+            If (not(bOk)) Begin
+                Send UserError (TransferErrorDescription(Self)) "Transfer failed!"
+            End
+            Else Begin
+                Send RemoveNullMembers hoResponse
+                // check for error and display
+                Get MemberValue of hoResponse "type" to sResponseType
+                If (sResponseType='error') Begin
+                    Get Member of hoResponse "error" to hoError
+                    Get MemberValue of hoError "type" to sResponseType
+                    Get MemberValue of hoError "message" to sMessage
+                    Send Stop_Box sMessage sResponseType   
+                    //
+                    Send Destroy of hoResponse
+                    Move 0 to hoResponse
+                End
             End
         End
+        
         Function_Return hoResponse
     End_Function
     
@@ -77,23 +82,25 @@ Class cClaudeInterface is a cAIInterface
             
         Get paModels to ModelList
         If (SizeOfArray(ModelList)=0) Begin
-            Send AddStandardHeaders
-            Get HttpGetJson (psHost(Self)) "v1/models" (&bok) to hoResponse
-            If (not(bOk)) Begin
-                Send UserError (TransferErrorDescription(Self)) "Transfer failed!"
+            If (CheckApiKeyExists(Self)) begin
+                Send AddStandardHeaders
+                Get HttpGetJson (psHost(Self)) "v1/models" (&bok) to hoResponse
+                If (not(bOk)) Begin
+                    Send UserError (TransferErrorDescription(Self)) "Transfer failed!"
+                End
+                Else Begin
+                    Get JsonToDataType of hoResponse to claudeModelList
+                    Send Destroy of hoResponse
+                End
+                Move (Sizeofarray(claudeModelList.data)-1) to iCnt
+                For i from 0 to iCnt
+                    Move (claudeModellist.data[i].id) to ModelList[i].id
+                    Move (claudeModellist.data[i].display_name) to ModelList[i].display_name
+                    Move (claudeModellist.data[i].created_at) to ModelList[i].created_at
+                    Move (claudeModellist.data[i].type) to ModelList[i].type
+                Loop
+                Set paModels to ModelList
             End
-            Else Begin
-                Get JsonToDataType of hoResponse to claudeModelList
-                Send Destroy of hoResponse
-            End
-            Move (Sizeofarray(claudeModelList.data)-1) to iCnt
-            For i from 0 to iCnt
-                Move (claudeModellist.data[i].id) to ModelList[i].id
-                Move (claudeModellist.data[i].display_name) to ModelList[i].display_name
-                Move (claudeModellist.data[i].created_at) to ModelList[i].created_at
-                Move (claudeModellist.data[i].type) to ModelList[i].type
-            Loop
-            Set paModels to ModelList
         End        
         Function_Return ModelList
     End_Function
@@ -114,12 +121,156 @@ Class cClaudeInterface is a cAIInterface
         
         Get MakeRequestJSON hoRequest to hoResponse
         If (hoResponse) Begin
+            Set peWhiteSpace of hoResponse to jpWhitespace_Pretty
+            Set psModelResponseJson to (Stringify(hoResponse))
             Set pbRequireAllMembers of hoResponse to False
             Get JsonToDataType of hoResponse to ClaudeResponse
+            Send Destroy of hoResponse
             //
             Get TranslateToUnified of oClaudeTranslator ClaudeResponse to Response
         End
         
         Function_Return Response
+    End_Function
+    
+    // Files API in beta
+    Function ClaudeFileList Returns tClaudeModelList
+        Boolean bOk bTypeExists
+        Handle hoResponse hoError 
+        String sResponse sMessage sResponseType
+        tClaudeModelList ModelList
+        tClaudeFileList FileList
+        
+        Set pbEnableFilesApi to True
+        Send AddStandardHeaders
+        Get HttpGetJson (psHost(Self)) "v1/files" (&bok) to hoResponse
+        If (not(bOk)) Begin
+            Send UserError (TransferErrorDescription(Self)) "Transfer failed!"
+        End
+        Else Begin
+            Get HasMember of hoResponse "type" to bTypeExists
+            If (bTypeExists) Begin
+                Get MemberValue of hoResponse "type" to sResponseType
+                If (sResponseType='error') Begin
+                    Get Member of hoResponse "error" to hoError
+                    Get MemberValue of hoError "type" to sResponseType
+                    Get MemberValue of hoError "message" to sMessage
+                    Send Stop_Box sMessage sResponseType       
+                    Send Destroy of hoError         
+                End
+            End
+            Else Begin
+                Get JsonToDataType of hoResponse to FileList
+                Send Destroy of hoResponse
+            End
+        End
+        Function_Return FileList
+    End_Function
+
+    // TODO Test this!
+    // returns true if file is deleted
+    Function ClaudeFileMetaData String sFileID Returns Boolean
+        Boolean bOk bTypeExists bRetVal
+        Handle hoResponse hoError 
+        String sResponse sMessage sResponseType
+        tClaudeModelList ModelList
+        tClaudeFile FileMetaData
+                
+        Set pbEnableFilesApi to True
+        Send AddStandardHeaders
+        Get HttpGetJson (psHost(Self)) ("v1/files/"+sFileID) (&bok) to hoResponse
+        If (not(bOk)) Begin
+            Send UserError (TransferErrorDescription(Self)) "Transfer failed!"
+        End
+        Else Begin
+            // response for a successful deletion is a JSON object with id (file id) and type members
+            Get HasMember of hoResponse "type" to bTypeExists
+            If (bTypeExists) Begin
+                Get MemberValue of hoResponse "type" to sResponseType
+                Move (sResponseType='file_deleted') to bRetVal
+                
+                If (sResponseType='error') Begin
+                    Get Member of hoResponse "error" to hoError
+                    Get MemberValue of hoError "type" to sResponseType
+                    Get MemberValue of hoError "message" to sMessage
+                    Send Stop_Box sMessage sResponseType       
+                    Send Destroy of hoError         
+                End
+            End
+        End
+        Function_Return bRetVal
+    End_Function
+
+    // Uploads a file to the Claude API
+    // Parameters:
+    //   sFilename - Path to the file to upload
+    // Returns:
+    //   String file ID of the uploaded file
+    Function UploadFile String sFilename Returns String 
+        Boolean bOk bJsonOk
+        Handle hoUploader hoResponse
+        String sResponse sMessage sResponseType
+        tClaudeResponseUploadFile Response
+        Integer iRetVal
+        
+        Set pbEnableFilesApi to True
+
+        Get Create (RefClass(cMultipartFormdataTransfer)) to hoUploader
+        Set peTransferFlags of hoUploader to ifSecure
+        Set piRemotePort of hoUploader to rpHttpSSL
+        Set pbClearHeaders of hoUploader to False
+        
+        // Add required headers
+        Get AddHeader of hoUploader "x-api-key" (psApiKey(Self)) to iRetVal
+        Get AddHeader of hoUploader "anthropic-version" (psAnthropicVersion(Self)) to iRetVal
+        Get AddHeader of hoUploader "anthropic-beta" "files-api-2025-04-14" to iRetVal
+        Get AddHeader of hoUploader "Accept" "application/json" to iRetVal
+        
+        // Add the file to upload
+        Send AddFile of hoUploader "file" sFilename "application/octet-stream"
+        
+        // Perform the upload
+        Get HttpPostFiles of hoUploader (psHost(Self)) "/v1/files" to bOk
+        
+        If (not(bOk)) Begin
+            Integer iStatus
+            Get ResponseStatusCode of hoUploader to iStatus
+            Error DFERR_PROGRAM ("File upload failed with status: " + String(iStatus))
+            Function_Return ""
+        End
+        
+        // Parse JSON response
+        Get ResponseJson of hoUploader (&bJsonOk) to hoResponse
+        
+        If (bJsonOk) Begin
+            Boolean bTypeExists
+            Handle hoError
+            
+            Get HasMember of hoResponse "type" to bTypeExists
+            If (bTypeExists) Begin
+                Get MemberValue of hoResponse "type" to sResponseType
+                If (sResponseType='error') Begin
+                    Get Member of hoResponse "error" to hoError
+                    Get MemberValue of hoError "type" to sResponseType
+                    Get MemberValue of hoError "message" to sMessage
+                    Send Stop_Box sMessage sResponseType            
+                    Send Destroy of hoError    
+                End
+            End
+            Else Begin
+                Get JsonToDataType of hoResponse to Response
+            End
+        End
+        Else Begin
+            Get ResponseString of hoUploader to sResponse
+            Error DFERR_PROGRAM ("Error parsing file upload response:" * sResponse)
+        End
+        
+        If (hoResponse) Begin
+            Send Destroy of hoResponse
+        End
+        Send Destroy of hoUploader
+        
+        Function_Return Response.id
     End_Function
 End_Class

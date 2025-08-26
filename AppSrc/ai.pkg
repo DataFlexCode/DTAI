@@ -21,6 +21,7 @@ Class cAiInterface is a cdtJsonHttpTransfer
         Send Define_cBase64Attachment_mixin
         
         Property tAIModel[] paModels 
+        Property String psApiKey ''
         
         Set peTransferFlags to ifSecure
         Set piRemotePort to rpHttpSSL
@@ -38,6 +39,14 @@ Class cAiInterface is a cdtJsonHttpTransfer
     //  rather than a JSON handle, so this interface will change.  The struct is not yet
     //  defined, so this is really a placeholder
     // Use MakeRequestJSON for testing rather than this message
+    
+    Function CheckApiKeyExists Returns Boolean
+        If (psApiKey(Self)='') Begin
+            Error DFERR_PROGRAM "Error API Key is not set, add to .env file"
+            Function_Return 0
+        End
+        Else Function_Return 1
+    End_Function
     
     Function MakeRequest Handle hoRequest Returns tAIResponse
         Handle hoRetVal

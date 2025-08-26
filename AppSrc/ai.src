@@ -27,7 +27,7 @@ Use grokai.pkg
 Use chatgptai.pkg
 
 Object oMain is a Panel
-    Set Label To "My Project"
+    Set Label To "AI Framework Demo"
     Set Location to 4 3
     Set Size to 300 450
 

@@ -4,7 +4,8 @@ Version 0.1
 
 This is a library intended to provide a standard interface for sending text prompts to AIs and receiving text responses back.  
 
-This library can be used for both Windows and Web applications.  It has no dependencies on other libraries or ActiveX components.
+This library can be used for both Windows and Web applications.  It has no dependencies on other DataFlex libraries or ActiveX components.  
+It does require pandoc to view responses formatting in HTML.  See below.
 
 The approach is to have a class defined for each AI that implements the REST API calls necessary to communicate with the AI behind a set of standard Dataflex functions.
 
@@ -17,6 +18,16 @@ Abstracting the actual access reduces cognitive load and the amount of code the 
 The initial implementation was intended to focus on Anthropic's Claude API, supporting the messages, models, and files endpoints.
 
 OCD took over and soon there were interfaces for Grok, Gemini, and ChatGPT.
+
+#pandoc Dependency
+AIs return response text in markdown format.  At present the framework converts the markdown to HTML for display using pandoc.  
+You will need to install pandoc and add it to your system path so that it can be found via RUNPROGRAM.  
+pandoc can be found here:  https://pandoc.org/installing.html
+
+If you don't want to use pandoc for conversion to HTML, feel free to write your own markdown to HTML converter in DataFlex and send me a pull request! ;)
+
+If you don't have pandoc installed and try to use the included demo program, you won't be able to see the responses in the HTML tab page.  
+You will still see the raw text/JSON data with the responses though in the other tabs.
 
 #CLASSES
  - cdtJsonHttpTransfer (mixin: cJSON_mxin)

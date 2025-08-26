@@ -23,7 +23,8 @@ Class cChatGPTTranslator is a cObject
         // Map basic response fields
         Move chatGPTResponse.id to aiResponse.sId
         Move chatGPTResponse.Object to aiResponse.sObjectOrType
-        Move chatGPTResponse.created to aiResponse.dtCreated
+        // following line commented out temporariliy, this is likely a unix integer time that needs to be converted to datetime
+        // Move chatGPTResponse.created to aiResponse.dtCreated
         Move chatGPTResponse.model to aiResponse.sModel
         Move "" to aiResponse.sRole // ChatGPT doesn't have a top-level role
         
@@ -100,16 +101,21 @@ Class cClaudeTranslator is a cObject
         
         // Map content parts
         For i from 0 to (SizeOfArray(claudeResponse.content) - 1)
-            Move claudeResponse.content[i].type to contentPart.sType
-            Move claudeResponse.role to contentPart.sRole
-            Move claudeResponse.content[i].text to contentPart.sText
-            Move "" to contentPart.sMimeType
-            Move "" to contentPart.sData
-            Move "" to contentPart.sFunctionName
-            Move "" to contentPart.sFunctionArgs
-            Move "" to contentPart.sFunctionContent
-            
-            Move contentPart to aiChoice.ContentParts[i]
+            If (claudeResponse.content[i].type='redacted_thinking') Begin
+                // do nothing, grok-4 returns these sections with base64 data?
+                //  not sure what to do with them --if anything, so just ignore for now
+            End
+            Else begin
+                Move claudeResponse.content[i].type to contentPart.sType
+                Move claudeResponse.role to contentPart.sRole
+                Move claudeResponse.content[i].text to contentPart.sText
+                Move "" to contentPart.sMimeType
+                Move "" to contentPart.sData
+                Move "" to contentPart.sFunctionName
+                Move "" to contentPart.sFunctionArgs
+                Move "" to contentPart.sFunctionContent
+                Move contentPart to aiChoice.ContentParts[Sizeofarray(aiChoice.ContentParts)]
+            End            
         Loop
         
         Move aiChoice to aiResponse.Choices[0]
@@ -130,7 +136,7 @@ End_Class
 Class cGeminiTranslator is a cObject
     
     // Translates Gemini response to unified AI response structure
-    Function TranslateToUnified tGeminiMasterResponse geminiMasterResponse Returns tAIResponse
+    Function TranslateToUnified tGeminiResponse geminiResponse Returns tAIResponse
         tAIResponse aiResponse
         tAIChoice aiChoice
         tAIResponseContentPart contentPart
@@ -138,14 +144,14 @@ Class cGeminiTranslator is a cObject
         Integer i, j, k
         
         // Check if this is an error response
-        If (geminiMasterResponse.GeminiError.code <> 0) Begin
-            Move "" to aiResponse.sId
-            Move "error" to aiResponse.sObjectOrType
-            Move (CurrentDateTime()) to aiResponse.dtCreated
-            Move "" to aiResponse.sModel
-            Move "error" to aiResponse.sRole
-            Function_Return aiResponse
-        End
+//        If (geminiResponse.GeminiError.code <> 0) Begin
+//            Move "" to aiResponse.sId
+//            Move "error" to aiResponse.sObjectOrType
+//            Move (CurrentDateTime()) to aiResponse.dtCreated
+//            Move "" to aiResponse.sModel
+//            Move "error" to aiResponse.sRole
+//            Function_Return aiResponse
+//        End
         
         // Map basic response fields (Gemini doesn't provide most of these)
         Move "" to aiResponse.sId
@@ -165,24 +171,24 @@ Class cGeminiTranslator is a cObject
         Move "" to aiResponse.Usage.sServiceTier
         
         // Map safety ratings from prompt feedback
-        For k from 0 to (SizeOfArray(geminiMasterResponse.response.promptFeedback.safetyRatings) - 1)
-            Move geminiMasterResponse.response.promptFeedback.safetyRatings[k].category to safetyRating.sCategory
-            Move geminiMasterResponse.response.promptFeedback.safetyRatings[k].probability to safetyRating.sProbability
+        For k from 0 to (SizeOfArray(geminiResponse.promptFeedback.safetyRatings) - 1)
+            Move geminiResponse.promptFeedback.safetyRatings[k].category to safetyRating.sCategory
+            Move geminiResponse.promptFeedback.safetyRatings[k].probability to safetyRating.sProbability
             Move safetyRating to aiResponse.PromptFeedback.safetyRatings[k]
         Loop
         
         // Map candidates as choices
-        For i from 0 to (SizeOfArray(geminiMasterResponse.response.candidates) - 1)
-            Move geminiMasterResponse.response.candidates[i].Index to aiChoice.iIndex
-            Move geminiMasterResponse.response.candidates[i].finishReason to aiChoice.sFinishReason
+        For i from 0 to (SizeOfArray(geminiResponse.candidates) - 1)
+            Move geminiResponse.candidates[i].Index to aiChoice.iIndex
+            Move geminiResponse.candidates[i].finishReason to aiChoice.sFinishReason
             Move "" to aiChoice.sStopReason
             Move "" to aiChoice.sStopSequence
             
             // Map content parts from candidate
-            For j from 0 to (SizeOfArray(geminiMasterResponse.response.candidates[i].content.parts) - 1)
+            For j from 0 to (SizeOfArray(geminiResponse.candidates[i].content.parts) - 1)
                 Move "text" to contentPart.sType
-                Move geminiMasterResponse.response.candidates[i].content.role to contentPart.sRole
-                Move geminiMasterResponse.response.candidates[i].content.parts[j].text to contentPart.sText
+                Move geminiResponse.candidates[i].content.role to contentPart.sRole
+                Move geminiResponse.candidates[i].content.parts[j].text to contentPart.sText
                 Move "" to contentPart.sMimeType
                 Move "" to contentPart.sData
                 Move "" to contentPart.sFunctionName
@@ -243,7 +249,7 @@ Class cAIResponseTranslator is a cObject
     End_Function
     
     // Translate Gemini response
-    Function TranslateGemini tGeminiMasterResponse geminiResponse Returns tAIResponse
+    Function TranslateGemini tgeminiResponse geminiResponse Returns tAIResponse
         Handle hoTranslator
         Get phoGeminiTranslator to hoTranslator
         Function_Return (TranslateToUnified(hoTranslator,geminiResponse))

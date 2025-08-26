@@ -6,6 +6,15 @@ Class cMarkdown_mixin is a Mixin
         Property String psConversionMethod 'pandoc'
     End_Procedure
     
+    Function ExtractJSON String sText Returns Handle
+        // if you ask for JSON, we expect the response to be markdown with ``` to indicate code, 
+        //  and the JSON itself should start with "{" and end with "}" just take everything in 
+        //  between   
+        // return a handle to a cJSONObject
+    End_Function
+
+    // we might want plain HTML that can be inserted into an existing doc, or a full HTML document 
+    //  pandoc has options IIRC    
     Function Pandoc_Markdown2Html String sMarkdown Returns String
         Boolean bExist
         String sHtml

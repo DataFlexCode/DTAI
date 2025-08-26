@@ -312,6 +312,17 @@ Object oAIDemo is a dbView
                         Set Label_Justification_Mode to JMode_Right
                     End_Object
                 End_Object
+
+                Object oRequestTabPage is a TabPage
+                    Set Label to 'Request'
+
+                    Object oModelRequestStruct is a cTextEdit
+                        Set Location to 0 0
+                        Set Size to 161 396
+                        Set peAnchors to anAll
+                        Set psTypeFace to "Consolas"
+                    End_Object
+                End_Object
             End_Object
         End_Object
     End_Object
@@ -369,6 +380,7 @@ Object oAIDemo is a dbView
             Send Destroy of hoAiResponse            
             
             // now update the text edit's with response info
+            Set Value of oModelRequestStruct to (psModelRequestJson(hoAi))
             Set Value of oModelResponseStruct to (psModelResponseJson(hoAI))
             Set Value of oAIResponseStruct to sResponse
             Set Value of oRawResponse to Response.Choices[0].ContentParts[0].sText 

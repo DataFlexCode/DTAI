@@ -23,6 +23,7 @@ Class cAiInterface is a cdtJsonHttpTransfer
         Property tAIModel[] paModels 
         Property String psApiKey ''
         Property String psModelResponseJson ''
+        Property String psModelRequestJson ''
         Property tRestCallStats pLastCallStats
                 
         Set peTransferFlags to ifSecure

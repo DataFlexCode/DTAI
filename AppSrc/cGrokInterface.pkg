@@ -114,7 +114,10 @@ Class cGrokInterface is a cAiInterface
         tClaudeResponse GrokResponse        // Grok uses anthropic message API
         tAIResponse Response
         
+        Set peWhiteSpace of hoRequest to jpWhitespace_Pretty
+        Set psModelRequestJson to (Stringify(hoRequest))
         Get MakeRequestJSON hoRequest to hoResponse
+        //
         If (hoResponse) Begin
             Set peWhiteSpace of hoResponse to jpWhitespace_Pretty
             Set psModelResponseJson to (Stringify(hoResponse))

@@ -129,7 +129,7 @@ Object oAIDemo is a dbView
                     Set Label to "Max Tokens:"
                     Set Label_Col_Offset to 2
                     Set Label_Justification_Mode to JMode_Right
-                    Set Form_Datatype to Mask_Numeric_Window
+                    Set Numeric_Mask 0 to 8 0
                     
                     // OnChange is called when the value changes
                     Procedure OnChange

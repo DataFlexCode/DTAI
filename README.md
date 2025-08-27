@@ -99,7 +99,7 @@ gemini-api-key=AIxyzzy977352k;lasdj%^$&fa90lskdnf;awe
 chilkat-unlock-code=DATATECH_;kldfjha;dsl*@#$^knfaioetyh
 chatgpt-api-key=sk-proj-i34752894jnkln;fkl347[0sdfhgPOIW;E4!#$#$956UJHDSFPOGIHN;]
 
-(There is a Claude API key in a comment in an early version of cClaudeInterface.  It has been deactived.)
+(There is a Claude API key in a comment in an early version of cClaudeInterface.  It has been deactivated.)
 
 # DATABASE
 

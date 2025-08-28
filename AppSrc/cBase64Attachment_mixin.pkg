@@ -19,6 +19,7 @@ Class cBase64Attachment_mixin is a Mixin
         If (sExt='pdf') Move 'application/pdf' to sMimeType
         If (sExt='csv') Move 'text/csv' to sMimeType
         If (sExt='txt') Move 'text/plain' to sMimeType
+        If (sExt='md') Move 'text/markdown' to sMimeType
         if (sExt='jpg') Move 'image/jpeg' to sMimeType
         if (sExt='png') Move 'image/png' to sMimeType
         if (sExt='gif') Move 'image/gif' to sMimeType

@@ -311,6 +311,33 @@ Object oAIDemo is a dbView
                         Set Label_Col_Offset to 2
                         Set Label_Justification_Mode to JMode_Right
                     End_Object
+
+                    Object oTokensIn is a Form
+                        Set Location to 54 71
+                        Set Size to 12 100
+                        Set Label to "Tokens In:"
+                        Set Label_Col_Offset to 2
+                        Set Label_Justification_Mode to JMode_Right
+                        Set Form_Datatype to Mask_Numeric_Window
+                    End_Object
+
+                    Object oTokensOut is a Form
+                        Set Location to 68 71
+                        Set Size to 12 100
+                        Set Label to "Tokens Out:"
+                        Set Label_Col_Offset to 2
+                        Set Label_Justification_Mode to JMode_Right
+                        Set Form_Datatype to Mask_Numeric_Window
+                    End_Object
+
+                    Object oTokensPerSecond is a Form
+                        Set Location to 82 71
+                        Set Size to 12 100
+                        Set Label to "Tokens/Sec:"
+                        Set Label_Col_Offset to 2
+                        Set Label_Justification_Mode to JMode_Right
+                        Set Form_Datatype to Mask_Numeric_Window
+                    End_Object
                 End_Object
 
                 Object oRequestTabPage is a TabPage
@@ -384,10 +411,34 @@ Object oAIDemo is a dbView
             
             // update statistics
             tRestCallStats Stats
+            Number nTokensPerSecond
+            Integer iInputTokens iOutputTokens iTotalSeconds
+            
             Get pLastCallStats of hoAI to Stats
             Set Value of oStartTime to Stats.dtStart
             Set Value of oStopTime to Stats.dtStop
             Set Value of oElapsed to Stats.tElapsed
+            
+            // update token statistics
+            // Use the input/output tokens for better compatibility across APIs
+            Move Response.Usage.iInputTokens to iInputTokens
+            Move Response.Usage.iOutputTokens to iOutputTokens
+            // Fallback to prompt/completion tokens if input/output are not available
+            If (iInputTokens = 0) Move Response.Usage.iPromptTokens to iInputTokens
+            If (iOutputTokens = 0) Move Response.Usage.iCompletionTokens to iOutputTokens
+            
+            Set Value of oTokensIn to iInputTokens
+            Set Value of oTokensOut to iOutputTokens
+            
+            // Calculate tokens per second (output tokens / elapsed time in seconds)
+            Move (SpanTotalSeconds(Stats.tElapsed)) to iTotalSeconds
+            If (iTotalSeconds > 0 and iOutputTokens > 0) Begin
+                Move (iOutputTokens / iTotalSeconds) to nTokensPerSecond
+                Set Value of oTokensPerSecond to nTokensPerSecond
+            End
+            Else Begin
+                Set Value of oTokensPerSecond to 0
+            End
         End
         Else Begin
             Send Stop_Box "No response received!"

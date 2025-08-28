@@ -53,7 +53,9 @@ Class cClaudeRequest is a cJsonObject
         Send AddMember of hoContent hoText
         Send SetMemberValue of hoText "type" jsonTypeString "text"
         Send SetMemberValue of hoText "text" jsonTypeString sPrompt
-        
+        Send Destroy of hoText
+        Send Destroy of hoContent
+                
         If (SizeOfArray(Attachments)>0) Begin
             // Create the document content object
             For iDoc from 0 to (SizeOfArray(Attachments)-1)
@@ -104,8 +106,6 @@ Class cClaudeRequest is a cJsonObject
         End
         
         // Clean up objects
-        Send Destroy of hoText
-        Send Destroy of hoContent
         Send Destroy of hoMessage
         Send Destroy of hoMessages
         

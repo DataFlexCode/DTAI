@@ -1,4 +1,4 @@
-﻿Use cAIResponseTranslator.pkg
+Use cAIResponseTranslator.pkg
 Use cMultipartFormdataTransfer.pkg
 
 Class cClaudeInterface is a cAIInterface
@@ -107,7 +107,7 @@ Class cClaudeInterface is a cAIInterface
     
     Function CreateRequest String sPrompt tAIAttachment[] Attachments Returns Handle 
         Handle hoRequest
-        tClaudeAttachment[] NoAttachments
+        tAIAttachment[] NoAttachments
         
         If (num_arguments=1) Get CreateClaudeApiRequest of (oClaudeRequest(Self)) sPrompt NoAttachments to hoRequest
         If (num_arguments=2) Get CreateClaudeApiRequest of (oClaudeRequest(Self)) sPrompt Attachments to hoRequest

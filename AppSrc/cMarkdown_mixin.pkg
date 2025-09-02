@@ -1,4 +1,4 @@
-﻿Use DoStartDocument.pkg
+Use DoStartDocument.pkg
 
 Class cMarkdown_mixin is a Mixin
     

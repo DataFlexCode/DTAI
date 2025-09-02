@@ -1,4 +1,4 @@
-﻿Use ai.h
+Use ai.h
 Use cdtJsonHttpTransfer.pkg
 Use cMarkdown_mixin.pkg
 Use cBase64Attachment_mixin.pkg

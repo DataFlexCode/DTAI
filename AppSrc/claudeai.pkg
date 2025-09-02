@@ -1,4 +1,4 @@
-﻿Use ai.pkg
+use ai.pkg
 Use claudeai.h
 Use cClaudeRequest.pkg
 Use cEnvironment.pkg

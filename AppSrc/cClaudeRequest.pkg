@@ -15,7 +15,7 @@ Class cClaudeRequest is a cJsonObject
     // create a JSON object for an Anthropic Claude AI request
     //  a prompt is required and attachments are optional
     //  attachments can be PDFs, images, or additional text
-    Function CreateClaudeApiRequest String sPrompt tClaudeAttachment[] Attachments Returns Handle 
+    Function CreateClaudeApiRequest String sPrompt tAIAttachment[] Attachments Returns Handle 
         Handle hoRoot hoMessages hoMessage hoContent hoDocument hoSource hoText
         Integer iDoc
         
@@ -54,7 +54,6 @@ Class cClaudeRequest is a cJsonObject
         Send SetMemberValue of hoText "type" jsonTypeString "text"
         Send SetMemberValue of hoText "text" jsonTypeString sPrompt
         Send Destroy of hoText
-        Send Destroy of hoContent
                 
         If (SizeOfArray(Attachments)>0) Begin
             // Create the document content object
@@ -72,7 +71,6 @@ Class cClaudeRequest is a cJsonObject
                         Send SetMemberValue of hoText "type" jsonTypeString "text"
                         Send SetMemberValue of hoText "text" jsonTypeString (UCharArrayToString(Attachments[iDoc].ubase64file))
                         Send Destroy of hoText
-                        Send Destroy of hoContent
                     End
                     Else Begin
                         // images and documents (PDFs) have the same object structure
@@ -106,6 +104,7 @@ Class cClaudeRequest is a cJsonObject
         End
         
         // Clean up objects
+        Send Destroy of hoContent
         Send Destroy of hoMessage
         Send Destroy of hoMessages
         

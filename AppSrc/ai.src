@@ -27,7 +27,7 @@ Use grokai.pkg
 Use chatgptai.pkg
 
 Object oMain is a Panel
-    Set Label To "AI Framework Demo"
+    Set Label to "AI Framework Demo"
     Set Location to 4 3
     Set Size to 300 450
 
@@ -124,6 +124,17 @@ Object oMain is a Panel
                         Handle hoClient
                         Get Client_Id to hoClient
                         Send Activate_oClaudeConsole of hoClient
+                    End_Procedure
+                End_Object
+
+                Object oJSONSchemaStructMenuItem is a cCJMenuItem
+                    Set psCaption to "JSON Schema to Struct"
+                    Set psTooltip to "JSON Schema to DataFlex Struct Generator"
+                
+                    Procedure OnExecute Variant vCommandBarControl
+                        Handle hoClient
+                        Get Client_Id to hoClient
+                        Send Activate_oJSONSchemaStruct of hoClient
                     End_Procedure
                 End_Object
             End_Object
@@ -339,6 +350,7 @@ Object oMain is a Panel
         Use StdAbout.pkg
         Use ClaudeConsole.vw
         Use AIDemo.vw
+        Use JSONSchemaStruct.vw
 
         Procedure Activate_About
             Send DoAbout "" "" "" "" ""

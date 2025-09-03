@@ -117,8 +117,6 @@ There are two views, one that allows you to submit a request to any of the four 
 
 # TODO ITEMS
  (X = completed, x = In Progress)
- [ ] PDF support in Grok is only through reference to a URL, not base64 encoded PDF file as with other AIs.  This... complicates things.
- [ ] On the Request side, support other parameters besides the max tokens, model id (e.g. Temperature, number of completions, top_p, etc)
  [X] Add error message if a request is made without an API key to all four interface classes
  [X] The current library is being used with DataFlex 19.1.  It needs to be migrated to 25.0, while retaining 19.1 compatibility.
  [X] Migrate the cClaudeInterface_beta code into cClaudeInterface (this was initially split up so as to not require ChilKat for basic Claude support)
@@ -129,14 +127,6 @@ There are two views, one that allows you to submit a request to any of the four 
      [X] Update MakeRequest for cGeminiInterface
      [X] Update MakeRequest for cChatGPTInterface
  [x] More post processing support for the response.  AIs generate markdown text (unless instructed othewise), this needs to be converted to something displayable (e.g. HTML, looking at pandoc for this)
- [ ] Determine some way to control timeout-Grok and some OpenAI models in particular do not return a response before the standard 30 second timeout results in a "Http Transfer Failed" error
-      https://support.dataaccess.com/Forums/showthread.php?72515-Can-timeout-be-controlled-on-cJsonHttpTransfer
- [ ] Logging of AI requests/responses/stats
-     [x] Track start/stop time, timeout status in the cAiInterface class, augment HttpPostJson
-     [ ] Log both complete request JSON and response JSON in Database
-     [ ] Tool to extract base64 files from request JSON
-     [ ] "Replay" a request from log
-     [ ] Tracks tokens in/out (important for billing!!)
  [X] A demonstration program that has:
      [X] A radio group to select the AI to use
      [X] A comboform that allows you to select the model to use for the currently select AI
@@ -149,8 +139,21 @@ There are two views, one that allows you to submit a request to any of the four 
         [X] Open files in grid on double click in default Windows App
      [X] A HTML control displaying the response (cWebBrowser2)
      [X] Text edit controls displaying the HTML source, Raw text Response, tAIResponse struct returned, model specific JSON returned
+ [ ] Determine some way to control timeout-Grok and some OpenAI models in particular do not return a response before the standard 30 second timeout results in a "Http Transfer Failed" error
+      https://support.dataaccess.com/Forums/showthread.php?72515-Can-timeout-be-controlled-on-cJsonHttpTransfer
+ [ ] Logging of AI requests/responses/stats
+     [x] Track start/stop time, timeout status in the cAiInterface class, augment HttpPostJson
+     [ ] Log both complete request JSON and response JSON in Database
+     [ ] Tool to extract base64 files from request JSON
+     [ ] "Replay" a request from log
+     [ ] Tracks tokens in/out (important for billing!!)
  [ ] Claude Files API Console updates
      [ ] Confirmation when file is uploaded
      [ ] Refresh file list when file uploaded/deleted
-
+ [ ] Remove UI code from interface libraries
+     [ ] Set properties with error conditions/messages
+     [ ] Refactor calling code to handle errors
+ [ ] PDF support in Grok is only through reference to a URL, not base64 encoded PDF file as with other AIs.  This... complicates things.
+ [ ] On the Request side, support other parameters besides the max tokens, model id (e.g. Temperature, number of completions, top_p, etc)
+ [ ] REplace backup of database with a script to create tables/etc.
 Matt Davidian August 2025

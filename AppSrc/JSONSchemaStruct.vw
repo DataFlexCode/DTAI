@@ -575,9 +575,4 @@ Object oJSONSchemaStruct is a dbView
         End
     End_Procedure
     
-    Procedure End_Construct_Object
-        Forward Send End_Construct_Object
-        Send ClearAll
-    End_Procedure
-
 Cd_End_Object

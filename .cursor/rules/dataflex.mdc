@@ -24,6 +24,7 @@ DATAFLEX RULES
 - to incldue a double quote in a literal string, use single quotes to enclose the string
 - Do not include an exclamation point (!) in a literal string, instead use the function character(33)
 - String expressions must be enclosed in parenthesis
+- When calling functions in an expression that are defined in the object, it is necessary to specify the object. For example if there is a function defined called Capitalize with a single parameter sPropertyName, to call the function in an expression use the syntax (Capitalize(self,sPropertyName))
 
 #Procedure and Function declarations
 - Procedures are declared using the "PROCEDURE" command followed by the procedure name and parameters.

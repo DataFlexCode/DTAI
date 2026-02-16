@@ -169,7 +169,8 @@ Object oAIChatExample is a dbView
 
         Get CreateRequest of hoAI sRelayPrompt aAttachments to hoRequest
         Get MakeRequest of hoAI hoRequest to Response
-
+        Send Destroy of hoRequest
+        
         If (SizeOfArray(Response.Choices)>0 and SizeOfArray(Response.Choices[0].ContentParts)>0) Begin
             Move Response.Choices[0].ContentParts[0].sText to sAssistantReply
             Send AppendTranscript 'Assistant' sAssistantReply

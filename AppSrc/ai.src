@@ -137,6 +137,17 @@ Object oMain is a Panel
                         Send Activate_oJSONSchemaStruct of hoClient
                     End_Procedure
                 End_Object
+
+                Object oAIChatExampleMenuItem is a cCJMenuItem
+                    Set psCaption to "AI Chat Example"
+                    Set psTooltip to "AI Chat Example"
+
+                    Procedure OnExecute Variant vCommandBarControl
+                        Handle hoClient
+                        Get Client_Id to hoClient
+                        Send Activate_oAIChatExample of hoClient
+                    End_Procedure
+                End_Object
             End_Object
             
             Object oReportMenu is a cCJMenuItem
@@ -351,6 +362,7 @@ Object oMain is a Panel
         Use ClaudeConsole.vw
         Use AIDemo.vw
         Use JSONSchemaStruct.vw
+        Use AIChatExample.vw
 
         Procedure Activate_About
             Send DoAbout "" "" "" "" ""

@@ -101,7 +101,9 @@ Object oAIChatExample is a dbView
 
         Get phoAI to hoAI
         If (hoAI=0) Begin
-            Send Select_State of oSelectAI 0
+            // Codex's error
+            // Send Select_State of oSelectAI 0
+            Set Current_Radio of oSelectAI to 0
         End
 
         Send RenderConversation
@@ -142,7 +144,8 @@ Object oAIChatExample is a dbView
             Move ('<p>'+sMarkdown+'</p>') to sHtml
         End
 
-        Set psHtml of oConversationHtml to sHtml
+        // Set psHtml of oConversationHtml to sHtml
+        Send UpdateHtml of oConversationHtml sHtml
     End_Procedure
 
     Procedure SubmitPrompt

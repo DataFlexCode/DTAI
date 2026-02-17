@@ -169,3 +169,14 @@ Return raw error payloads whenever available to aid customer troubleshooting.
 - **Potential endpoint response shape drift:** Keep parsers tolerant and preserve full raw JSON.
 - **File upload transport complexity in DataFlex:** Start with URL submission path if needed, then add multipart support.
 - **Polling strategy variance by customer volume:** Keep cadence entirely application-controlled.
+
+
+## Source-of-Truth Reconciliation Note
+This plan is based on currently available Docupipe endpoint details supplied in project discussion.
+Before implementation, reconcile endpoint names/paths/field shapes against `https://docs.docupipe.ai/llms.txt` and apply any required corrections to:
+- request payload fields (`/document`, `/v2/standardize/batch`)
+- response ID fields (`documentId`, `jobId`, `standardizationId`)
+- status enums and terminal-state handling
+- any auth/header naming changes
+
+If `llms.txt` and the API reference disagree, treat the API reference as authoritative and keep adapters tolerant by preserving full raw JSON responses.

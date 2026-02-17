@@ -39,6 +39,22 @@ Use `https://app.docupipe.ai` as default base URL.
 5. `GET /standardization/{standardization_id}`
    - Retrieve standardized output JSON (final extraction payload).
 
+
+## Documentation-Driven Endpoint Strategy
+Given the broader DocuPipe API surface, the initial implementation remains intentionally narrow, but should reserve extension points for:
+
+- **Workflow-driven submission**
+  - `POST /workflow/on-submit-document` to create/update workflows.
+  - `POST /document` with `workflowId` for one-call classify/split/standardize orchestration.
+- **Bulk upload/standardize convenience endpoints**
+  - `upload-multiple` and `upload-and-standardize-multiple` style endpoints for future throughput improvements.
+- **Operational endpoints**
+  - health checks, rate-limit guidance, and list/retrieve endpoints (`list_documents`, `list_jobs`, `list_standardizations`) to support observability and admin tooling.
+- **Review and quality tooling**
+  - visual review generation/retrieval endpoints for extraction QA workflows if customer support requires citeable evidence.
+
+These are **not required for v1** but should influence class boundaries so they can be added without breaking the public API.
+
 ## Authentication and Headers
 - `X-API-Key: <api key>` on all requests.
 - `Accept: application/json` on all requests.
@@ -172,11 +188,16 @@ Return raw error payloads whenever available to aid customer troubleshooting.
 
 
 ## Source-of-Truth Reconciliation Note
-This plan is based on currently available Docupipe endpoint details supplied in project discussion.
-Before implementation, reconcile endpoint names/paths/field shapes against `https://docs.docupipe.ai/llms.txt` and apply any required corrections to:
+This plan should be reconciled against the supplied DocuPipe docs set, especially:
+- API reference pages for `post_document`, `get_document`, `post_standardize_batch_v2`, `get_job`, and `get_standardization`.
+- workflow pages (`workflow-upload-classify-and-standardize`, `upload-and-standardize-using-workflow`) for future one-call orchestration.
+- rate-limit and health-check pages for operational hardening.
+
+Pre-implementation verification checklist:
 - request payload fields (`/document`, `/v2/standardize/batch`)
 - response ID fields (`documentId`, `jobId`, `standardizationId`)
 - status enums and terminal-state handling
-- any auth/header naming changes
+- header/auth naming (`X-API-Key`)
+- documented limits (file size/page count, endpoint-level limits, rate limits)
 
-If `llms.txt` and the API reference disagree, treat the API reference as authoritative and keep adapters tolerant by preserving full raw JSON responses.
+If machine-readable docs, guide docs, and reference pages disagree, treat endpoint reference pages as authoritative and preserve raw JSON passthrough to keep adapters resilient.

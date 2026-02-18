@@ -1,0 +1,63 @@
+Use docupipeai.h
+Use cDocuPipeClient.pkg
+Use cDocuPipeDocumentService.pkg
+Use cDocuPipeStandardizationService.pkg
+Use cDocuPipeJobService.pkg
+
+Class cDocuPipeInterface is a cObject
+
+    Procedure Construct_Object
+        Forward Send Construct_Object
+
+        Object oDocuPipeClient is a cDocuPipeClient
+        End_Object
+
+        Object oDocuPipeDocumentService is a cDocuPipeDocumentService
+        End_Object
+
+        Object oDocuPipeStandardizationService is a cDocuPipeStandardizationService
+        End_Object
+
+        Object oDocuPipeJobService is a cDocuPipeJobService
+        End_Object
+    End_Procedure
+
+    Procedure Configure tDocuPipeConfig cfg
+        Send Configure of (oDocuPipeClient(Self)) cfg
+    End_Procedure
+
+    Function SubmitDocumentFromFile String sFilePath String sDataset String sWorkflowId Returns tDocuPipeDocumentSubmitResponse
+        Function_Return (SubmitDocumentFromFile(oDocuPipeDocumentService(Self),oDocuPipeClient(Self),sFilePath,sDataset,sWorkflowId))
+    End_Function
+
+    Function SubmitDocumentFromUrl String sUrl String sDataset String sWorkflowId Returns tDocuPipeDocumentSubmitResponse
+        Function_Return (SubmitDocumentFromUrl(oDocuPipeDocumentService(Self),oDocuPipeClient(Self),sUrl,sDataset,sWorkflowId))
+    End_Function
+
+    Function GetDocument String sDocumentId Returns tDocuPipeResult
+        Function_Return (GetDocument(oDocuPipeDocumentService(Self),oDocuPipeClient(Self),sDocumentId))
+    End_Function
+
+    Function Standardize String[] aDocumentIds String sSchemaId String sGuidelines String sDisplayMode String sSplitMode String sEffortLevel Returns tDocuPipeStandardizeResponse
+        Function_Return (Standardize(oDocuPipeStandardizationService(Self),oDocuPipeClient(Self),aDocumentIds,sSchemaId,sGuidelines,sDisplayMode,sSplitMode,sEffortLevel))
+    End_Function
+
+    Function GetJob String sJobId Returns tDocuPipeJobResponse
+        Function_Return (GetJob(oDocuPipeJobService(Self),oDocuPipeClient(Self),sJobId))
+    End_Function
+
+    Function GetStandardization String sStandardizationId Returns tDocuPipeStandardizationGetResponse
+        Function_Return (GetStandardization(oDocuPipeStandardizationService(Self),oDocuPipeClient(Self),sStandardizationId))
+    End_Function
+
+    Function IsTerminalJobStatus String sStatus Returns Boolean
+        Function_Return (IsTerminalJobStatus(oDocuPipeJobService(Self),sStatus))
+    End_Function
+
+End_Class
+
+Global_Variable Handle ghoDocuPipe
+
+Object oDocuPipe is a cDocuPipeInterface
+    Move Self to ghoDocuPipe
+End_Object

@@ -1,0 +1,65 @@
+Use cJsonObject.pkg
+Use docupipeai.h
+Use cDocuPipeClient.pkg
+
+Class cDocuPipeDocumentService is a cObject
+
+    Function SubmitDocumentFromFile Handle hoClient String sFilePath String sDataset String sWorkflowId Returns tDocuPipeDocumentSubmitResponse
+        tDocuPipeDocumentSubmitResponse Response
+        tDocuPipeResult Result
+        Handle hoReq
+
+        Get BuildDocumentFileRequest of hoClient sFilePath sDataset sWorkflowId to hoReq
+        Get ExecuteJsonRequest of hoClient "POST" "/document" hoReq to Result
+        Send Destroy of hoReq
+
+        Move Result.bOk to Response.bOk
+        Move Result.iHttpStatus to Response.iHttpStatus
+        Move Result.sError to Response.sError
+        Move Result.sRawJson to Response.sRawJson
+
+        If (Result.sRawJson<>'') Begin
+            Get ExtractJsonStringValue of hoClient Result.sRawJson "documentId" to Response.sDocumentId
+            If (Response.sDocumentId='') Get ExtractJsonStringValue of hoClient Result.sRawJson "document_id" to Response.sDocumentId
+            If (Response.sDocumentId='') Get ExtractJsonStringValue of hoClient Result.sRawJson "id" to Response.sDocumentId
+        End
+
+        Function_Return Response
+    End_Function
+
+    Function SubmitDocumentFromUrl Handle hoClient String sUrl String sDataset String sWorkflowId Returns tDocuPipeDocumentSubmitResponse
+        tDocuPipeDocumentSubmitResponse Response
+        tDocuPipeResult Result
+        Handle hoReq
+
+        Get Create (RefClass(cJsonObject)) to hoReq
+        Send InitializeJsonType of hoReq jsonTypeObject
+        Send SetMemberValue of hoReq "url" jsonTypeString sUrl
+        If (sDataset<>'') Send SetMemberValue of hoReq "dataset" jsonTypeString sDataset
+        If (sWorkflowId<>'') Send SetMemberValue of hoReq "workflowId" jsonTypeString sWorkflowId
+
+        Get ExecuteJsonRequest of hoClient "POST" "/document" hoReq to Result
+        Send Destroy of hoReq
+
+        Move Result.bOk to Response.bOk
+        Move Result.iHttpStatus to Response.iHttpStatus
+        Move Result.sError to Response.sError
+        Move Result.sRawJson to Response.sRawJson
+
+        If (Result.sRawJson<>'') Begin
+            Get ExtractJsonStringValue of hoClient Result.sRawJson "documentId" to Response.sDocumentId
+            If (Response.sDocumentId='') Get ExtractJsonStringValue of hoClient Result.sRawJson "document_id" to Response.sDocumentId
+            If (Response.sDocumentId='') Get ExtractJsonStringValue of hoClient Result.sRawJson "id" to Response.sDocumentId
+        End
+
+        Function_Return Response
+    End_Function
+
+    Function GetDocument Handle hoClient String sDocumentId Returns tDocuPipeResult
+        tDocuPipeResult Result
+
+        Get ExecuteJsonRequest of hoClient "GET" ("/document/"+sDocumentId) 0 to Result
+        Function_Return Result
+    End_Function
+
+End_Class

@@ -157,3 +157,58 @@ There are two views, one that allows you to submit a request to any of the four 
  [ ] On the Request side, support other parameters besides the max tokens, model id (e.g. Temperature, number of completions, top_p, etc)
  [ ] REplace backup of database with a script to create tables/etc.
 Matt Davidian August 2025
+
+
+# DOCUPIPE PIPELINE INTERFACE
+DocuPipe support is implemented as a parallel **document pipeline** interface (not part of `cAiInterface`).
+
+Primary entry point:
+- `Use docupipeai.pkg`
+- Global object handle: `ghoDocuPipe`
+
+Main async-first calls:
+- `Configure tDocuPipeConfig cfg`
+- `SubmitDocumentFromFile ...` / `SubmitDocumentFromUrl ...`
+- `Standardize ...`
+- `GetJob ...`
+- `GetStandardization ...`
+- `GetDocument ...`
+
+Example polling flow:
+
+```dataflex
+Use docupipeai.pkg
+
+Procedure RunDocuPipeExample
+    tDocuPipeConfig cfg
+    tDocuPipeDocumentSubmitResponse submitResp
+    tDocuPipeStandardizeResponse standardizeResp
+    tDocuPipeJobResponse jobResp
+    tDocuPipeStandardizationGetResponse stdResp
+    String[] aDocumentIds
+
+    Move (EnvironmentVariable(ghoEnvironment,"docupipe-api-key")) to cfg.sApiKey
+    Move "https://app.docupipe.ai" to cfg.sBaseUrl
+    Move 90 to cfg.iTimeoutSeconds
+    Move 1 to cfg.iRetryCount
+    Send Configure of ghoDocuPipe cfg
+
+    Get SubmitDocumentFromUrl of ghoDocuPipe "https://example.com/invoice.pdf" "" "" to submitResp
+    If (not(submitResp.bOk)) Procedure_Return
+
+    Move submitResp.sDocumentId to aDocumentIds[0]
+
+    Get Standardize of ghoDocuPipe aDocumentIds "" "" "" "" "" to standardizeResp
+    If (not(standardizeResp.bOk)) Procedure_Return
+
+    Repeat
+        Get GetJob of ghoDocuPipe standardizeResp.sJobId to jobResp
+        If (IsTerminalJobStatus(ghoDocuPipe,jobResp.sStatus)) Break
+        Sleep 2
+    Until False
+
+    If (Lowercase(jobResp.sStatus)="completed") Begin
+        Get GetStandardization of ghoDocuPipe jobResp.sStandardizationId to stdResp
+    End
+End_Procedure
+```

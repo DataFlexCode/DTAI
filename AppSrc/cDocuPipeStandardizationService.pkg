@@ -1,0 +1,74 @@
+Use cJsonObject.pkg
+Use docupipeai.h
+Use cDocuPipeClient.pkg
+
+Class cDocuPipeStandardizationService is a cObject
+
+    Function Standardize Handle hoClient String[] aDocumentIds String sSchemaId String sGuidelines String sDisplayMode String sSplitMode String sEffortLevel Returns tDocuPipeStandardizeResponse
+        tDocuPipeStandardizeResponse Response
+        tDocuPipeResult Result
+        Handle hoReq hoIds hoId
+        Integer i iCount
+
+        Get Create (RefClass(cJsonObject)) to hoReq
+        Send InitializeJsonType of hoReq jsonTypeObject
+
+        Get Create (RefClass(cJsonObject)) to hoIds
+        Send InitializeJsonType of hoIds jsonTypeArray
+
+        Move (SizeOfArray(aDocumentIds)) to iCount
+        For i from 0 to (iCount-1)
+            Get Create (RefClass(cJsonObject)) to hoId
+            Send InitializeJsonType of hoId jsonTypeString
+            Send SetStringValue of hoId aDocumentIds[i]
+            Send AddMember of hoIds hoId
+            Send Destroy of hoId
+        Loop
+
+        Send SetMember of hoReq "documentIds" hoIds
+        Send Destroy of hoIds
+
+        If (sSchemaId<>'') Send SetMemberValue of hoReq "schemaId" jsonTypeString sSchemaId
+        If (sGuidelines<>'') Send SetMemberValue of hoReq "guidelines" jsonTypeString sGuidelines
+        If (sDisplayMode<>'') Send SetMemberValue of hoReq "displayMode" jsonTypeString sDisplayMode
+        If (sSplitMode<>'') Send SetMemberValue of hoReq "splitMode" jsonTypeString sSplitMode
+        If (sEffortLevel<>'') Send SetMemberValue of hoReq "effortLevel" jsonTypeString sEffortLevel
+
+        Get ExecuteJsonRequest of hoClient "POST" "/v2/standardize/batch" hoReq to Result
+        Send Destroy of hoReq
+
+        Move Result.bOk to Response.bOk
+        Move Result.iHttpStatus to Response.iHttpStatus
+        Move Result.sError to Response.sError
+        Move Result.sRawJson to Response.sRawJson
+
+        If (Result.sRawJson<>'') Begin
+            Get ExtractJsonStringValue of hoClient Result.sRawJson "jobId" to Response.sJobId
+            If (Response.sJobId='') Get ExtractJsonStringValue of hoClient Result.sRawJson "job_id" to Response.sJobId
+            If (Response.sJobId='') Get ExtractJsonStringValue of hoClient Result.sRawJson "id" to Response.sJobId
+        End
+
+        Function_Return Response
+    End_Function
+
+    Function GetStandardization Handle hoClient String sStandardizationId Returns tDocuPipeStandardizationGetResponse
+        tDocuPipeStandardizationGetResponse Response
+        tDocuPipeResult Result
+
+        Get ExecuteJsonRequest of hoClient "GET" ("/standardization/"+sStandardizationId) 0 to Result
+
+        Move Result.bOk to Response.bOk
+        Move Result.iHttpStatus to Response.iHttpStatus
+        Move Result.sError to Response.sError
+        Move Result.sRawJson to Response.sRawJson
+        Move sStandardizationId to Response.sStandardizationId
+
+        If (Result.sRawJson<>'') Begin
+            Get ExtractJsonStringValue of hoClient Result.sRawJson "standardizationId" to Response.sStandardizationId
+            If (Response.sStandardizationId='') Get ExtractJsonStringValue of hoClient Result.sRawJson "standardization_id" to Response.sStandardizationId
+            Move Result.sRawJson to Response.sDataJson
+        End
+
+        Function_Return Response
+    End_Function
+End_Class

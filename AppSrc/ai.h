@@ -12,6 +12,7 @@ Struct tAIAttachment
     UChar[] uBase64File
     String sMimeType
     String sFileID
+    String sDescription         // for reference/UI only, not passed to AI at the moment
 End_Struct
 
 // unified structure for all AI model details

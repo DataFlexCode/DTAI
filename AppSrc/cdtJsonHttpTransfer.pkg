@@ -3,6 +3,20 @@ Use cJSON_Mixin.pkg
 
 External_Function InternetSetOption   "InternetSetOptionA" wininet.dll Handle hInet DWord dwOption Pointer buf DWord bufLen Returns Boolean
 External_Function InternetQueryOption "InternetQueryOptionA" wininet.dll Handle hInet DWord dwOption Pointer buf DWord bufLen Returns Boolean
+Define INTERNET_OPTION_CALLBACK                                 for 1
+Define INTERNET_OPTION_CONNECT_TIMEOUT                          for 2
+Define INTERNET_OPTION_CONNECT_RETRIES                          for 3
+Define INTERNET_OPTION_CONNECT_BACKOFF                          for 4
+Define INTERNET_OPTION_SEND_TIMEOUT                             for 5
+Define INTERNET_OPTION_CONTROL_SEND_TIMEOUT                     for INTERNET_OPTION_SEND_TIMEOUT
+Define INTERNET_OPTION_RECEIVE_TIMEOUT                          for 6
+Define INTERNET_OPTION_CONTROL_RECEIVE_TIMEOUT                  for INTERNET_OPTION_RECEIVE_TIMEOUT
+Define INTERNET_OPTION_DATA_SEND_TIMEOUT                        for 7
+Define INTERNET_OPTION_DATA_RECEIVE_TIMEOUT                     for 8
+Define INTERNET_OPTION_HANDLE_TYPE                              for 9
+Define INTERNET_OPTION_LISTEN_TIMEOUT                           for 11
+Define INTERNET_OPTION_READ_BUFFER_SIZE                         for 12
+Define INTERNET_OPTION_WRITE_BUFFER_SIZE                        for 13
 
 Class cdtJsonHttpTransfer is a cJsonHttpTransfer
     
@@ -94,27 +108,31 @@ Class cdtJsonHttpTransfer is a cJsonHttpTransfer
     End_Procedure
     
     // added because Grok is SLOOOOWWW
-    // https://support.dataaccess.com/Forums/showthread.php?53291-cHttpTransfer-and-TimeOuts&highlight=cHttpTransfer+timeout
+    // https://support.dataaccess.com/Forums/entry.php?95-How-to-change-the-internet-connection-timeout
     Procedure SetTimeout Integer iSeconds
-        Handle hInet
-        Integer  iSize  val retval
-        Pointer valPtr
-        String tmp
-        //
-        // Following code set the timeout values
+            String sText
+            DWord dwBufferLength
+            Boolean bQueryOptionSucceeded
+            Integer iCurrentReceiveTimeOut iNewReceiveTimeOut eTransferStatus
         
-        Move "XXXXX" to tmp              // Make room for the response in memmory.
-        Move 0 to val                    // Make room for the response in memmory.
-        Move (AddressOf(val)) to valptr  // Set up the pointer in memory for the response
-              
-        Get RootHandle to hInet          // What Http/ftp transfer object are we using - SELF
-        Move ( SizeOfType(Integer)) to iSize               
-        Move (iSeconds*1000) to val     // 30 second timeout
-        Move (AddressOf(val)) to valptr             // Identify pointer to the value
-         
-        Move (InternetSetOption( Addressof(hInet), 2, valptr, Addressof(iSize) )) to tmp   // data receive timeout ??
-        Move (InternetSetOption( Addressof(hInet), 5, valptr, Addressof(iSize ))) to tmp   // data send timeout ??
-        Move (InternetSetOption( Addressof(hInet), 6, valptr, Addressof(iSize) )) to tmp   // connect time out ??
+            Move (SizeOfType (Integer)) to dwBufferLength
+            Move 0 to iCurrentReceiveTimeOut
+        
+            Move (WinAPI_InternetQueryOption (0, INTERNET_OPTION_RECEIVE_TIMEOUT, AddressOf (iCurrentReceiveTimeOut), AddressOf (dwBufferLength))) to bQueryOptionSucceeded
+            Move (iSeconds*1000) to iNewReceiveTimeOut
+            Move (WinAPI_InternetSetOption (0, INTERNET_OPTION_RECEIVE_TIMEOUT, AddressOf (iNewReceiveTimeOut), dwBufferLength)) to bQueryOptionSucceeded
+        
+//            Get wsSayHello of oWSTestService "Vincent" to sText
+//            Get peTransferStatus of oWSTestService to eTransferStatus
+//        
+//            Move (WinAPI_InternetSetOption (0, INTERNET_OPTION_RECEIVE_TIMEOUT, AddressOf (iCurrentReceiveTimeOut), dwBufferLength)) to bQueryOptionSucceeded
+//        
+//            If (eTransferStatus = wssOK) Begin
+//                Send Info_Box sText "TestService Results"
+//            End
+//            Else Begin
+//                Send Stop_Box eTransferStatus "Transfer Status"
+//            End
         
      End_Procedure
 End_Class

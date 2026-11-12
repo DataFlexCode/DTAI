@@ -1573,7 +1573,7 @@ export class WebDrawing extends WebBaseControl {
             svgImage.setAttributeNS(null, "href", result);
         }
 
-        const drawing = document.createElement("drawing");
+        const drawing = document.createElement("Canvas");
         drawing.width = svgCopy.width.baseVal.value;
         drawing.height = svgCopy.height.baseVal.value;
         const ctx = drawing.getContext("2d");

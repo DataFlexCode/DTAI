@@ -111,7 +111,13 @@ export class WebColumnLink extends WebColumnLinkBase {
     */
 
     cellHtml(sRowId, tCell) {
-        return ('<a href="javascript:void(0);" target="_self">' + super.cellHtml(sRowId, tCell) + '</a>');
+        let sVal = super.cellHtml(sRowId, tCell);
+
+        if (sVal === "&nbsp;") {
+            sVal = ""; //Make sure we pass a empty string if nothing is in the cell.
+        }
+
+        return ('<a href="javascript:void(0);" target="_self">' + sVal + '</a>');
     }
 
 

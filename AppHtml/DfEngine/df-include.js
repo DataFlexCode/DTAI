@@ -11,7 +11,7 @@ reasons.
     var aScripts, sRoot = "", bMinified, bShowBuffer, sPreloadTheme, sIncludePath, sVersionId, sV;
     
     //  Note: The following line is parsed and checked by the studio
-    sVersionId = "25.0.28.74";
+    sVersionId = "25.0.30.78";
     
     //  Determine current include location
     aScripts = document.getElementsByTagName("script");

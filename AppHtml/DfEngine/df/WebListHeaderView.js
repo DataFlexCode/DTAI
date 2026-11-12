@@ -613,7 +613,7 @@ export class WebListHeaderView {
         let iPX = 0, iDiff = 0, iMin, iMax = 0;
 
         //  First create our drag mask
-        const eMask = df.gui.dragMask();
+        const eMask = df.gui.dragMask(false, oL._eElem);
         eMask.style.cursor = "e-resize";
 
         //  Determine percentage to pixel ratio

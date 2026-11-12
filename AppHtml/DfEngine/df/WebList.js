@@ -1433,7 +1433,7 @@ export class WebList extends WebBaseControl {
     }
 
     onControlDragOver(oEv, oDropZone, eDropElem) {
-        if (!this._bScrollQueued) {
+        if (!this._bScrollQueued && this.pbScroll) {
             let dY = 10;
             let dT = 100;
             const oRect = df.sys.gui.getBoundRect(oDropZone._eZone);

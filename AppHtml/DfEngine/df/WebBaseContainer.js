@@ -1090,6 +1090,8 @@ export const WebBaseContainer_mixin = superclass => class extends superclass {
         const aRows = [];
         const aCols = [];
 
+        if (!this._eElem) { return; }
+        
         const eContent = df.dom.query(this._eElem, '.WebCon_Content');
 
         if (!eContent) { return; }

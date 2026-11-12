@@ -432,7 +432,7 @@ export class WebColorPicker extends WebBaseControl {
         }, this._iDoubleClickWait);
 
         //  Create mask
-        const eMask = df.gui.dragMask();
+        const eMask = df.gui.dragMask(false, this._eElem);
         eMask.style.cursor = "crosshair";
 
         //  Initial x & y calculations
@@ -510,7 +510,7 @@ export class WebColorPicker extends WebBaseControl {
         }, this._iDoubleClickWait);
 
         //  Create mask
-        const eMask = df.gui.dragMask();
+        const eMask = df.gui.dragMask(false, this._eElem);
         eMask.style.cursor = "n-resize";
 
         //  Initial y calculations

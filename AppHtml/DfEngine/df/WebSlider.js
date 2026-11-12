@@ -820,7 +820,7 @@ export class WebSlider extends WebBaseDEO {
         const iInterval = this.getInterval();
 
         //  Generate mask
-        const eMask = df.gui.dragMask();
+        const eMask = df.gui.dragMask(false, this._eElem);
         eMask.style.cursor = bVert ? "s-resize" : "e-resize";
 
         const iMouseStart = getPos(oEvent);

@@ -36,7 +36,7 @@ objects that may be created. It contains classes, other namespaces and constants
 
 
 
-const sDfVersion =  "25.0.28.74";
+const sDfVersion =  "25.0.30.78";
 
 export const df = {
 
@@ -363,10 +363,11 @@ is used in the implementation of drag and resize actions to make sure no other e
 @param bOptNoShow  If true the mask is not shown yet (so the caller has to do this).
 @return Div mask element
 */
-dragMask : function(bOptNoShow){
+dragMask : function(bOptNoShow, eOptParent){
     const eMask = df.dom.create('<dialog class="WebApp_DragMask"></dialog>');
 
-    document.body.appendChild(eMask);
+    const eParent = eOptParent || document.body;
+    eParent.appendChild(eMask);   
     if(!bOptNoShow) eMask.showModal();
 
     return eMask;

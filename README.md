@@ -165,14 +165,20 @@ DocuPipe support is implemented as a parallel **document pipeline** interface (n
 Primary entry point:
 - `Use docupipeai.pkg`
 - Global object handle: `ghoDocuPipe`
+- API key: add `docupipe-api-key=YOUR_KEY` to the program's `.env` file (e.g. `Programs\ai.env`), or pass `sApiKey` to `Configure`
 
 Main async-first calls:
 - `Configure tDocuPipeConfig cfg`
-- `SubmitDocumentFromFile ...` / `SubmitDocumentFromUrl ...`
-- `Standardize ...`
-- `GetJob ...`
-- `GetStandardization ...`
+- `SubmitDocumentFromFile ...` / `SubmitDocumentFromUrl ...` (`POST /document`, returns `sDocumentId` + upload `sJobId`)
+- `StandardizeDocument ...` (`POST /v3/standardize`, returns `sJobId` + `sStandardizationId`)
+- `Standardize ...` (legacy `POST /v2/standardize/batch`)
+- `GetJob ...` (`GET /job/{id}`, status is `processing`, `completed` or `error`)
+- `GetStandardization ...` (`GET /standardization/{id}`, `sDataJson` holds the extracted `data`)
 - `GetDocument ...`
+
+The upload job must reach `completed` before the document is standardized.
+
+Demo: `View > DocuPipe PDF Processing` in `ai.src` (`AppSrc\DocuPipeDrop.vw`) accepts a PDF by drag and drop and runs the whole flow.
 
 Example polling flow:
 
@@ -185,30 +191,33 @@ Procedure RunDocuPipeExample
     tDocuPipeStandardizeResponse standardizeResp
     tDocuPipeJobResponse jobResp
     tDocuPipeStandardizationGetResponse stdResp
-    String[] aDocumentIds
 
-    Move (EnvironmentVariable(ghoEnvironment,"docupipe-api-key")) to cfg.sApiKey
-    Move "https://app.docupipe.ai" to cfg.sBaseUrl
+    // API key defaults from docupipe-api-key in the .env file
     Move 90 to cfg.iTimeoutSeconds
     Move 1 to cfg.iRetryCount
     Send Configure of ghoDocuPipe cfg
 
-    Get SubmitDocumentFromUrl of ghoDocuPipe "https://example.com/invoice.pdf" "" "" to submitResp
+    Get SubmitDocumentFromFile of ghoDocuPipe "C:\Invoices\invoice.pdf" "" "" to submitResp
     If (not(submitResp.bOk)) Procedure_Return
 
-    Move submitResp.sDocumentId to aDocumentIds[0]
+    // wait for DocuPipe to parse the document
+    Repeat
+        Sleep 3
+        Get GetJob of ghoDocuPipe submitResp.sJobId to jobResp
+    Until (not(jobResp.bOk) or IsTerminalJobStatus(ghoDocuPipe,jobResp.sStatus))
+    If (Lowercase(jobResp.sStatus)<>"completed") Procedure_Return
 
-    Get Standardize of ghoDocuPipe aDocumentIds "" "" "" "" "" to standardizeResp
+    Get StandardizeDocument of ghoDocuPipe submitResp.sDocumentId "YOUR_SCHEMA_ID" "" "" to standardizeResp
     If (not(standardizeResp.bOk)) Procedure_Return
 
     Repeat
+        Sleep 3
         Get GetJob of ghoDocuPipe standardizeResp.sJobId to jobResp
-        If (IsTerminalJobStatus(ghoDocuPipe,jobResp.sStatus)) Break
-        Sleep 2
-    Until False
+    Until (not(jobResp.bOk) or IsTerminalJobStatus(ghoDocuPipe,jobResp.sStatus))
 
     If (Lowercase(jobResp.sStatus)="completed") Begin
-        Get GetStandardization of ghoDocuPipe jobResp.sStandardizationId to stdResp
+        Get GetStandardization of ghoDocuPipe standardizeResp.sStandardizationId to stdResp
+        // stdResp.sDataJson contains the extracted fields
     End
 End_Procedure
 ```

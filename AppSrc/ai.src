@@ -148,6 +148,17 @@ Object oMain is a Panel
                         Send Activate_oAIChatExample of hoClient
                     End_Procedure
                 End_Object
+
+                Object oDocuPipeDropMenuItem is a cCJMenuItem
+                    Set psCaption to "DocuPipe PDF Processing"
+                    Set psTooltip to "Drop a PDF to run it through DocuPipe"
+
+                    Procedure OnExecute Variant vCommandBarControl
+                        Handle hoClient
+                        Get Client_Id to hoClient
+                        Send Activate_oDocuPipeDrop of hoClient
+                    End_Procedure
+                End_Object
             End_Object
             
             Object oReportMenu is a cCJMenuItem
@@ -363,6 +374,7 @@ Object oMain is a Panel
         Use AIDemo.vw
         Use JSONSchemaStruct.vw
         Use AIChatExample.vw
+        Use DocuPipeDrop.vw
 
         Procedure Activate_About
             Send DoAbout "" "" "" "" ""

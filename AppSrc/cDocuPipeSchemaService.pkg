@@ -1,0 +1,268 @@
+Use cJsonObject.pkg
+Use docupipeai.h
+Use cDocuPipeClient.pkg
+
+Class cDocuPipeSchemaService is a cObject
+
+    Procedure Construct_Object
+        Forward Send Construct_Object
+
+        // session cache so the same schema file is not registered again: key = path + file content
+        Property String[] pasSchemaCacheKeys
+        Property String[] pasSchemaCacheIds
+    End_Procedure
+
+    // value of a top level member of a JSON object as a string, "" if missing, null, object or array
+    Function SchemaJsonString Handle hoObj String sKey Returns String
+        Handle hoMember
+        Integer iType
+        String sValue
+
+        Move "" to sValue
+        If (not(HasMember(hoObj,sKey))) Function_Return sValue
+        Get Member of hoObj sKey to hoMember
+        Get JsonType of hoMember to iType
+        If (iType<>jsonTypeNull and iType<>jsonTypeObject and iType<>jsonTypeArray) Get JsonValue of hoMember to sValue
+        Send Destroy of hoMember
+        Function_Return sValue
+    End_Function
+
+    // GET /schemas?limit=..&offset=..&exclude_payload=true  -> JSON array of schemas (newest first)
+    // iLimit <= 0 means 100. DocuPipe's maximum is 1000 per call.
+    Function ListSchemas Handle hoClient Integer iLimit Integer iOffset Returns tDocuPipeSchemaListResponse
+        tDocuPipeSchemaListResponse Response
+        tDocuPipeSchemaInfo[] aSchemas
+        tDocuPipeResult Result
+        Handle hoJson hoItem hoFields hoField
+        Boolean bOk
+        Integer i iCount j iFields iRow
+        String sFields sField
+
+        If (iLimit<=0) Move 100 to iLimit
+        If (iLimit>1000) Move 1000 to iLimit
+        If (iOffset<0) Move 0 to iOffset
+
+        Get ExecuteJsonRequest of hoClient "GET" ("/schemas?limit="+String(iLimit)+"&offset="+String(iOffset)+"&exclude_payload=true") 0 to Result
+
+        Move Result.bOk to Response.bOk
+        Move Result.iHttpStatus to Response.iHttpStatus
+        Move Result.sError to Response.sError
+        Move Result.sRawJson to Response.sRawJson
+        If (not(Result.bOk)) Function_Return Response
+
+        Get Create (RefClass(cJsonObject)) to hoJson
+        Get ParseString of hoJson Result.sRawJson to bOk
+        If (not(bOk) or JsonType(hoJson)<>jsonTypeArray) Begin
+            Move False to Response.bOk
+            Move ("Unexpected GET /schemas response: " + Left(Result.sRawJson,500)) to Response.sError
+            Send Destroy of hoJson
+            Function_Return Response
+        End
+
+        Move 0 to iRow
+        Get MemberCount of hoJson to iCount
+        For i from 0 to (iCount-1)
+            Get MemberByIndex of hoJson i to hoItem
+            If (JsonType(hoItem)=jsonTypeObject) Begin
+                Get SchemaJsonString hoItem "schemaId" to aSchemas[iRow].sSchemaId
+                Get SchemaJsonString hoItem "schemaName" to aSchemas[iRow].sSchemaName
+                Get SchemaJsonString hoItem "timestamp" to aSchemas[iRow].sTimestamp
+                Get SchemaJsonString hoItem "guidelines" to aSchemas[iRow].sGuidelines
+
+                Move "" to sFields
+                If (HasMember(hoItem,"fieldPreview")) Begin
+                    Get Member of hoItem "fieldPreview" to hoFields
+                    If (JsonType(hoFields)=jsonTypeArray) Begin
+                        Get MemberCount of hoFields to iFields
+                        For j from 0 to (iFields-1)
+                            Get MemberByIndex of hoFields j to hoField
+                            If (JsonType(hoField)=jsonTypeString) Begin
+                                Get JsonValue of hoField to sField
+                                If (sFields<>"") Move (sFields+", ") to sFields
+                                Move (sFields+sField) to sFields
+                            End
+                            Send Destroy of hoField
+                        Loop
+                    End
+                    Send Destroy of hoFields
+                End
+                Move sFields to aSchemas[iRow].sFieldPreview
+                Increment iRow
+            End
+            Send Destroy of hoItem
+        Loop
+        Send Destroy of hoJson
+
+        Move aSchemas to Response.aSchemas
+        Function_Return Response
+    End_Function
+
+    // POST /schema  {"schemaName": "...", "jsonSchema": {...}, "guidelines": "..."}
+    // hoJsonSchema must be a cJsonObject of type object holding a JSON Schema. Returns schemaId + jobId.
+    // The schema can be used as soon as the call returns.
+    Function CreateSchema Handle hoClient String sSchemaName Handle hoJsonSchema String sGuidelines Returns tDocuPipeSchemaCreateResponse
+        tDocuPipeSchemaCreateResponse Response
+        tDocuPipeResult Result
+        Handle hoReq
+
+        Get Create (RefClass(cJsonObject)) to hoReq
+        Send InitializeJsonType of hoReq jsonTypeObject
+        Send SetMemberValue of hoReq "schemaName" jsonTypeString sSchemaName
+        Send SetMember of hoReq "jsonSchema" hoJsonSchema
+        If (sGuidelines<>'') Send SetMemberValue of hoReq "guidelines" jsonTypeString sGuidelines
+
+        Get ExecuteJsonRequest of hoClient "POST" "/schema" hoReq to Result
+        Send Destroy of hoReq
+
+        Move Result.bOk to Response.bOk
+        Move Result.iHttpStatus to Response.iHttpStatus
+        Move Result.sError to Response.sError
+        Move Result.sRawJson to Response.sRawJson
+        Move sSchemaName to Response.sSchemaName
+
+        If (Result.bOk) Begin
+            Get ExtractJsonStringValue of hoClient Result.sRawJson "schemaId" to Response.sSchemaId
+            Get ExtractJsonStringValue of hoClient Result.sRawJson "jobId" to Response.sJobId
+            If (Response.sSchemaId='') Begin
+                Move False to Response.bOk
+                Move ("DocuPipe did not return a schemaId: " + Result.sRawJson) to Response.sError
+            End
+        End
+
+        Function_Return Response
+    End_Function
+
+    Function SchemaNameFromPath String sFilePath Returns String
+        Integer iPos
+        String sName
+
+        Move sFilePath to sName
+        Move (RightPos('\',sName)) to iPos
+        If (iPos=0) Move (RightPos('/',sName)) to iPos
+        If (iPos>0) Move (Right(sName,Length(sName)-iPos)) to sName
+        Move (RightPos('.',sName)) to iPos
+        If (iPos>1) Move (Left(sName,iPos-1)) to sName
+        Function_Return sName
+    End_Function
+
+    // Register a schema from a .json file. Accepted file contents:
+    //  1. a plain JSON Schema                      {"type":"object","properties":{...}}  -> POST /schema
+    //  2. a DocuPipe style wrapper                 {"schemaName":"..","jsonSchema":{..},"guidelines":".."} -> POST /schema
+    //  3. a reference to an existing schema        {"schemaId":"abc123"}  -> used as is, nothing is created
+    // The schema name defaults to the file name (without extension).
+    // The same path + content is only registered once per session.
+    Function CreateSchemaFromFile Handle hoClient String sFilePath String sGuidelines Returns tDocuPipeSchemaCreateResponse
+        tDocuPipeSchemaCreateResponse Response
+        UChar[] ucData
+        String[] asKeys asIds
+        String sKey sName sValue
+        Handle hoJson hoSchema hoMember
+        Boolean bExist bOk bHas bWrapper
+        Integer iIndex iCount
+
+        File_Exist sFilePath bExist
+        If (not(bExist)) Begin
+            Move ("Schema file not found: " + sFilePath) to Response.sError
+            Function_Return Response
+        End
+
+        Direct_Input ("BINARY:"+sFilePath)
+        Read_Block ucData -1
+        Close_Input
+
+        // strip a UTF-8 byte order mark
+        Move (SizeOfArray(ucData)) to iCount
+        If (iCount>=3 and ucData[0]=239 and ucData[1]=187 and ucData[2]=191) Begin
+            Move (CopyArray(ucData,3,iCount-1)) to ucData
+        End
+        If (SizeOfArray(ucData)=0) Begin
+            Move ("Schema file is empty: " + sFilePath) to Response.sError
+            Function_Return Response
+        End
+
+        // already registered this session?
+        Move (Lowercase(sFilePath) + Character(1) + UCharArrayToString(ucData)) to sKey
+        Get pasSchemaCacheKeys to asKeys
+        Get pasSchemaCacheIds to asIds
+        Move (SearchArray(sKey,asKeys)) to iIndex
+        If (iIndex>=0) Begin
+            Move True to Response.bOk
+            Move True to Response.bFromCache
+            Move asIds[iIndex] to Response.sSchemaId
+            Get SchemaNameFromPath sFilePath to Response.sSchemaName
+            Function_Return Response
+        End
+
+        Get Create (RefClass(cJsonObject)) to hoJson
+        Get ParseUtf8 of hoJson ucData to bOk
+        If (not(bOk)) Begin
+            Move ("Schema file is not valid JSON: " + psParseError(hoJson)) to Response.sError
+            Send Destroy of hoJson
+            Function_Return Response
+        End
+        If (JsonType(hoJson)<>jsonTypeObject) Begin
+            Move "Schema file must contain a JSON object." to Response.sError
+            Send Destroy of hoJson
+            Function_Return Response
+        End
+
+        Get SchemaNameFromPath sFilePath to sName
+        Move 0 to hoSchema
+        Move False to bWrapper
+
+        // 2. wrapper with a jsonSchema object
+        Get HasMember of hoJson "jsonSchema" to bHas
+        If (bHas) Begin
+            Get Member of hoJson "jsonSchema" to hoMember
+            If (JsonType(hoMember)=jsonTypeObject) Begin
+                Move hoMember to hoSchema
+                Move True to bWrapper
+                Get ExtractJsonStringValue of hoClient (Stringify(hoJson)) "schemaName" to sValue
+                If (sValue<>'') Move sValue to sName
+                If (sGuidelines='') Get ExtractJsonStringValue of hoClient (Stringify(hoJson)) "guidelines" to sGuidelines
+            End
+            Else Send Destroy of hoMember
+        End
+
+        If (not(bWrapper)) Begin
+            // 3. reference to an existing schema: has schemaId but nothing that looks like a JSON Schema
+            Get HasMember of hoJson "schemaId" to bHas
+            If (bHas and not(HasMember(hoJson,"properties")) and not(HasMember(hoJson,"type"))) Begin
+                Get MemberValue of hoJson "schemaId" to sValue
+                Send Destroy of hoJson
+                If (Trim(sValue)='') Begin
+                    Move "Schema file has an empty schemaId." to Response.sError
+                    Function_Return Response
+                End
+                Move True to Response.bOk
+                Move True to Response.bExistingReference
+                Move (Trim(sValue)) to Response.sSchemaId
+                Move sName to Response.sSchemaName
+                Function_Return Response
+            End
+
+            // 1. plain JSON Schema
+            If (not(HasMember(hoJson,"properties")) and not(HasMember(hoJson,"type"))) Begin
+                Move 'Schema file does not look like a JSON Schema (expected "type"/"properties", a "jsonSchema" object, or a "schemaId").' to Response.sError
+                Send Destroy of hoJson
+                Function_Return Response
+            End
+            Move hoJson to hoSchema
+        End
+
+        Get CreateSchema hoClient sName hoSchema sGuidelines to Response
+
+        If (hoSchema<>hoJson) Send Destroy of hoSchema
+        Send Destroy of hoJson
+
+        If (Response.bOk) Begin
+            Move sKey to asKeys[SizeOfArray(asKeys)]
+            Move Response.sSchemaId to asIds[SizeOfArray(asIds)]
+            Set pasSchemaCacheKeys to asKeys
+            Set pasSchemaCacheIds to asIds
+        End
+
+        Function_Return Response
+    End_Function
+
+End_Class

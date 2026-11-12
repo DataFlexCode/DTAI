@@ -1,0 +1,214 @@
+// Modal lookup of the schemas already uploaded to DocuPipe (GET /schemas)
+// Usage:
+//   Get SelectSchema of oDocuPipeSchemaLookup to bOk
+//   If (bOk) Get psSelectedSchemaId of oDocuPipeSchemaLookup to sSchemaId
+Use Windows.pkg
+Use Cursor.pkg
+Use cCJGrid.pkg
+Use cCJGridColumn.pkg
+
+Use docupipeai.pkg
+
+Object oDocuPipeSchemaLookup is a ModalPanel
+    Property tDocuPipeSchemaInfo[] paSchemas
+    Property Boolean pbSchemaSelected False
+    Property String psSelectedSchemaId ""
+    Property String psSelectedSchemaName ""
+
+    Set Label to "Select a DocuPipe Schema"
+    Set Size to 200 420
+    Set Location to 2 2
+    Set piMinSize to 140 300
+    Set Border_Style to Border_Thick
+    Set Locate_Mode to Center_On_Parent
+
+    Object oSchemaGrid is a cCJGrid
+        Set Size to 160 410
+        Set Location to 5 5
+        Set peAnchors to anAll
+        Set pbReadOnly to True
+        Set pbSelectionEnable to True
+        Set pbFocusSubItems to False
+        Set psNoItemsText to "No schemas"
+
+        Object oNameCol is a cCJGridColumn
+            Set piWidth to 220
+            Set psCaption to "Name"
+        End_Object
+
+        Object oIdCol is a cCJGridColumn
+            Set piWidth to 90
+            Set psCaption to "Schema ID"
+        End_Object
+
+        Object oCreatedCol is a cCJGridColumn
+            Set piWidth to 130
+            Set psCaption to "Created (UTC)"
+        End_Object
+
+        Object oFieldsCol is a cCJGridColumn
+            Set piWidth to 220
+            Set psCaption to "Fields"
+        End_Object
+
+        // fill the grid from paSchemas
+        Procedure LoadData
+            tDataSourceRow[] TheData TheDataEmpty
+            tDocuPipeSchemaInfo[] aSchemas
+            Integer i iCount iName iId iCreated iFields
+            String sCreated
+
+            If (not(IsComObjectCreated(Self))) Procedure_Return
+
+            Get paSchemas to aSchemas
+            Move (SizeOfArray(aSchemas)) to iCount
+            Get piColumnId of oNameCol to iName
+            Get piColumnId of oIdCol to iId
+            Get piColumnId of oCreatedCol to iCreated
+            Get piColumnId of oFieldsCol to iFields
+
+            For i from 0 to (iCount-1)
+                // 2026-11-12T20:03:36.211000Z -> 2026-11-12 20:03:36
+                Move (Replace("T",Left(aSchemas[i].sTimestamp,19)," ")) to sCreated
+                Move aSchemas[i].sSchemaName to TheData[i].sValue[iName]
+                Move aSchemas[i].sSchemaId to TheData[i].sValue[iId]
+                Move sCreated to TheData[i].sValue[iCreated]
+                Move aSchemas[i].sFieldPreview to TheData[i].sValue[iFields]
+            Loop
+
+            If (iCount>0) Begin
+                Send ReInitializeData TheData False
+                Send MoveToFirstRow
+            End
+            Else Begin
+                Send InitializeData TheDataEmpty
+            End
+        End_Procedure
+
+        Procedure Activating
+            Forward Send Activating
+            Send LoadData
+        End_Procedure
+
+        Procedure OnRowDoubleClick Integer iRow Integer iCol
+            Send SelectCurrentRow
+        End_Procedure
+    End_Object
+
+    Object oInfo is a TextBox
+        Set Auto_Size_State to False
+        Set Size to 10 200
+        Set Location to 172 5
+        Set Label to ""
+        Set peAnchors to anBottomLeftRight
+    End_Object
+
+    Object oRefreshButton is a Button
+        Set Size to 14 50
+        Set Location to 170 245
+        Set Label to "&Refresh"
+        Set peAnchors to anBottomRight
+
+        Procedure OnClick
+            Send RefreshSchemas
+        End_Procedure
+    End_Object
+
+    Object oOK_Btn is a Button
+        Set Size to 14 50
+        Set Location to 170 305
+        Set Label to "&OK"
+        Set Default_State to True
+        Set peAnchors to anBottomRight
+
+        Procedure OnClick
+            Send SelectCurrentRow
+        End_Procedure
+    End_Object
+
+    Object oCancel_Btn is a Button
+        Set Size to 14 50
+        Set Location to 170 362
+        Set Label to "&Cancel"
+        Set peAnchors to anBottomRight
+
+        Procedure OnClick
+            Send Close_Panel
+        End_Procedure
+    End_Object
+
+    // read the schema list from DocuPipe into paSchemas
+    Procedure FetchSchemas
+        tDocuPipeSchemaListResponse ListResp
+        tDocuPipeSchemaInfo[] aEmpty
+        Integer iCount
+
+        Send Cursor_Wait of Cursor_Control
+        Get ListSchemas of ghoDocuPipe 1000 0 to ListResp
+        Send Cursor_Ready of Cursor_Control
+
+        If (not(ListResp.bOk)) Begin
+            Set paSchemas to aEmpty
+            Set Label of oInfo to "Could not load schemas from DocuPipe."
+            Send Stop_Box ("Could not load the DocuPipe schema list."+Character(13)+Character(10)+Left(ListResp.sError,1000))
+            Procedure_Return
+        End
+
+        Set paSchemas to ListResp.aSchemas
+        Move (SizeOfArray(ListResp.aSchemas)) to iCount
+        If (iCount=0) Set Label of oInfo to "No schemas found in this DocuPipe workspace. Drop a JSON schema file to create one."
+        Else Set Label of oInfo to (String(iCount)+" schema(s), newest first. Double-click to select.")
+    End_Procedure
+
+    Procedure RefreshSchemas
+        Send FetchSchemas
+        Send LoadData of oSchemaGrid
+    End_Procedure
+
+    // take the schema in the selected grid row (read from the grid so header sorting doesn't matter)
+    Procedure SelectCurrentRow
+        tDataSourceRow[] TheData
+        Handle hoDataSource
+        Integer iRow iName iId
+        String sId
+
+        Get phoDataSource of oSchemaGrid to hoDataSource
+        Get DataSource of hoDataSource to TheData
+        Get SelectedRow of hoDataSource to iRow
+        If (iRow<0 or iRow>=SizeOfArray(TheData)) Begin
+            Send Info_Box "Select a schema first."
+            Procedure_Return
+        End
+
+        Get piColumnId of oIdCol to iId
+        Get piColumnId of oNameCol to iName
+        Move TheData[iRow].sValue[iId] to sId
+        If (sId="") Begin
+            Send Info_Box "Select a schema first."
+            Procedure_Return
+        End
+
+        Set psSelectedSchemaId to sId
+        Set psSelectedSchemaName to TheData[iRow].sValue[iName]
+        Set pbSchemaSelected to True
+        Send Close_Panel
+    End_Procedure
+
+    // load the list, show the dialog modally and return True if a schema was picked
+    Function SelectSchema Returns Boolean
+        Set pbSchemaSelected to False
+        Set psSelectedSchemaId to ""
+        Set psSelectedSchemaName to ""
+
+        If (ApiKey(ghoDocuPipe)="") Begin
+            Send Stop_Box "No DocuPipe API key found. Add a line docupipe-api-key=YOUR_KEY to Programs\ai.env and restart the program."
+            Function_Return False
+        End
+
+        Send FetchSchemas
+        Send Popup_Modal
+        Function_Return (pbSchemaSelected(Self))
+    End_Function
+
+    On_Key kCancel Send Close_Panel
+End_Object

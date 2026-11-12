@@ -1,4 +1,4 @@
-﻿Use cJsonObject.pkg
+Use cJsonObject.pkg
 Use chatgptai.h
 Use cChatGPTRequest.pkg
 Use cEnvironment.pkg

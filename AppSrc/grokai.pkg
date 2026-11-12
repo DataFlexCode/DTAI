@@ -1,4 +1,4 @@
-﻿Use ai.pkg
+Use ai.pkg
 Use claudeai.h      // for Anthropic messages structs
 Use grokai.h        // Grok AI model list
 Use cEnvironment.pkg

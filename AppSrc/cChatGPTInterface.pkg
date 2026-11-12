@@ -1,4 +1,4 @@
-﻿Use cAIResponseTranslator.pkg
+Use cAIResponseTranslator.pkg
 
 Class cChatGPTInterface is a cAIInterface
     Procedure Construct_Object

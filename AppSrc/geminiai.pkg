@@ -1,4 +1,4 @@
-﻿Use ai.pkg
+Use ai.pkg
 Use geminiai.h
 Use cGeminiRequest.pkg
 Use cEnvironment.pkg

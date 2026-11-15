@@ -1,0 +1,324 @@
+Use ai.h                        // tAIAttachment (used by cBase64Attachment_mixin)
+Use cdtJsonHttpTransfer.pkg
+Use cBase64Attachment_mixin.pkg
+Use cJsonObject.pkg
+Use cEnvironment.pkg
+Use docupipeai.h
+
+Class cDocuPipeClient is a cdtJsonHttpTransfer
+    Import_Class_Protocol cBase64Attachment_mixin
+
+    Procedure Construct_Object
+        Forward Send Construct_Object
+
+        Send Define_cBase64Attachment_mixin
+
+        Property String psApiKey ""
+        Property String psBaseUrl "https://app.docupipe.ai"
+        Property Integer piTimeoutSeconds 90
+        Property Integer piRetryCount 1
+        Property Boolean pbLogRawJson False
+        Property String psLastError ""
+
+        // Never let WinINet answer a GET from its cache. DocuPipe sends no Cache-Control headers, so a
+        // polled GET (job/document status) could otherwise keep returning the first "processing" response.
+        Set peTransferFlags to (ifSecure ior ifReload ior ifNoCacheWrite ior ifPragmaNocache)
+        Set piRemotePort to rpHttpSSL
+    End_Procedure
+
+    Procedure End_Construct_Object
+        Forward Send End_Construct_Object
+
+        // default the API key from <program>.env (docupipe-api-key=...), same as the other AI interfaces
+        If (ghoEnvironment<>0) Begin
+            Set psApiKey to (EnvironmentVariable(ghoEnvironment,"docupipe-api-key"))
+        End
+    End_Procedure
+
+    Procedure Configure tDocuPipeConfig cfg
+        If (cfg.sApiKey<>'') Set psApiKey to cfg.sApiKey
+        If (cfg.sBaseUrl<>'') Set psBaseUrl to cfg.sBaseUrl
+        If (cfg.iTimeoutSeconds>0) Set piTimeoutSeconds to cfg.iTimeoutSeconds
+        If (cfg.iRetryCount>=0) Set piRetryCount to cfg.iRetryCount
+        Set pbLogRawJson to cfg.bLogRawJson
+        Send SetTimeout (piTimeoutSeconds(Self))
+    End_Procedure
+
+    Function HostFromBaseUrl Returns String
+        String sBase sHost
+
+        Get psBaseUrl to sBase
+        Move (Replace("https://",sBase,"")) to sHost
+        Move (Replace("http://",sHost,"")) to sHost
+        If (Right(sHost,1)='/') Move (Left(sHost,Length(sHost)-1)) to sHost
+
+        Function_Return sHost
+    End_Function
+
+    Function NormalizePath String sPath Returns String
+        String sRet
+        Move sPath to sRet
+        While (Left(sRet,1)='/')
+            Move (Right(sRet,Length(sRet)-1)) to sRet
+        Loop
+        Function_Return sRet
+    End_Function
+
+    // Content-Type is added by cJsonHttpTransfer itself (psContentTypeSent) whenever a body is sent,
+    // so it must not be added here as well (that produced a duplicate Content-Type header).
+    Procedure AddStandardHeaders
+        Integer iRetVal
+
+        Set pbClearHeaders to False
+        Send ClearHeaders
+
+        Get AddHeader "Accept" "application/json" to iRetVal
+        Get AddHeader "X-API-Key" (psApiKey(Self)) to iRetVal
+        Get AddHeader "Cache-Control" "no-cache" to iRetVal
+    End_Procedure
+
+    // Retry once on network failure (no HTTP status), HTTP 429 and HTTP 5xx. Never on other 4xx.
+    Function ShouldRetry Boolean bTransferOk Integer iStatus Returns Boolean
+        Boolean bRetry
+
+        Move False to bRetry
+        If (iStatus=0) Move True to bRetry
+        Else If (iStatus=429) Move True to bRetry
+        Else If (iStatus>=500 and iStatus<=599) Move True to bRetry
+
+        Function_Return bRetry
+    End_Function
+
+    // Build a readable error from a DocuPipe error payload ({"detail": "..."}), falling back to the raw body
+    Function ErrorFromResponse Integer iStatus String sRawJson Returns String
+        String sDetail
+
+        Get ExtractJsonStringValue sRawJson "detail" to sDetail
+        If (sDetail='') Get ExtractJsonMember sRawJson "detail" to sDetail
+        If (sDetail='') Move sRawJson to sDetail
+        If (sDetail='') Move "no response body" to sDetail
+
+        Function_Return ("DocuPipe HTTP " + String(iStatus) + ": " + sDetail)
+    End_Function
+
+    Function ExecuteJsonRequest String sVerb String sPath Handle hoRequest Returns tDocuPipeResult
+        tDocuPipeResult Result
+        Handle hoResponse
+        String sHost sRawJson sPathOnly
+        Boolean bTransferOk bRetry
+        Integer iAttempt iAttempts iStatus
+
+        Move (Trim(sVerb)) to sVerb
+        Move (Uppercase(sVerb)) to sVerb
+        Move (NormalizePath(Self,sPath)) to sPathOnly
+        Move (HostFromBaseUrl(Self)) to sHost
+        Move (piRetryCount(Self)+1) to iAttempts
+        If (iAttempts<1) Move 1 to iAttempts
+
+        If (psApiKey(Self)="") Begin
+            Move "DocuPipe API key is not configured (add docupipe-api-key=... to the program's .env file or call Configure)." to Result.sError
+            Set psLastError to Result.sError
+            Function_Return Result
+        End
+
+        For iAttempt from 1 to iAttempts
+            Send AddStandardHeaders
+
+            Move False to bTransferOk
+            Move 0 to hoResponse
+            Move "" to sRawJson
+            If (sVerb="GET") Begin
+                Get HttpGetJson sHost sPathOnly (&bTransferOk) to hoResponse
+            End
+            Else Begin
+                Get HttpVerbJson sHost sPathOnly hoRequest sVerb (&bTransferOk) to hoResponse
+            End
+
+            Get ResponseStatusCode to iStatus
+            Move iStatus to Result.iHttpStatus
+
+            If (hoResponse) Begin
+                Move (Stringify(hoResponse)) to sRawJson
+                Send Destroy of hoResponse
+                Move 0 to hoResponse
+            End
+            Else Begin
+                Get DataReceived to sRawJson
+            End
+
+            Move sRawJson to Result.sRawJson
+            Move (bTransferOk and iStatus>=200 and iStatus<300) to Result.bOk
+
+            If (Result.bOk) Begin
+                Move "" to Result.sError
+                Set psLastError to ""
+                Function_Return Result
+            End
+
+            Move (ShouldRetry(Self,bTransferOk,iStatus)) to bRetry
+            If (not(bRetry) or iAttempt=iAttempts) Begin
+                If (iStatus=0) Move ("DocuPipe request failed: " + TransferErrorDescription(Self)) to Result.sError
+                Else Move (ErrorFromResponse(Self,iStatus,sRawJson)) to Result.sError
+                Set psLastError to Result.sError
+                Function_Return Result
+            End
+
+            // brief pause before the single retry (helps with 429 rate limiting)
+            Sleep 2
+        Loop
+
+        Move "DocuPipe request failed after retries." to Result.sError
+        Set psLastError to Result.sError
+        Function_Return Result
+    End_Function
+
+    // Returns a top level member of a JSON object as a string.
+    // If the member is an array, the first element is returned (e.g. "standardizationIds").
+    // Returns "" when the JSON can't be parsed, the member is missing, null, an object or an empty array.
+    Function ExtractJsonStringValue String sJson String sKey Returns String
+        Handle hoJson hoMember hoItem
+        Boolean bOk bHas
+        Integer iType iItemType
+        String sValue
+
+        Move "" to sValue
+        If (Trim(sJson)='') Function_Return sValue
+
+        Get Create (RefClass(cJsonObject)) to hoJson
+        Get ParseString of hoJson sJson to bOk
+        If (bOk) Begin
+            If (JsonType(hoJson)=jsonTypeObject) Begin
+                Get HasMember of hoJson sKey to bHas
+                If (bHas) Begin
+                    Get Member of hoJson sKey to hoMember
+                    Get JsonType of hoMember to iType
+                    If (iType=jsonTypeArray) Begin
+                        If (MemberCount(hoMember)>0) Begin
+                            Get MemberByIndex of hoMember 0 to hoItem
+                            Get JsonType of hoItem to iItemType
+                            If (iItemType<>jsonTypeObject and iItemType<>jsonTypeArray and iItemType<>jsonTypeNull) Begin
+                                Get JsonValue of hoItem to sValue
+                            End
+                            Send Destroy of hoItem
+                        End
+                    End
+                    Else If (iType<>jsonTypeObject and iType<>jsonTypeNull) Begin
+                        Get JsonValue of hoMember to sValue
+                    End
+                    Send Destroy of hoMember
+                End
+            End
+        End
+        Send Destroy of hoJson
+
+        Function_Return sValue
+    End_Function
+
+    // Returns a top level member of a JSON object as JSON text (objects, arrays, values), "" if missing
+    Function ExtractJsonMember String sJson String sKey Returns String
+        Handle hoJson hoMember
+        Boolean bOk bHas
+        String sValue
+
+        Move "" to sValue
+        If (Trim(sJson)='') Function_Return sValue
+
+        Get Create (RefClass(cJsonObject)) to hoJson
+        Get ParseString of hoJson sJson to bOk
+        If (bOk) Begin
+            If (JsonType(hoJson)=jsonTypeObject) Begin
+                Get HasMember of hoJson sKey to bHas
+                If (bHas) Begin
+                    Get Member of hoJson sKey to hoMember
+                    Get Stringify of hoMember to sValue
+                    Send Destroy of hoMember
+                End
+            End
+        End
+        Send Destroy of hoJson
+
+        Function_Return sValue
+    End_Function
+
+    // Re-format JSON text with indentation for display. Returns the input unchanged if it is not JSON.
+    Function PrettyJson String sJson Returns String
+        Handle hoJson
+        Boolean bOk
+        String sRetVal
+
+        Move sJson to sRetVal
+        If (Trim(sJson)='') Function_Return sRetVal
+
+        Get Create (RefClass(cJsonObject)) to hoJson
+        Get ParseString of hoJson sJson to bOk
+        If (bOk) Begin
+            Set peWhiteSpace of hoJson to jpWhitespace_Pretty
+            Get Stringify of hoJson to sRetVal
+        End
+        Send Destroy of hoJson
+
+        Function_Return sRetVal
+    End_Function
+
+    Function FileNameOnly String sFilePath Returns String
+        Integer iPos
+
+        Move (RightPos('\',sFilePath)) to iPos
+        If (iPos=0) Move (RightPos('/',sFilePath)) to iPos
+        If (iPos>0) Function_Return (Right(sFilePath,Length(sFilePath)-iPos))
+        Function_Return sFilePath
+    End_Function
+
+    // POST /document body for a local file:
+    //   {"document": {"file": {"contents": "<base64>"}, "filename": "x.pdf"}, "dataset": "...", "workflowId": "..."}
+    // Returns 0 if the file does not exist.
+    Function BuildDocumentFileRequest String sFilePath String sDataset String sWorkflowId Returns Handle
+        Handle hoReq hoDoc hoFile
+        Boolean bExist
+        tAIAttachment Attachment
+
+        File_Exist sFilePath bExist
+        If (not(bExist)) Function_Return 0
+
+        Get CreateAttachment sFilePath to Attachment
+
+        Get Create (RefClass(cJsonObject)) to hoFile
+        Send InitializeJsonType of hoFile jsonTypeObject
+        Send SetMemberValue of hoFile "contents" jsonTypeString (UCharArrayToString(Attachment.uBase64File))
+
+        Get Create (RefClass(cJsonObject)) to hoDoc
+        Send InitializeJsonType of hoDoc jsonTypeObject
+        Send SetMember of hoDoc "file" hoFile
+        Send SetMemberValue of hoDoc "filename" jsonTypeString (FileNameOnly(Self,sFilePath))
+        Send Destroy of hoFile
+
+        Get Create (RefClass(cJsonObject)) to hoReq
+        Send InitializeJsonType of hoReq jsonTypeObject
+        Send SetMember of hoReq "document" hoDoc
+        Send Destroy of hoDoc
+
+        If (sDataset<>'') Send SetMemberValue of hoReq "dataset" jsonTypeString sDataset
+        If (sWorkflowId<>'') Send SetMemberValue of hoReq "workflowId" jsonTypeString sWorkflowId
+
+        Function_Return hoReq
+    End_Function
+
+    // POST /document body for a remote file: {"document": {"url": "https://..."}, ...}
+    Function BuildDocumentUrlRequest String sUrl String sDataset String sWorkflowId Returns Handle
+        Handle hoReq hoDoc
+
+        Get Create (RefClass(cJsonObject)) to hoDoc
+        Send InitializeJsonType of hoDoc jsonTypeObject
+        Send SetMemberValue of hoDoc "url" jsonTypeString sUrl
+
+        Get Create (RefClass(cJsonObject)) to hoReq
+        Send InitializeJsonType of hoReq jsonTypeObject
+        Send SetMember of hoReq "document" hoDoc
+        Send Destroy of hoDoc
+
+        If (sDataset<>'') Send SetMemberValue of hoReq "dataset" jsonTypeString sDataset
+        If (sWorkflowId<>'') Send SetMemberValue of hoReq "workflowId" jsonTypeString sWorkflowId
+
+        Function_Return hoReq
+    End_Function
+End_Class

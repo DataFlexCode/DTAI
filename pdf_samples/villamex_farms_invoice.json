@@ -1,0 +1,100 @@
+{
+   "pdf_metadata": {
+     "title": null,
+     "subject": null,
+     "creator": null,
+     "author": null,
+     "producer": null,
+     "creation_date": null,
+     "modification_date": null
+   },
+   "invoice": {
+     "vendor": {
+       "name": "VillaMex Farms, LLC",
+       "address": {
+         "street": "5300 George McVay Drive St.140",
+         "city": "McAllen",
+         "state": "TX",
+         "zip": "78503",
+         "country": "USA"
+       },
+       "phone": "(956) 322 3639",
+       "fax": "956 322 3639"
+     },
+     "sold_to": {
+       "name": "THE KUNKEL COMPANY",
+       "address": {
+         "street": "7464 Washington Ave S.",
+         "city": "Eden Prairie",
+         "state": "MN",
+         "zip": "55344",
+         "country": "USA"
+       }
+     },
+     "ship_to": {
+       "name": "The Kunkel Company",
+       "address": {
+         "street": "7464 Washington Ave S.",
+         "city": "Eden Prairie",
+         "state": "MN",
+         "zip": "55344",
+         "country": "USA"
+       }
+     },
+     "invoice_details": {
+       "invoice_number": "0003283",
+       "invoice_date": "02\/25\/2023",
+       "ship_date": "02\/24\/2023",
+       "customer_po": "55790",
+       "pay_terms": "21 days",
+       "ship_terms": "FOB",
+       "shipped_from": "McAllen, Texas",
+       "page": "1 \/ 1"
+     },
+     "shipping_details": {
+       "broker": null,
+       "truck_name": "86205TK",
+       "trailer_license": "17702783",
+       "warehouse": null
+     },
+     "salesperson": "Maximiliano Villasenor",
+     "line_items": [
+       {
+         "product": "LIME PERSIAN",
+         "description": "LIME PERSIAN Carton 110 Villamex 1 [ Product of Mexico ]",
+         "quantity": 60,
+         "unit": "ctn",
+         "price": 33.5,
+         "amount": 2010,
+         "origin": "Product of Mexico"
+       }
+     ],
+     "other_charges": [
+       {
+         "code": "11",
+         "description": "Freight-Flat Rate",
+         "quantity": 1,
+         "price": 300,
+         "amount": 300
+       }
+     ],
+     "totals": {
+       "produce_total": 2010,
+       "other_charges_total": 300,
+       "invoice_total": 2310
+     },
+     "messages": [
+       "Thank you for your business and have a great day!"
+     ],
+     "terms_and_conditions": "All sales have a 24hr. claim period. Any bounced checks will have a $30 fee. Thank you!\nTodas las ventas tienen 24hr para cualquier reclamo. Cheques regresados tiene cargo de $30. Gracias!",
+     "payment_instructions": {
+       "checks_payable_to": null,
+       "mailing_address": null,
+       "wire_transfer": {
+         "bank_name": null,
+         "account_number": null,
+         "routing_number": null
+       }
+     }
+   }
+ }

@@ -1,0 +1,92 @@
+Use cJsonObject.pkg
+Use docupipeai.h
+Use cDocuPipeClient.pkg
+
+Class cDocuPipeDocumentService is a cObject
+
+    // copy the common result fields and parse documentId / jobId / status from a POST /document response
+    Function SubmitResponseFromResult Handle hoClient tDocuPipeResult Result Returns tDocuPipeDocumentSubmitResponse
+        tDocuPipeDocumentSubmitResponse Response
+
+        Move Result.bOk to Response.bOk
+        Move Result.iHttpStatus to Response.iHttpStatus
+        Move Result.sError to Response.sError
+        Move Result.sRawJson to Response.sRawJson
+
+        If (Result.bOk and Result.sRawJson<>'') Begin
+            Get ExtractJsonStringValue of hoClient Result.sRawJson "documentId" to Response.sDocumentId
+            Get ExtractJsonStringValue of hoClient Result.sRawJson "jobId" to Response.sJobId
+            Get ExtractJsonStringValue of hoClient Result.sRawJson "status" to Response.sStatus
+            If (Response.sDocumentId='') Begin
+                Move False to Response.bOk
+                Move ("DocuPipe did not return a documentId: " + Result.sRawJson) to Response.sError
+            End
+        End
+
+        Function_Return Response
+    End_Function
+
+    Function SubmitDocumentFromFile Handle hoClient String sFilePath String sDataset String sWorkflowId Returns tDocuPipeDocumentSubmitResponse
+        tDocuPipeDocumentSubmitResponse Response
+        tDocuPipeResult Result
+        Handle hoReq
+
+        Get BuildDocumentFileRequest of hoClient sFilePath sDataset sWorkflowId to hoReq
+        If (hoReq=0) Begin
+            Move ("File not found: " + sFilePath) to Response.sError
+            Function_Return Response
+        End
+
+        Get ExecuteJsonRequest of hoClient "POST" "/document" hoReq to Result
+        Send Destroy of hoReq
+
+        Get SubmitResponseFromResult hoClient Result to Response
+        Function_Return Response
+    End_Function
+
+    Function SubmitDocumentFromUrl Handle hoClient String sUrl String sDataset String sWorkflowId Returns tDocuPipeDocumentSubmitResponse
+        tDocuPipeDocumentSubmitResponse Response
+        tDocuPipeResult Result
+        Handle hoReq
+
+        Get BuildDocumentUrlRequest of hoClient sUrl sDataset sWorkflowId to hoReq
+        Get ExecuteJsonRequest of hoClient "POST" "/document" hoReq to Result
+        Send Destroy of hoReq
+
+        Get SubmitResponseFromResult hoClient Result to Response
+        Function_Return Response
+    End_Function
+
+    Function GetDocument Handle hoClient String sDocumentId Returns tDocuPipeResult
+        tDocuPipeResult Result
+
+        Get ExecuteJsonRequest of hoClient "GET" ("/document/"+sDocumentId) 0 to Result
+        Function_Return Result
+    End_Function
+
+    // GET /document/{id} and return its top level status. Use this to wait for upload/parsing to finish
+    // (the upload jobId returned by POST /document is not reliably queryable with GET /job/{id}).
+    Function GetDocumentStatus Handle hoClient String sDocumentId Returns tDocuPipeDocumentStatusResponse
+        tDocuPipeDocumentStatusResponse Response
+        tDocuPipeResult Result
+
+        Get ExecuteJsonRequest of hoClient "GET" ("/document/"+sDocumentId) 0 to Result
+
+        Move Result.bOk to Response.bOk
+        Move Result.iHttpStatus to Response.iHttpStatus
+        Move Result.sError to Response.sError
+        Move Result.sRawJson to Response.sRawJson
+        Move sDocumentId to Response.sDocumentId
+
+        If (Result.bOk) Begin
+            Get ExtractJsonStringValue of hoClient Result.sRawJson "status" to Response.sStatus
+            If (Response.sStatus='') Begin
+                Move False to Response.bOk
+                Move ("DocuPipe document response has no status: " + Left(Result.sRawJson,500)) to Response.sError
+            End
+        End
+
+        Function_Return Response
+    End_Function
+
+End_Class

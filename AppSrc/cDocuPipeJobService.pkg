@@ -1,0 +1,42 @@
+Use docupipeai.h
+Use cDocuPipeClient.pkg
+
+Class cDocuPipeJobService is a cObject
+
+    Function GetJob Handle hoClient String sJobId Returns tDocuPipeJobResponse
+        tDocuPipeJobResponse Response
+        tDocuPipeResult Result
+        String sValue
+
+        Get ExecuteJsonRequest of hoClient "GET" ("/job/"+sJobId) 0 to Result
+
+        Move Result.bOk to Response.bOk
+        Move Result.iHttpStatus to Response.iHttpStatus
+        Move Result.sError to Response.sError
+        Move Result.sRawJson to Response.sRawJson
+        Move sJobId to Response.sJobId
+
+        If (Result.bOk and Result.sRawJson<>'') Begin
+            Get ExtractJsonStringValue of hoClient Result.sRawJson "jobId" to sValue
+            If (sValue<>'') Move sValue to Response.sJobId
+
+            Get ExtractJsonStringValue of hoClient Result.sRawJson "status" to Response.sStatus
+            Get ExtractJsonStringValue of hoClient Result.sRawJson "errorMessage" to Response.sErrorMessage
+
+            // "standardize" jobs carry standardizationId, "standardize-batch" jobs carry standardizationIds[]
+            Get ExtractJsonStringValue of hoClient Result.sRawJson "standardizationId" to Response.sStandardizationId
+            If (Response.sStandardizationId='') Get ExtractJsonStringValue of hoClient Result.sRawJson "standardizationIds" to Response.sStandardizationId
+        End
+
+        Function_Return Response
+    End_Function
+
+    // DocuPipe job status values are "processing", "completed" and "error"
+    Function IsTerminalJobStatus String sStatus Returns Boolean
+        String sCompare
+
+        Move (Lowercase(Trim(sStatus))) to sCompare
+        Function_Return (sCompare="completed" or sCompare="complete" or sCompare="failed" or sCompare="error" or sCompare="cancelled" or sCompare="canceled")
+    End_Function
+
+End_Class

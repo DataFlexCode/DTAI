@@ -1,0 +1,105 @@
+Use docupipeai.h
+Use cEnvironment.pkg
+
+// the client reads docupipe-api-key from the program's .env file via ghoEnvironment
+If (ghoEnvironment=0) Begin
+    Object oEnvironment is a cEnvironment
+    End_Object
+End
+
+Use cDocuPipeClient.pkg
+Use cDocuPipeDocumentService.pkg
+Use cDocuPipeStandardizationService.pkg
+Use cDocuPipeJobService.pkg
+Use cDocuPipeSchemaService.pkg
+
+Class cDocuPipeInterface is a cObject
+
+    Procedure Construct_Object
+        Forward Send Construct_Object
+
+        Object oDocuPipeClient is a cDocuPipeClient
+        End_Object
+
+        Object oDocuPipeDocumentService is a cDocuPipeDocumentService
+        End_Object
+
+        Object oDocuPipeStandardizationService is a cDocuPipeStandardizationService
+        End_Object
+
+        Object oDocuPipeJobService is a cDocuPipeJobService
+        End_Object
+
+        Object oDocuPipeSchemaService is a cDocuPipeSchemaService
+        End_Object
+    End_Procedure
+
+    Procedure Configure tDocuPipeConfig cfg
+        Send Configure of (oDocuPipeClient(Self)) cfg
+    End_Procedure
+
+    Function SubmitDocumentFromFile String sFilePath String sDataset String sWorkflowId Returns tDocuPipeDocumentSubmitResponse
+        Function_Return (SubmitDocumentFromFile(oDocuPipeDocumentService(Self),oDocuPipeClient(Self),sFilePath,sDataset,sWorkflowId))
+    End_Function
+
+    Function SubmitDocumentFromUrl String sUrl String sDataset String sWorkflowId Returns tDocuPipeDocumentSubmitResponse
+        Function_Return (SubmitDocumentFromUrl(oDocuPipeDocumentService(Self),oDocuPipeClient(Self),sUrl,sDataset,sWorkflowId))
+    End_Function
+
+    Function GetDocumentStatus String sDocumentId Returns tDocuPipeDocumentStatusResponse
+        Function_Return (GetDocumentStatus(oDocuPipeDocumentService(Self),oDocuPipeClient(Self),sDocumentId))
+    End_Function
+
+    Function GetDocument String sDocumentId Returns tDocuPipeResult
+        Function_Return (GetDocument(oDocuPipeDocumentService(Self),oDocuPipeClient(Self),sDocumentId))
+    End_Function
+
+    Function Standardize String[] aDocumentIds String sSchemaId String sGuidelines String sDisplayMode String sSplitMode String sEffortLevel Returns tDocuPipeStandardizeResponse
+        Function_Return (Standardize(oDocuPipeStandardizationService(Self),oDocuPipeClient(Self),aDocumentIds,sSchemaId,sGuidelines,sDisplayMode,sSplitMode,sEffortLevel))
+    End_Function
+
+    // POST /v3/standardize - single document, current DocuPipe engine. Returns jobId + standardizationId
+    Function StandardizeDocument String sDocumentId String sSchemaId String sGuidelines String sEffortLevel Returns tDocuPipeStandardizeResponse
+        Function_Return (StandardizeDocument(oDocuPipeStandardizationService(Self),oDocuPipeClient(Self),sDocumentId,sSchemaId,sGuidelines,sEffortLevel))
+    End_Function
+
+    // POST /schema from a .json file (plain JSON Schema, {"schemaName","jsonSchema","guidelines"} wrapper,
+    // or {"schemaId": "..."} reference). The same file content is only registered once per session.
+    Function CreateSchemaFromFile String sFilePath String sGuidelines Returns tDocuPipeSchemaCreateResponse
+        Function_Return (CreateSchemaFromFile(oDocuPipeSchemaService(Self),oDocuPipeClient(Self),sFilePath,sGuidelines))
+    End_Function
+
+    // GET /schemas - schemas already in the DocuPipe workspace (no jsonSchema payload)
+    Function ListSchemas Integer iLimit Integer iOffset Returns tDocuPipeSchemaListResponse
+        Function_Return (ListSchemas(oDocuPipeSchemaService(Self),oDocuPipeClient(Self),iLimit,iOffset))
+    End_Function
+
+    Function GetJob String sJobId Returns tDocuPipeJobResponse
+        Function_Return (GetJob(oDocuPipeJobService(Self),oDocuPipeClient(Self),sJobId))
+    End_Function
+
+    Function GetStandardization String sStandardizationId Returns tDocuPipeStandardizationGetResponse
+        Function_Return (GetStandardization(oDocuPipeStandardizationService(Self),oDocuPipeClient(Self),sStandardizationId))
+    End_Function
+
+    Function IsTerminalJobStatus String sStatus Returns Boolean
+        Function_Return (IsTerminalJobStatus(oDocuPipeJobService(Self),sStatus))
+    End_Function
+
+    // utility: format JSON text with indentation for display
+    Function PrettyJson String sJson Returns String
+        Function_Return (PrettyJson(oDocuPipeClient(Self),sJson))
+    End_Function
+
+    // the API key currently in use (defaults from docupipe-api-key in the .env file)
+    Function ApiKey Returns String
+        Function_Return (psApiKey(oDocuPipeClient(Self)))
+    End_Function
+
+End_Class
+
+Global_Variable Handle ghoDocuPipe
+
+Object oDocuPipe is a cDocuPipeInterface
+    Move Self to ghoDocuPipe
+End_Object

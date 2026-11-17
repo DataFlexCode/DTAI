@@ -6,10 +6,13 @@ Class cGeminiInterface is a cAIInterface
         Forward Send Construct_Object
 
         Property String psHost "generativelanguage.googleapis.com"
-        Property String psModelId "models/gemini-2.5-flash"
+        // gemini-2.5-flash is deprecated; from Dec 1, 2026 its requests are routed to
+        // gemini-3.5-flash-lite. gemini-3.8-flash is the current stable Flash model.
+        Property String psModelId "models/gemini-3.8-flash"
         Property Integer piMaxTokens 8192
         
         Property tGenerationConfig pGenerationConfig        
+        Property Integer piCallSequence 0   // numbers the ids generated for calls without one
 
         Set psApiKey to (EnvironmentVariable(ghoEnvironment,'gemini-api-key')) 
 
@@ -43,7 +46,7 @@ Class cGeminiInterface is a cAIInterface
             Get httpPostJson (psHost(Self)) sUrl hoRequest (&bOk) to hoResponse
 
             If (not(bOk)) Begin
-                Send UserError (TransferErrorDescription(Self)) "Transfer failed!"
+                Send ReportAIError AI_ERR_TRANSFER (TransferErrorDescription(Self)) "Transfer failed!"
             End
             Else If (hoResponse<>0) Begin
                 Send RemoveNullMembers hoResponse
@@ -59,7 +62,7 @@ Class cGeminiInterface is a cAIInterface
                     Get Member of hoResponse "error" to hoError
                     Get MemberValue of hoError "message" to sMessage
                     
-                    Send Stop_Box sMessage "API Error"                
+                    Send ReportAIError AI_ERR_API sMessage "API Error"                
                     Send Destroy of hoResponse
                     Move 0 to hoResponse
                 End
@@ -67,8 +70,7 @@ Class cGeminiInterface is a cAIInterface
             Else Begin
                 String sResponse
                 Get DataReceived to sResponse
-                Showln 'Response Received:'
-                Showln sResponse
+                Send ReportAIError AI_ERR_PARSE ("Response was not JSON:" * Left(sResponse,1000)) "API Error"
             End
         End
         Function_Return hoResponse
@@ -95,7 +97,7 @@ Class cGeminiInterface is a cAIInterface
         
                 // Check for a successful transfer
                 If (not(bOk)) Begin
-                    Send UserError (TransferErrorDescription(Self)) "Transfer failed!"
+                    Send ReportAIError AI_ERR_TRANSFER (TransferErrorDescription(Self)) "Transfer failed!"
                 End
                 Else Begin
                     // Deserialize the JSON response into our DataFlex struct
@@ -176,7 +178,170 @@ Class cGeminiInterface is a cAIInterface
             //
             Get TranslateToUnified of oGeminiTranslator GeminiResponse to Response
         End
+        Else Move AI_STOP_ERROR to Response.eStopReason
         
+        Function_Return Response
+    End_Function
+
+    // provider id used in conversation history
+    Function ProviderName Returns String
+        Function_Return "gemini"
+    End_Function
+
+    //=========================================================================
+    // Conversations and tool calls (tool_calls_plan.md, Phase 6)
+    //=========================================================================
+
+    Function BuildConversationRequest tAIMessage[] Messages tAIToolDefinition[] Tools Returns Handle
+        Handle hoRequest
+        Get CreateGeminiConversationRequest of oGeminiRequest Messages Tools (EffectiveSystemPrompt(Self)) (peToolChoice(Self)) (psToolChoiceName(Self)) (pGenerationConfig(Self)) (piMaxTokens(Self)) to hoRequest
+        Function_Return hoRequest
+    End_Function
+
+    Function JsonMemberText Handle hoJson String sMember Returns String
+        Boolean bHas
+        String sValue
+        Get HasMember of hoJson sMember to bHas
+        If (bHas) Get MemberValue of hoJson sMember to sValue
+        Function_Return sValue
+    End_Function
+
+    // Translates a generateContent response (hoResponse is not destroyed).
+    // functionCall parts become ToolCalls: the id is Gemini's when it sends one,
+    // else "gemini-call-<n>" (not sent back; results are then matched by name and
+    // order). A part's thoughtSignature is kept in sProviderData. Thought summary
+    // parts are not part of sText. AssistantMessage keeps the raw candidate content
+    // {"role":"model","parts":[...]} as UTF-8 so it is replayed exactly.
+    Function ParseConversationResponse Handle hoResponse Returns tAIResponse
+        tGeminiResponse GeminiResponse
+        tAIResponse Response
+        tAIResponseContentPart Part EmptyPart
+        tAIResponseContentPart[] aParts
+        tAIToolCall Call
+        tAIToolCall[] aCalls
+        Handle hoCandidates hoCand hoContent hoParts hoPart hoFn hoArgs hoUsage hoFeedback
+        Integer i iCount iSeq
+        Boolean bHas
+        String sThought sArgs sBlock
+        UChar[] ucJson
+
+        Send RemoveNullMembers hoResponse
+        Set pbRequireAllMembers of hoResponse to False
+        Get JsonToDataType of hoResponse to GeminiResponse
+        Get TranslateToUnified of oGeminiTranslator GeminiResponse to Response
+
+        Get HasMember of hoResponse "usageMetadata" to bHas
+        If (bHas) Begin
+            Get Member of hoResponse "usageMetadata" to hoUsage
+            Move (Integer(JsonMemberText(Self,hoUsage,"promptTokenCount"))) to Response.Usage.iPromptTokens
+            Move (Integer(JsonMemberText(Self,hoUsage,"candidatesTokenCount"))) to Response.Usage.iCompletionTokens
+            Move (Integer(JsonMemberText(Self,hoUsage,"totalTokenCount"))) to Response.Usage.iTotalTokens
+            Move Response.Usage.iPromptTokens to Response.Usage.iInputTokens
+            Move Response.Usage.iCompletionTokens to Response.Usage.iOutputTokens
+            Send Destroy of hoUsage
+        End
+        Get HasMember of hoResponse "modelVersion" to bHas
+        If (bHas) Get MemberValue of hoResponse "modelVersion" to Response.sModel
+        Get HasMember of hoResponse "responseId" to bHas
+        If (bHas) Get MemberValue of hoResponse "responseId" to Response.sId
+
+        Get HasMember of hoResponse "candidates" to bHas
+        If (bHas) Begin
+            Get Member of hoResponse "candidates" to hoCandidates
+            If (MemberCount(hoCandidates)=0) Move False to bHas
+            Else Get MemberByIndex of hoCandidates 0 to hoCand
+            Send Destroy of hoCandidates
+        End
+        If (not(bHas)) Begin
+            // prompt blocked: no candidates, promptFeedback.blockReason says why
+            Get HasMember of hoResponse "promptFeedback" to bHas
+            If (bHas) Begin
+                Get Member of hoResponse "promptFeedback" to hoFeedback
+                Get JsonMemberText hoFeedback "blockReason" to sBlock
+                Send Destroy of hoFeedback
+            End
+            If (sBlock<>'') Move AI_STOP_CONTENT_FILTER to Response.eStopReason
+            Move 'assistant' to Response.AssistantMessage.sRole
+            Move (ProviderName(Self)) to Response.AssistantMessage.sProvider
+            Function_Return Response
+        End
+
+        Get HasMember of hoCand "content" to bHas
+        If (bHas) Begin
+            Get Member of hoCand "content" to hoContent
+            Get HasMember of hoContent "parts" to bHas
+            If (bHas) Begin
+                Get Member of hoContent "parts" to hoParts
+                Get MemberCount of hoParts to iCount
+                For i from 0 to (iCount-1)
+                    Get MemberByIndex of hoParts i to hoPart
+                    Move EmptyPart to Part
+                    Move "model" to Part.sRole
+                    Get JsonMemberText hoPart "thought" to sThought
+                    Get HasMember of hoPart "functionCall" to bHas
+                    If (bHas) Begin
+                        Get Member of hoPart "functionCall" to hoFn
+                        Get JsonMemberText hoFn "name" to Call.sName
+                        Get JsonMemberText hoFn "id" to Call.sId
+                        If (Call.sId='') Begin
+                            Get piCallSequence to iSeq
+                            Increment iSeq
+                            Set piCallSequence to iSeq
+                            Move ("gemini-call-"+String(iSeq)) to Call.sId
+                        End
+                        Move '{}' to Call.sArgumentsJson
+                        Get HasMember of hoFn "args" to bHas
+                        If (bHas) Begin
+                            Get Member of hoFn "args" to hoArgs
+                            If (JsonType(hoArgs)=jsonTypeObject) Begin
+                                Set peWhiteSpace of hoArgs to jpWhitespace_Plain
+                                Get Stringify of hoArgs to sArgs
+                                Move sArgs to Call.sArgumentsJson
+                            End
+                            Send Destroy of hoArgs
+                        End
+                        Get JsonMemberText hoPart "thoughtSignature" to Call.sProviderData
+                        Move (SizeOfArray(aCalls)) to Call.iIndex
+                        Move Call to aCalls[SizeOfArray(aCalls)]
+                        Send Destroy of hoFn
+                        Move "tool_call" to Part.sType
+                        Move Call.sId to Part.sToolCallId
+                        Move Call.sName to Part.sFunctionName
+                        Move Call.sArgumentsJson to Part.sFunctionArgs
+                        Move Part to aParts[SizeOfArray(aParts)]
+                    End
+                    Else Begin
+                        Get HasMember of hoPart "text" to bHas
+                        // thought summaries are not answer text
+                        If (bHas and Lowercase(sThought)<>'true' and sThought<>'1') Begin
+                            Move "text" to Part.sType
+                            Get MemberValue of hoPart "text" to Part.sText
+                            Move Part to aParts[SizeOfArray(aParts)]
+                        End
+                    End
+                    Send Destroy of hoPart
+                Loop
+                Send Destroy of hoParts
+            End
+            Get HasMember of hoContent "role" to bHas
+            If (not(bHas)) Send SetMemberValue of hoContent "role" jsonTypeString "model"
+            Set peWhiteSpace of hoContent to jpWhitespace_Plain
+            Get StringifyUtf8 of hoContent to ucJson
+            Send Destroy of hoContent
+        End
+        Send Destroy of hoCand
+
+        If (SizeOfArray(Response.Choices)>0) Begin
+            Move aParts to Response.Choices[0].ContentParts
+            Move (AIFinalizeResponse(Response)) to Response
+        End
+
+        Move aCalls to Response.ToolCalls
+        Move 'assistant' to Response.AssistantMessage.sRole
+        Move Response.sText to Response.AssistantMessage.sText
+        Move aCalls to Response.AssistantMessage.ToolCalls
+        Move (ProviderName(Self)) to Response.AssistantMessage.sProvider
+        Move ucJson to Response.AssistantMessage.ucProviderJson
         Function_Return Response
     End_Function
 

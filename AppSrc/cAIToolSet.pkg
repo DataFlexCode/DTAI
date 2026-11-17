@@ -1,0 +1,197 @@
+//=============================================================================
+// cAITool / cAIToolSet - application-defined tools (tool_calls_plan.md)
+//
+//   Object oDemoTools is a cAIToolSet
+//       Object oGetWeather is a cAITool
+//           Set psName to "get_weather"
+//           Set psDescription to "Current weather for a city"
+//           Set psParametersJson to '{"type":"object","properties":{"city":{"type":"string"}},"required":["city"]}'
+//           Function Execute Handle hoArgs tAIToolCall ToolCall Returns String
+//               String sCity
+//               Get MemberValue of hoArgs "city" to sCity
+//               Function_Return ('{"city":"'+sCity+'","temperature":59}')
+//           End_Function
+//       End_Object
+//   End_Object
+//   Set phoToolSet of ghoClaudeAI to oDemoTools
+//
+// Each cAITool registers itself with its parent tool set (no child-object
+// enumeration needed), which works the same on DataFlex 19.1 and 25.0.
+//=============================================================================
+Use ai.h
+Use cJsonObject.pkg
+
+Class cAITool is a cObject
+
+    Procedure Construct_Object
+        Forward Send Construct_Object
+        Property String  psName ''
+        Property String  psDescription ''
+        Property String  psParametersJson ''      // JSON Schema; blank = no parameters
+        Property Boolean pbStrict False
+        Property Boolean pbEnabled True
+        Property Boolean pbRequiresConfirmation False // ask before running (D5)
+        // set by ToolError during Execute
+        Property Boolean pbToolErrorFlag False
+        Property String  psToolErrorText ''
+    End_Procedure
+
+    Procedure End_Construct_Object
+        Forward Send End_Construct_Object
+        Delegate Send RegisterAITool Self
+    End_Procedure
+
+    Function ToolDefinition Returns tAIToolDefinition
+        tAIToolDefinition Def
+        String sSchema
+        Get psParametersJson to sSchema
+        If (Trim(sSchema)='') Move '{"type":"object","properties":{}}' to sSchema
+        Move (psName(Self)) to Def.sName
+        Move (psDescription(Self)) to Def.sDescription
+        Move sSchema to Def.sParametersJson
+        Move (pbStrict(Self)) to Def.bStrict
+        Move (pbRequiresConfirmation(Self)) to Def.bRequiresConfirmation
+        Function_Return Def
+    End_Function
+
+    // Override in each tool. hoArgs is a cJsonObject holding the call's arguments
+    // (an object; destroyed by the caller). Return the result text (JSON text recommended).
+    // Call ToolError to mark the result as an error.
+    Function Execute Handle hoArgs tAIToolCall ToolCall Returns String
+        Send ToolError ("Tool"*psName(Self)*"has no Execute function")
+        Function_Return ''
+    End_Function
+
+    Procedure ToolError String sMessage
+        Set pbToolErrorFlag to True
+        Set psToolErrorText to sMessage
+    End_Procedure
+
+    Procedure ResetToolError
+        Set pbToolErrorFlag to False
+        Set psToolErrorText to ''
+    End_Procedure
+
+End_Class
+
+Class cAIToolSet is a cObject
+
+    Procedure Construct_Object
+        Forward Send Construct_Object
+        Property Handle[] phoTools
+    End_Procedure
+
+    // sent by each child cAITool from its End_Construct_Object
+    Procedure RegisterAITool Handle hoTool
+        Handle[] hoTools
+        Get phoTools to hoTools
+        Move hoTool to hoTools[SizeOfArray(hoTools)]
+        Set phoTools to hoTools
+    End_Procedure
+
+    Function ToolCount Returns Integer
+        Handle[] hoTools
+        Get phoTools to hoTools
+        Function_Return (SizeOfArray(hoTools))
+    End_Function
+
+    // enabled tool with this name, 0 if none
+    Function ToolByName String sName Returns Handle
+        Handle[] hoTools
+        Integer i
+        Get phoTools to hoTools
+        For i from 0 to (SizeOfArray(hoTools)-1)
+            If (pbEnabled(hoTools[i]) and psName(hoTools[i])=sName) Function_Return hoTools[i]
+        Loop
+        Function_Return 0
+    End_Function
+
+    // definitions of all enabled tools
+    Function Definitions Returns tAIToolDefinition[]
+        Handle[] hoTools
+        tAIToolDefinition[] aDefs
+        Integer i
+        Get phoTools to hoTools
+        For i from 0 to (SizeOfArray(hoTools)-1)
+            If (pbEnabled(hoTools[i])) Move (ToolDefinition(hoTools[i])) to aDefs[SizeOfArray(aDefs)]
+        Loop
+        Function_Return aDefs
+    End_Function
+
+    // Runs one call: unknown tool, invalid JSON arguments and ToolError all come back
+    // as error results (bIsError) so the model can react.
+    Function ExecuteToolCall tAIToolCall ToolCall Returns tAIToolResult
+        tAIToolResult Result
+        Handle hoTool hoArgs
+        Boolean bParsed
+        String sArgs sContent
+
+        Move ToolCall.sId to Result.sCallId
+        Move ToolCall.sName to Result.sName
+
+        Get ToolByName ToolCall.sName to hoTool
+        If (hoTool=0) Begin
+            Move True to Result.bIsError
+            Move ("Unknown tool:"*ToolCall.sName) to Result.sContent
+            Function_Return Result
+        End
+
+        Move ToolCall.sArgumentsJson to sArgs
+        If (Trim(sArgs)='') Move '{}' to sArgs
+        Get Create (RefClass(cJsonObject)) to hoArgs
+        Get ParseString of hoArgs sArgs to bParsed
+        If (not(bParsed)) Begin
+            Move True to Result.bIsError
+            Move ("Invalid JSON arguments:"*psParseError(hoArgs)) to Result.sContent
+            Send Destroy of hoArgs
+            Function_Return Result
+        End
+        If (JsonType(hoArgs)<>jsonTypeObject) Begin
+            Move True to Result.bIsError
+            Move "Invalid JSON arguments: not an object" to Result.sContent
+            Send Destroy of hoArgs
+            Function_Return Result
+        End
+
+        Send ResetToolError of hoTool
+        Get Execute of hoTool hoArgs ToolCall to sContent
+        Send Destroy of hoArgs
+
+        If (pbToolErrorFlag(hoTool)) Begin
+            Move True to Result.bIsError
+            Move (psToolErrorText(hoTool)) to Result.sContent
+        End
+        Else Move sContent to Result.sContent
+        Function_Return Result
+    End_Function
+
+End_Class
+
+// Error handler swapped in (Error_Object_Id) while a tool runs, so a DataFlex error
+// raised inside a tool becomes an error result instead of an error box.
+Class cAIToolErrorCapture is a cObject
+
+    Procedure Construct_Object
+        Forward Send Construct_Object
+        Property Integer piErrorCount 0
+        Property Integer piErrorNumber 0
+        Property String  psErrorText ''
+    End_Procedure
+
+    Procedure ClearCapturedErrors
+        Set piErrorCount to 0
+        Set piErrorNumber to 0
+        Set psErrorText to ''
+    End_Procedure
+
+    // keeps the first error; later ones are counted only
+    Procedure Error_Report Integer iErrNum Integer iErrLine String sErrMsg
+        If (piErrorCount(Self)=0) Begin
+            Set piErrorNumber to iErrNum
+            If (sErrMsg='') Set psErrorText to ("Error"*String(iErrNum))
+            Else Set psErrorText to sErrMsg
+        End
+        Set piErrorCount to (piErrorCount(Self)+1)
+    End_Procedure
+
+End_Class

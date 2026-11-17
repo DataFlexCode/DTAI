@@ -11,7 +11,8 @@ Class cClaudeInterface is a cAIInterface
         
         Property String psHost "api.anthropic.com"
         Property String psAnthropicVersion "2023-06-01"
-        Property String psModelId "claude-sonnet-4-20250514"
+        // claude-sonnet-4-20250514 was retired on June 15, 2026; Anthropic's replacement is claude-sonnet-5-5
+        Property String psModelId "claude-sonnet-5-5"
         Property Integer piMaxTokens 8192
         // set to true if using files API
         Property Boolean pbEnableFilesApi False  // tells AddStandardHeaders to add the necessary header for beta files API
@@ -52,7 +53,7 @@ Class cClaudeInterface is a cAIInterface
             Send AddStandardHeaders
             Get httpPostJson (psHost(Self)) "v1/messages" hoRequest (&bOk) to hoResponse
             If (not(bOk)) Begin
-                Send UserError (TransferErrorDescription(Self)) "Transfer failed!"
+                Send ReportAIError AI_ERR_TRANSFER (TransferErrorDescription(Self)) "Transfer failed!"
             End
             Else Begin
                 Send RemoveNullMembers hoResponse
@@ -62,7 +63,7 @@ Class cClaudeInterface is a cAIInterface
                     Get Member of hoResponse "error" to hoError
                     Get MemberValue of hoError "type" to sResponseType
                     Get MemberValue of hoError "message" to sMessage
-                    Send Stop_Box sMessage sResponseType   
+                    Send ReportAIError AI_ERR_API sMessage sResponseType   
                     //
                     Send Destroy of hoResponse
                     Move 0 to hoResponse
@@ -86,7 +87,7 @@ Class cClaudeInterface is a cAIInterface
                 Send AddStandardHeaders
                 Get HttpGetJson (psHost(Self)) "v1/models" (&bok) to hoResponse
                 If (not(bOk)) Begin
-                    Send UserError (TransferErrorDescription(Self)) "Transfer failed!"
+                    Send ReportAIError AI_ERR_TRANSFER (TransferErrorDescription(Self)) "Transfer failed!"
                 End
                 Else Begin
                     Get JsonToDataType of hoResponse to claudeModelList
@@ -132,6 +133,7 @@ Class cClaudeInterface is a cAIInterface
             //
             Get TranslateToUnified of oClaudeTranslator ClaudeResponse to Response
         End
+        Else Move AI_STOP_ERROR to Response.eStopReason
         
         Function_Return Response
     End_Function
@@ -144,11 +146,12 @@ Class cClaudeInterface is a cAIInterface
         tClaudeModelList ModelList
         tClaudeFileList FileList
         
+        Send ClearLastError
         Set pbEnableFilesApi to True
         Send AddStandardHeaders
         Get HttpGetJson (psHost(Self)) "v1/files" (&bok) to hoResponse
         If (not(bOk)) Begin
-            Send UserError (TransferErrorDescription(Self)) "Transfer failed!"
+            Send ReportAIError AI_ERR_TRANSFER (TransferErrorDescription(Self)) "Transfer failed!"
         End
         Else Begin
             Get HasMember of hoResponse "type" to bTypeExists
@@ -158,7 +161,7 @@ Class cClaudeInterface is a cAIInterface
                     Get Member of hoResponse "error" to hoError
                     Get MemberValue of hoError "type" to sResponseType
                     Get MemberValue of hoError "message" to sMessage
-                    Send Stop_Box sMessage sResponseType       
+                    Send ReportAIError AI_ERR_API sMessage sResponseType       
                     Send Destroy of hoError         
                 End
             End
@@ -179,11 +182,12 @@ Class cClaudeInterface is a cAIInterface
         tClaudeModelList ModelList
         tClaudeFile FileMetaData
                 
+        Send ClearLastError
         Set pbEnableFilesApi to True
         Send AddStandardHeaders
         Get HttpGetJson (psHost(Self)) ("v1/files/"+sFileID) (&bok) to hoResponse
         If (not(bOk)) Begin
-            Send UserError (TransferErrorDescription(Self)) "Transfer failed!"
+            Send ReportAIError AI_ERR_TRANSFER (TransferErrorDescription(Self)) "Transfer failed!"
         End
         Else Begin
             // response for a successful deletion is a JSON object with id (file id) and type members
@@ -196,7 +200,7 @@ Class cClaudeInterface is a cAIInterface
                     Get Member of hoResponse "error" to hoError
                     Get MemberValue of hoError "type" to sResponseType
                     Get MemberValue of hoError "message" to sMessage
-                    Send Stop_Box sMessage sResponseType       
+                    Send ReportAIError AI_ERR_API sMessage sResponseType       
                     Send Destroy of hoError         
                 End
             End
@@ -216,6 +220,7 @@ Class cClaudeInterface is a cAIInterface
         tClaudeResponseUploadFile Response
         Integer iRetVal
         
+        Send ClearLastError
         Set pbEnableFilesApi to True
 
         Get Create (RefClass(cMultipartFormdataTransfer)) to hoUploader
@@ -238,7 +243,7 @@ Class cClaudeInterface is a cAIInterface
         If (not(bOk)) Begin
             Integer iStatus
             Get ResponseStatusCode of hoUploader to iStatus
-            Error DFERR_PROGRAM ("File upload failed with status: " + String(iStatus))
+            Send ReportAIError AI_ERR_TRANSFER ("File upload failed with status: " + String(iStatus)) "Upload failed"
             Function_Return ""
         End
         
@@ -256,7 +261,7 @@ Class cClaudeInterface is a cAIInterface
                     Get Member of hoResponse "error" to hoError
                     Get MemberValue of hoError "type" to sResponseType
                     Get MemberValue of hoError "message" to sMessage
-                    Send Stop_Box sMessage sResponseType            
+                    Send ReportAIError AI_ERR_API sMessage sResponseType            
                     Send Destroy of hoError    
                 End
             End
@@ -266,7 +271,7 @@ Class cClaudeInterface is a cAIInterface
         End
         Else Begin
             Get ResponseString of hoUploader to sResponse
-            Error DFERR_PROGRAM ("Error parsing file upload response:" * sResponse)
+            Send ReportAIError AI_ERR_PARSE ("Error parsing file upload response:" * sResponse) "Upload failed"
         End
         
         If (hoResponse) Begin
@@ -276,4 +281,105 @@ Class cClaudeInterface is a cAIInterface
         
         Function_Return Response.id
     End_Function
+    // provider id used in conversation history
+    Function ProviderName Returns String
+        Function_Return "claude"
+    End_Function
+
+    //=========================================================================
+    // Conversation with tools (tool_calls_plan.md, Phase 2)
+    //=========================================================================
+
+    Function BuildConversationRequest tAIMessage[] Messages tAIToolDefinition[] Tools Returns Handle
+        Handle hoRequest
+        Get CreateClaudeConversationRequest of (oClaudeRequest(Self)) Messages Tools (EffectiveSystemPrompt(Self)) (peToolChoice(Self)) (psToolChoiceName(Self)) (pbParallelToolCalls(Self)) to hoRequest
+        Function_Return hoRequest
+    End_Function
+
+    // Translates a Messages API response (hoResponse is not destroyed). Fills
+    // ToolCalls, eStopReason, sText and AssistantMessage; AssistantMessage keeps the
+    // raw {"role":"assistant","content":[...]} as UTF-8 for exact replay.
+    Function ParseConversationResponse Handle hoResponse Returns tAIResponse
+        tClaudeResponse ClaudeResponse
+        tAIResponse Response
+        tAIToolCall Call
+        tAIToolCall[] aCalls
+        Handle hoContent hoBlock hoInput hoMsg
+        Integer i iCount iCall
+        Boolean bHas
+        String sType sArgs
+        UChar[] ucJson
+
+        Send RemoveNullMembers hoResponse
+        Set pbRequireAllMembers of hoResponse to False
+        Get JsonToDataType of hoResponse to ClaudeResponse
+        Get TranslateToUnified of oClaudeTranslator ClaudeResponse to Response
+
+        Get HasMember of hoResponse "content" to bHas
+        If (bHas) Begin
+            Get Member of hoResponse "content" to hoContent
+            Get MemberCount of hoContent to iCount
+            For i from 0 to (iCount-1)
+                Get MemberByIndex of hoContent i to hoBlock
+                Move '' to sType
+                Get HasMember of hoBlock "type" to bHas
+                If (bHas) Get MemberValue of hoBlock "type" to sType
+                If (sType='tool_use') Begin
+                    Move '' to Call.sId
+                    Move '' to Call.sName
+                    Move '{}' to Call.sArgumentsJson
+                    Get HasMember of hoBlock "id" to bHas
+                    If (bHas) Get MemberValue of hoBlock "id" to Call.sId
+                    Get HasMember of hoBlock "name" to bHas
+                    If (bHas) Get MemberValue of hoBlock "name" to Call.sName
+                    Get HasMember of hoBlock "input" to bHas
+                    If (bHas) Begin
+                        Get Member of hoBlock "input" to hoInput
+                        If (JsonType(hoInput)=jsonTypeObject) Begin
+                            Set peWhiteSpace of hoInput to jpWhitespace_Plain
+                            Get Stringify of hoInput to sArgs
+                            Move sArgs to Call.sArgumentsJson
+                        End
+                        Send Destroy of hoInput
+                    End
+                    Move (SizeOfArray(aCalls)) to Call.iIndex
+                    Move '' to Call.sProviderData
+                    Move Call to aCalls[SizeOfArray(aCalls)]
+                End
+                Send Destroy of hoBlock
+            Loop
+
+            Get Create (RefClass(cJsonObject)) to hoMsg
+            Send InitializeJsonType of hoMsg jsonTypeObject
+            Send SetMemberValue of hoMsg "role" jsonTypeString "assistant"
+            Send SetMember of hoMsg "content" hoContent
+            Set peWhiteSpace of hoMsg to jpWhitespace_Plain
+            Get StringifyUtf8 of hoMsg to ucJson
+            Send Destroy of hoMsg
+            Send Destroy of hoContent
+        End
+
+        // tool_use content parts become "tool_call" parts with id/name/arguments
+        Move 0 to iCall
+        If (SizeOfArray(Response.Choices)>0) Begin
+            For i from 0 to (SizeOfArray(Response.Choices[0].ContentParts)-1)
+                If (Response.Choices[0].ContentParts[i].sType='tool_use' and iCall<SizeOfArray(aCalls)) Begin
+                    Move "tool_call" to Response.Choices[0].ContentParts[i].sType
+                    Move aCalls[iCall].sId to Response.Choices[0].ContentParts[i].sToolCallId
+                    Move aCalls[iCall].sName to Response.Choices[0].ContentParts[i].sFunctionName
+                    Move aCalls[iCall].sArgumentsJson to Response.Choices[0].ContentParts[i].sFunctionArgs
+                    Increment iCall
+                End
+            Loop
+        End
+
+        Move aCalls to Response.ToolCalls
+        Move 'assistant' to Response.AssistantMessage.sRole
+        Move Response.sText to Response.AssistantMessage.sText
+        Move aCalls to Response.AssistantMessage.ToolCalls
+        Move (ProviderName(Self)) to Response.AssistantMessage.sProvider
+        Move ucJson to Response.AssistantMessage.ucProviderJson
+        Function_Return Response
+    End_Function
+
 End_Class

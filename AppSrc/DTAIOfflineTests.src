@@ -1,0 +1,1801 @@
+// DTAIOfflineTests.src
+// Offline (no network, no API keys used) tests for the DTAI tool-calling groundwork.
+// Compiles and runs on DataFlex 19.1 and 25.0. Writes PASS/FAIL lines to
+// DTAIOfflineTests.txt in the current directory, then exits.
+// See tool_calls_plan.md, "Test Plan - offline tests".
+Use DFAllEnt.pkg
+
+Object oApplication is a cApplication
+End_Object
+
+Use claudeai.pkg
+Use geminiai.pkg
+Use grokai.pkg
+Use chatgptai.pkg
+Use cAIDemoToolSet.pkg
+
+Object oTestTools is a cAIToolSet
+    Object oAddTool is a cAITool
+        Set psName to "add_numbers"
+        Set psDescription to "Adds a and b"
+        Set psParametersJson to '{"type":"object","properties":{"a":{"type":"number"},"b":{"type":"number"}},"required":["a","b"]}'
+
+        Function Execute Handle hoArgs tAIToolCall ToolCall Returns String
+            Number nA nB
+            Get MemberValue of hoArgs "a" to nA
+            Get MemberValue of hoArgs "b" to nB
+            Function_Return ('{"sum":'+String(nA+nB)+'}')
+        End_Function
+    End_Object
+
+    Object oFailTool is a cAITool
+        Set psName to "always_fails"
+        Set psDescription to "Always reports an error"
+        Set pbRequiresConfirmation to True
+
+        Function Execute Handle hoArgs tAIToolCall ToolCall Returns String
+            Send ToolError "Weather service unavailable"
+            Function_Return ''
+        End_Function
+    End_Object
+
+    Object oDisabledTool is a cAITool
+        Set psName to "disabled_tool"
+        Set pbEnabled to False
+    End_Object
+End_Object
+
+Object oConvA is a cAIConversation
+    Set psAssistantLabel to "Claude"
+End_Object
+
+Object oConvB is a cAIConversation
+    Set psAssistantLabel to "Grok"
+End_Object
+
+Object oTranscript is a cAITranscript
+End_Object
+
+//=============================================================================
+// Phase 2/3: saved Claude response samples and a fake Claude provider whose
+// MakeRequestJSON returns queued samples instead of calling the API.
+//=============================================================================
+
+// one Claude Messages API response
+Function ClaudeSample Global String sContent String sStopReason Returns String
+    Function_Return ('{"id":"msg_test","type":"message","role":"assistant","model":"claude-test","content":[' + sContent + '],"stop_reason":"' + sStopReason + '","stop_sequence":null,"usage":{"input_tokens":100,"output_tokens":50}}')
+End_Function
+
+Function SampleToolUse Global String sId String sName String sInput Returns String
+    Function_Return ('{"type":"tool_use","id":"' + sId + '","name":"' + sName + '","input":' + sInput + '}')
+End_Function
+
+Function SampleTextBlock Global String sText Returns String
+    Function_Return ('{"type":"text","text":"' + sText + '"}')
+End_Function
+
+Global_Variable Integer giNotes
+
+Class cFakeClaude is a cClaudeInterface
+
+    Procedure Construct_Object
+        Forward Send Construct_Object
+        Property String[] paFakeResponses
+        Property Integer  piFakeNext 0
+        Property String[] paSentRequests
+        Property Integer  piConfirmAnswer AI_CONFIRM_DEFER
+        Property Integer  piConfirmAsked 0
+    End_Procedure
+
+    Procedure QueueResponses String[] aResponses
+        String[] aEmpty
+        Set paFakeResponses to aResponses
+        Set piFakeNext to 0
+        Set paSentRequests to aEmpty
+        Set piConfirmAsked to 0
+        Send ClearConversation
+        Send ClearToolLoopState
+        Send ClearLastError
+    End_Procedure
+
+    Function SentRequest Integer iIndex Returns String
+        String[] aSent
+        Get paSentRequests to aSent
+        If (iIndex<SizeOfArray(aSent)) Function_Return aSent[iIndex]
+        Function_Return ''
+    End_Function
+
+    // no network: record the request, return the next queued response
+    Function MakeRequestJSON Handle hoRequest Returns Handle
+        String[] aResponses aSent
+        String sJson
+        Integer iNext
+        Handle hoResponse
+        Boolean bOk
+        Send ClearLastError
+        Set peWhiteSpace of hoRequest to jpWhitespace_Plain
+        Get Stringify of hoRequest to sJson
+        Get paSentRequests to aSent
+        Move (Replaces("\/",sJson,"/")) to aSent[SizeOfArray(aSent)]
+        Set paSentRequests to aSent
+        Get paFakeResponses to aResponses
+        Get piFakeNext to iNext
+        If (iNext>=SizeOfArray(aResponses)) Begin
+            Send ReportAIError AI_ERR_TRANSFER "No more fake responses" "Transfer failed!"
+            Function_Return 0
+        End
+        Set piFakeNext to (iNext+1)
+        Get Create (RefClass(cJsonObject)) to hoResponse
+        Get ParseString of hoResponse aResponses[iNext] to bOk
+        If (not(bOk)) Begin
+            Send Destroy of hoResponse
+            Send ReportAIError AI_ERR_PARSE "Fake response is not JSON" "Parse"
+            Function_Return 0
+        End
+        Function_Return hoResponse
+    End_Function
+
+    Function OnConfirmToolCall tAIToolCall ToolCall Returns Integer
+        Set piConfirmAsked to (piConfirmAsked(Self)+1)
+        Function_Return (piConfirmAnswer(Self))
+    End_Function
+
+End_Class
+
+Class cFakeChatGPT is a cChatGPTInterface
+
+    Procedure Construct_Object
+        Forward Send Construct_Object
+        Property String[] paFakeResponses
+        Property Integer  piFakeNext 0
+        Property String[] paSentRequests
+        Property Integer  piConfirmAnswer AI_CONFIRM_DEFER
+        Property Integer  piConfirmAsked 0
+    End_Procedure
+
+    Procedure QueueResponses String[] aResponses
+        String[] aEmpty
+        Set paFakeResponses to aResponses
+        Set piFakeNext to 0
+        Set paSentRequests to aEmpty
+        Set piConfirmAsked to 0
+        Send ClearConversation
+        Send ClearToolLoopState
+        Send ClearLastError
+    End_Procedure
+
+    Function SentRequest Integer iIndex Returns String
+        String[] aSent
+        Get paSentRequests to aSent
+        If (iIndex<SizeOfArray(aSent)) Function_Return aSent[iIndex]
+        Function_Return ''
+    End_Function
+
+    // no network: record the request, return the next queued response
+    Function MakeRequestJSON Handle hoRequest Returns Handle
+        String[] aResponses aSent
+        String sJson
+        Integer iNext
+        Handle hoResponse
+        Boolean bOk
+        Send ClearLastError
+        Set peWhiteSpace of hoRequest to jpWhitespace_Plain
+        Get Stringify of hoRequest to sJson
+        Get paSentRequests to aSent
+        Move (Replaces("\/",sJson,"/")) to aSent[SizeOfArray(aSent)]
+        Set paSentRequests to aSent
+        Get paFakeResponses to aResponses
+        Get piFakeNext to iNext
+        If (iNext>=SizeOfArray(aResponses)) Begin
+            Send ReportAIError AI_ERR_TRANSFER "No more fake responses" "Transfer failed!"
+            Function_Return 0
+        End
+        Set piFakeNext to (iNext+1)
+        Get Create (RefClass(cJsonObject)) to hoResponse
+        Get ParseString of hoResponse aResponses[iNext] to bOk
+        If (not(bOk)) Begin
+            Send Destroy of hoResponse
+            Send ReportAIError AI_ERR_PARSE "Fake response is not JSON" "Parse"
+            Function_Return 0
+        End
+        Function_Return hoResponse
+    End_Function
+
+    Function OnConfirmToolCall tAIToolCall ToolCall Returns Integer
+        Set piConfirmAsked to (piConfirmAsked(Self)+1)
+        Function_Return (piConfirmAnswer(Self))
+    End_Function
+
+End_Class
+
+Class cFakeGemini is a cGeminiInterface
+
+    Procedure Construct_Object
+        Forward Send Construct_Object
+        Property String[] paFakeResponses
+        Property Integer  piFakeNext 0
+        Property String[] paSentRequests
+        Property Integer  piConfirmAnswer AI_CONFIRM_DEFER
+        Property Integer  piConfirmAsked 0
+    End_Procedure
+
+    Procedure QueueResponses String[] aResponses
+        String[] aEmpty
+        Set paFakeResponses to aResponses
+        Set piFakeNext to 0
+        Set paSentRequests to aEmpty
+        Set piConfirmAsked to 0
+        Send ClearConversation
+        Send ClearToolLoopState
+        Send ClearLastError
+    End_Procedure
+
+    Function SentRequest Integer iIndex Returns String
+        String[] aSent
+        Get paSentRequests to aSent
+        If (iIndex<SizeOfArray(aSent)) Function_Return aSent[iIndex]
+        Function_Return ''
+    End_Function
+
+    // no network: record the request, return the next queued response
+    Function MakeRequestJSON Handle hoRequest Returns Handle
+        String[] aResponses aSent
+        String sJson
+        Integer iNext
+        Handle hoResponse
+        Boolean bOk
+        Send ClearLastError
+        Set peWhiteSpace of hoRequest to jpWhitespace_Plain
+        Get Stringify of hoRequest to sJson
+        Get paSentRequests to aSent
+        Move (Replaces("\/",sJson,"/")) to aSent[SizeOfArray(aSent)]
+        Set paSentRequests to aSent
+        Get paFakeResponses to aResponses
+        Get piFakeNext to iNext
+        If (iNext>=SizeOfArray(aResponses)) Begin
+            Send ReportAIError AI_ERR_TRANSFER "No more fake responses" "Transfer failed!"
+            Function_Return 0
+        End
+        Set piFakeNext to (iNext+1)
+        Get Create (RefClass(cJsonObject)) to hoResponse
+        Get ParseString of hoResponse aResponses[iNext] to bOk
+        If (not(bOk)) Begin
+            Send Destroy of hoResponse
+            Send ReportAIError AI_ERR_PARSE "Fake response is not JSON" "Parse"
+            Function_Return 0
+        End
+        Function_Return hoResponse
+    End_Function
+
+    Function OnConfirmToolCall tAIToolCall ToolCall Returns Integer
+        Set piConfirmAsked to (piConfirmAsked(Self)+1)
+        Function_Return (piConfirmAnswer(Self))
+    End_Function
+
+End_Class
+
+Class cFakeGrok is a cGrokInterface
+
+    Procedure Construct_Object
+        Forward Send Construct_Object
+        Property String[] paFakeResponses
+        Property Integer  piFakeNext 0
+        Property String[] paSentRequests
+        Property Integer  piConfirmAnswer AI_CONFIRM_DEFER
+        Property Integer  piConfirmAsked 0
+    End_Procedure
+
+    Procedure QueueResponses String[] aResponses
+        String[] aEmpty
+        Set paFakeResponses to aResponses
+        Set piFakeNext to 0
+        Set paSentRequests to aEmpty
+        Set piConfirmAsked to 0
+        Send ClearConversation
+        Send ClearToolLoopState
+        Send ClearLastError
+    End_Procedure
+
+    Function SentRequest Integer iIndex Returns String
+        String[] aSent
+        Get paSentRequests to aSent
+        If (iIndex<SizeOfArray(aSent)) Function_Return aSent[iIndex]
+        Function_Return ''
+    End_Function
+
+    // no network: record the request, return the next queued response
+    Function MakeRequestJSON Handle hoRequest Returns Handle
+        String[] aResponses aSent
+        String sJson
+        Integer iNext
+        Handle hoResponse
+        Boolean bOk
+        Send ClearLastError
+        Set peWhiteSpace of hoRequest to jpWhitespace_Plain
+        Get Stringify of hoRequest to sJson
+        Get paSentRequests to aSent
+        Move (Replaces("\/",sJson,"/")) to aSent[SizeOfArray(aSent)]
+        Set paSentRequests to aSent
+        Get paFakeResponses to aResponses
+        Get piFakeNext to iNext
+        If (iNext>=SizeOfArray(aResponses)) Begin
+            Send ReportAIError AI_ERR_TRANSFER "No more fake responses" "Transfer failed!"
+            Function_Return 0
+        End
+        Set piFakeNext to (iNext+1)
+        Get Create (RefClass(cJsonObject)) to hoResponse
+        Get ParseString of hoResponse aResponses[iNext] to bOk
+        If (not(bOk)) Begin
+            Send Destroy of hoResponse
+            Send ReportAIError AI_ERR_PARSE "Fake response is not JSON" "Parse"
+            Function_Return 0
+        End
+        Function_Return hoResponse
+    End_Function
+
+    Function OnConfirmToolCall tAIToolCall ToolCall Returns Integer
+        Set piConfirmAsked to (piConfirmAsked(Self)+1)
+        Function_Return (piConfirmAnswer(Self))
+    End_Function
+
+End_Class
+
+Object oLoopTools is a cAIToolSet
+    Object oWeatherTool is a cAITool
+        Set psName to "get_weather"
+        Set psDescription to "Current weather"
+        Set psParametersJson to '{"type":"object","properties":{"city":{"type":"string"}},"required":["city"]}'
+
+        Function Execute Handle hoArgs tAIToolCall ToolCall Returns String
+            String sCity
+            Get MemberValue of hoArgs "city" to sCity
+            If (sCity="Oslo") Function_Return '{"temperature":5}'
+            Function_Return '{"temperature":12}'
+        End_Function
+    End_Object
+
+    Object oPostNoteTool is a cAITool
+        Set psName to "post_note"
+        Set psDescription to "Post a note"
+        Set pbRequiresConfirmation to True
+
+        Function Execute Handle hoArgs tAIToolCall ToolCall Returns String
+            Increment giNotes
+            Function_Return '{"posted":true}'
+        End_Function
+    End_Object
+
+    Object oCrashTool is a cAITool
+        Set psName to "crash_tool"
+        Set psDescription to "Raises a DataFlex error"
+
+        Function Execute Handle hoArgs tAIToolCall ToolCall Returns String
+            Error DFERR_PROGRAM "boom from crash_tool"
+            Function_Return 'should not be used'
+        End_Function
+    End_Object
+End_Object
+
+Object oFakeClaude is a cFakeClaude
+    Set pbSilentErrors to True
+    Set phoToolSet to oLoopTools
+End_Object
+
+Object oFakeClaude2 is a cFakeClaude
+    Set pbSilentErrors to True
+End_Object
+
+Object oFakeChatGPT is a cFakeChatGPT
+    Set pbSilentErrors to True
+    Set phoToolSet to oLoopTools
+End_Object
+
+Object oFakeGrok is a cFakeGrok
+    Set pbSilentErrors to True
+    Set phoToolSet to oLoopTools
+End_Object
+
+Object oFakeGemini is a cFakeGemini
+    Set pbSilentErrors to True
+    Set phoToolSet to oLoopTools
+End_Object
+
+Object oDialogue is a cAIDialogue
+    Set psFirstLabel to "Claude"
+    Set psSecondLabel to "Grok"
+End_Object
+
+// step-by-step dialogue with per-side settings (OnBeforeSideTurn/OnAfterSideTurn)
+Global_Variable Integer giBeforeTurns giAfterTurns giConvAttached giStopAtTurn giDemoActivity
+Global_Variable String  gsSavedModel
+
+Object oStepDialogue is a cAIDialogue
+    Set psFirstLabel to "Alpha"
+    Set psSecondLabel to "Beta"
+
+    Procedure OnBeforeSideTurn Integer iSide Handle hoAI
+        Increment giBeforeTurns
+        If (phoConversation(hoAI)=SideConversation(Self,iSide)) Increment giConvAttached
+        Get psModelId of hoAI to gsSavedModel
+        Set psModelId of hoAI to ("side"+String(iSide))
+    End_Procedure
+
+    Procedure OnAfterSideTurn Integer iSide Handle hoAI
+        Increment giAfterTurns
+        Set psModelId of hoAI to gsSavedModel
+    End_Procedure
+
+    Procedure OnDialogueTurn Integer iTurn String sSpeaker String sText
+        If (iTurn=giStopAtTurn) Send StopDialogue
+    End_Procedure
+End_Object
+
+Object oDemoSet is a cAIDemoToolSet
+    Procedure OnToolActivity String sText
+        Increment giDemoActivity
+    End_Procedure
+End_Object
+
+Global_Variable Integer giPass giFail
+
+Procedure Check String sName Boolean bOk
+    If (bOk) Begin
+        Increment giPass
+        Writeln ("PASS " + sName)
+    End
+    Else Begin
+        Increment giFail
+        Writeln ("FAIL " + sName)
+    End
+End_Procedure
+
+Procedure CheckEq String sName String sActual String sExpected
+    If (sActual=sExpected) Send Check sName True
+    Else Begin
+        Increment giFail
+        Writeln ("FAIL " + sName + "  expected: " + sExpected + "  actual: " + sActual)
+    End
+End_Procedure
+
+Procedure TestStopReasons
+    Send Check "stop: stop"            (AIStopReasonFromProvider("stop")=AI_STOP_END_TURN)
+    Send Check "stop: end_turn"        (AIStopReasonFromProvider("end_turn")=AI_STOP_END_TURN)
+    Send Check "stop: STOP (gemini)"   (AIStopReasonFromProvider("STOP")=AI_STOP_END_TURN)
+    Send Check "stop: tool_calls"      (AIStopReasonFromProvider("tool_calls")=AI_STOP_TOOL_CALLS)
+    Send Check "stop: tool_use"        (AIStopReasonFromProvider("tool_use")=AI_STOP_TOOL_CALLS)
+    Send Check "stop: length"          (AIStopReasonFromProvider("length")=AI_STOP_MAX_TOKENS)
+    Send Check "stop: MAX_TOKENS"      (AIStopReasonFromProvider("MAX_TOKENS")=AI_STOP_MAX_TOKENS)
+    Send Check "stop: SAFETY"          (AIStopReasonFromProvider("SAFETY")=AI_STOP_CONTENT_FILTER)
+    Send Check "stop: refusal"         (AIStopReasonFromProvider("refusal")=AI_STOP_CONTENT_FILTER)
+    Send Check "stop: MALFORMED_FUNCTION_CALL" (AIStopReasonFromProvider("MALFORMED_FUNCTION_CALL")=AI_STOP_ERROR)
+    Send Check "stop: blank"           (AIStopReasonFromProvider("")=AI_STOP_UNKNOWN)
+End_Procedure
+
+Procedure TestFinalize
+    tAIResponse R
+    Move "end_turn" to R.Choices[0].sStopReason
+    Move "text" to R.Choices[0].ContentParts[0].sType
+    Move "Hello " to R.Choices[0].ContentParts[0].sText
+    Move "tool_use" to R.Choices[0].ContentParts[1].sType
+    Move "text" to R.Choices[0].ContentParts[2].sType
+    Move "world" to R.Choices[0].ContentParts[2].sText
+    Move (AIFinalizeResponse(R)) to R
+    Send CheckEq "finalize: joined text" R.sText "Hello world"
+    Send Check "finalize: tool_use part -> AI_STOP_TOOL_CALLS" (R.eStopReason=AI_STOP_TOOL_CALLS)
+End_Procedure
+
+Procedure TestToolRegistry
+    Handle hoAI
+    tAIToolDefinition[] aDefs
+    tAIToolDefinition Def
+    Boolean bFound
+
+    Move ghoClaudeAI to hoAI
+    Set pbSilentErrors of hoAI to True
+    Send ClearTools of hoAI
+
+    Send Check "name ok: get_weather"  (ValidToolName(hoAI,"get_weather"))
+    Send Check "name ok: a-b_9"        (ValidToolName(hoAI,"a-b_9"))
+    Send Check "name bad: blank"       (not(ValidToolName(hoAI,"")))
+    Send Check "name bad: space"       (not(ValidToolName(hoAI,"get weather")))
+    Send Check "name bad: dot"         (not(ValidToolName(hoAI,"get.weather")))
+    Send Check "name bad: 65 chars"    (not(ValidToolName(hoAI,Repeat("a",65))))
+
+    Send AddTool of hoAI "calc" "Calculator" '{ "type" : "object", "properties" : {} }'
+    Send Check "AddTool ok: no error" (not(HasError(hoAI)))
+    Send AddTool of hoAI "post_note" "Posts a note" '' True
+    Send AddTool of hoAI "bad name!" "x" ''
+    Send Check "AddTool bad name: silent error" (HasError(hoAI) and piLastErrorNumber(hoAI)=AI_ERR_TOOL_DEFINITION)
+    Send ClearLastError of hoAI
+    Send AddTool of hoAI "bad_schema" "x" '{"type":'
+    Send Check "AddTool bad schema: silent error" (HasError(hoAI))
+    Send ClearLastError of hoAI
+    Send AddTool of hoAI "calc" "Calculator v2" '{"type":"object"}'
+
+    Set phoToolSet of hoAI to oTestTools
+    Get AllToolDefinitions of hoAI to aDefs
+    Send Check "AllToolDefinitions: 2 registered + 2 enabled in set" (SizeOfArray(aDefs)=4)
+    Get FindToolDefinition of hoAI "calc" (&bFound) to Def
+    Send Check "calc replaced, not duplicated" (bFound and Def.sDescription="Calculator v2")
+    Send CheckEq "schema normalized" Def.sParametersJson '{"type":"object"}'
+    Get FindToolDefinition of hoAI "post_note" (&bFound) to Def
+    Send Check "post_note requires confirmation" (bFound and Def.bRequiresConfirmation)
+    Get FindToolDefinition of hoAI "always_fails" (&bFound) to Def
+    Send Check "tool set confirmation flag" (bFound and Def.bRequiresConfirmation)
+    Get FindToolDefinition of hoAI "disabled_tool" (&bFound) to Def
+    Send Check "disabled tool not offered" (not(bFound))
+    Send RemoveTool of hoAI "calc"
+    Send Check "RemoveTool" (ToolIndex(hoAI,"calc")=-1)
+
+    Send SetToolChoice of hoAI AI_TOOLCHOICE_SPECIFIC "add_numbers"
+    Send Check "SetToolChoice specific" (peToolChoice(hoAI)=AI_TOOLCHOICE_SPECIFIC and psToolChoiceName(hoAI)="add_numbers")
+    Send SetToolChoice of hoAI AI_TOOLCHOICE_AUTO
+    Send Check "SetToolChoice auto clears name" (psToolChoiceName(hoAI)="")
+
+    Send ClearTools of hoAI
+    Set phoToolSet of hoAI to 0
+    Set pbSilentErrors of hoAI to False
+End_Procedure
+
+Procedure TestToolExecution
+    tAIToolCall Call
+    tAIToolResult Result
+
+    Move "call_1" to Call.sId
+    Move "add_numbers" to Call.sName
+    Move '{"a":2,"b":3.5}' to Call.sArgumentsJson
+    Get ExecuteToolCall of oTestTools Call to Result
+    Send Check "execute: ok" (not(Result.bIsError))
+    Send CheckEq "execute: result" Result.sContent '{"sum":5.5}'
+    Send CheckEq "execute: call id kept" Result.sCallId "call_1"
+
+    Move "nope" to Call.sName
+    Get ExecuteToolCall of oTestTools Call to Result
+    Send Check "execute: unknown tool -> error" (Result.bIsError and Pos("Unknown tool",Result.sContent)>0)
+
+    Move "add_numbers" to Call.sName
+    Move '{"a":2,' to Call.sArgumentsJson
+    Get ExecuteToolCall of oTestTools Call to Result
+    Send Check "execute: bad JSON -> error" (Result.bIsError and Pos("Invalid JSON",Result.sContent)>0)
+
+    Move '[1,2]' to Call.sArgumentsJson
+    Get ExecuteToolCall of oTestTools Call to Result
+    Send Check "execute: array args -> error" (Result.bIsError)
+
+    Move "always_fails" to Call.sName
+    Move '' to Call.sArgumentsJson
+    Get ExecuteToolCall of oTestTools Call to Result
+    Send Check "execute: ToolError -> error result" (Result.bIsError and Result.sContent="Weather service unavailable")
+
+    Move "disabled_tool" to Call.sName
+    Get ExecuteToolCall of oTestTools Call to Result
+    Send Check "execute: disabled tool -> unknown" (Result.bIsError)
+End_Procedure
+
+Procedure TestConversation
+    tAIMessage[] aMsgs
+    tAIToolCall[] aCalls
+    tAIToolResult[] aResults
+    UChar[] ucJson
+    Handle hoJson
+    Boolean bOk
+    tAIMessage Msg
+
+    // default conversation vs attached conversation
+    Send ClearConversation of ghoClaudeAI
+    Send AddUserMessage of ghoClaudeAI "Hi (default conversation)"
+    Send Check "default conversation used" (MessageCount(phoDefaultConversation(ghoClaudeAI))=1)
+
+    Set phoConversation of ghoClaudeAI to oConvA
+    Set phoConversation of ghoGrokAI to oConvB
+    Set phoTranscript of oConvA to oTranscript
+    Set phoTranscript of oConvB to oTranscript
+    Send ClearMessages of oConvA
+    Send ClearMessages of oConvB
+    Send ClearEntries of oTranscript
+
+    Send AddUserMessage of ghoClaudeAI "Weather in Paris?"
+    Send Check "attached conversation isolated from default" (MessageCount(oConvA)=1 and MessageCount(phoDefaultConversation(ghoClaudeAI))=1)
+    Send Check "other provider's conversation untouched" (MessageCount(oConvB)=0)
+
+    // assistant turn with a tool call and raw JSON (UTF-8 bytes)
+    Get Create (RefClass(cJsonObject)) to hoJson
+    Get ParseString of hoJson '{"role":"assistant","content":[{"type":"tool_use","id":"toolu_01","name":"get_weather","input":{"city":"Paris"}}]}' to bOk
+    Get StringifyUtf8 of hoJson to ucJson
+    Send Destroy of hoJson
+    Move "toolu_01" to aCalls[0].sId
+    Move "get_weather" to aCalls[0].sName
+    Move '{"city":"Paris"}' to aCalls[0].sArgumentsJson
+    Move "sig123" to aCalls[0].sProviderData
+    Send AddAssistantMessage of oConvA "" aCalls "claude" ucJson
+    Send Check "unanswered tool calls detected" (HasUnansweredToolCalls(oConvA))
+
+    Move "toolu_01" to aResults[0].sCallId
+    Move "get_weather" to aResults[0].sName
+    Move '{"temperature":12}' to aResults[0].sContent
+    Send AddToolResults of ghoClaudeAI aResults
+    Send Check "tool results answered" (not(HasUnansweredToolCalls(oConvA)))
+    Send AddAssistantMessage of oConvA "It is 12 degrees in Paris." aCalls "claude" ucJson
+
+    // replay to same provider keeps extras; to another provider drops them
+    Get MessagesForProvider of oConvA "claude" to aMsgs
+    Send Check "same provider keeps raw JSON" (SizeOfArray(aMsgs[1].ucProviderJson)>0 and aMsgs[1].ToolCalls[0].sProviderData="sig123")
+    Get MessagesForProvider of oConvA "gemini" to aMsgs
+    Send Check "other provider drops raw JSON" (SizeOfArray(aMsgs[1].ucProviderJson)=0)
+    Send Check "other provider drops thought signature" (aMsgs[1].ToolCalls[0].sProviderData="")
+    Send Check "other provider keeps neutral tool call" (aMsgs[1].ToolCalls[0].sName="get_weather" and aMsgs[1].ToolCalls[0].sId="toolu_01")
+    Get ConversationMessages of ghoClaudeAI to aMsgs
+    Send Check "ConversationMessages = 4 turns" (SizeOfArray(aMsgs)=4)
+    Send CheckEq "LastAssistantText" (LastAssistantText(oConvA)) "It is 12 degrees in Paris."
+
+    // AI-to-AI relay into the other conversation (user turn with label)
+    Send AddRelayedMessage of oConvB "Claude" (LastAssistantText(oConvA)) True
+    Get LastMessage of oConvB to Msg
+    Send CheckEq "relay: role user" Msg.sRole "user"
+    Send CheckEq "relay: label prefix" Msg.sText "Claude: It is 12 degrees in Paris."
+    Send AddAssistantMessage of oConvB "Nice, bring a jacket." aCalls "grok" ucJson
+
+    // transcript: Paris question, Claude's answer, Grok's answer (relay and tool turns skipped)
+    Send Check "transcript: 3 entries" (EntryCount(oTranscript)=3)
+    Send Check "transcript: markdown has speakers" (Pos("**Claude:**",AsMarkdown(oTranscript))>0 and Pos("**Grok:**",AsMarkdown(oTranscript))>0)
+
+    Send RemoveLastMessage of oConvB
+    Send Check "RemoveLastMessage" (MessageCount(oConvB)=1)
+
+    // system prompt: conversation overrides provider
+    Set psSystemPrompt of ghoClaudeAI to "provider prompt"
+    Send CheckEq "system prompt from provider" (EffectiveSystemPrompt(ghoClaudeAI)) "provider prompt"
+    Set psSystemPrompt of oConvA to "conversation prompt"
+    Send CheckEq "system prompt from conversation" (EffectiveSystemPrompt(ghoClaudeAI)) "conversation prompt"
+    Set psSystemPrompt of ghoClaudeAI to ""
+
+    Set phoConversation of ghoClaudeAI to 0
+    Set phoConversation of ghoGrokAI to 0
+End_Procedure
+
+Procedure TestSilentErrors
+    Handle hoAI
+    tAIResponse Response
+    Move ghoGeminiAI to hoAI
+    Send ClearLastError of hoAI
+    Send Check "no error after clear" (not(HasError(hoAI)))
+    Set pbSilentErrors of hoAI to True
+    Send ReportAIError of hoAI AI_ERR_API "Model not found" "NOT_FOUND"
+    Send Check "silent: HasError" (HasError(hoAI))
+    Send CheckEq "silent: message" (psLastError(hoAI)) "Model not found"
+    Send CheckEq "silent: detail" (psLastErrorDetail(hoAI)) "NOT_FOUND"
+    Send Check "silent: number" (piLastErrorNumber(hoAI)=AI_ERR_API)
+    Set pbSilentErrors of hoAI to False
+    Send ClearLastError of hoAI
+End_Procedure
+
+Procedure TestGeminiRequest
+    tGeminiPart[] aParts
+    tGenerationConfig Cfg
+    Handle hoReq
+    String sJson
+
+    Move "user" to aParts[0].sRole
+    Move "text" to aParts[0].sPartType
+    Move "Weather?" to aParts[0].sText
+    Move "user" to aParts[1].sRole
+    Move "inlineData" to aParts[1].sPartType
+    Move "image/png" to aParts[1].sMimeType
+    Move "AAAA" to aParts[1].sData
+    Move "model" to aParts[2].sRole
+    Move "functionCall" to aParts[2].sPartType
+    Move "get_weather" to aParts[2].sFunctionName
+    Move '{"city":"Paris"}' to aParts[2].sFunctionArgs
+    Move "model" to aParts[3].sRole
+    Move "functionCall" to aParts[3].sPartType
+    Move "get_weather" to aParts[3].sFunctionName
+    Move '{"city":"Oslo"}' to aParts[3].sFunctionArgs
+    Move "user" to aParts[4].sRole
+    Move "functionResponse" to aParts[4].sPartType
+    Move "get_weather" to aParts[4].sFunctionName
+    Move '{"temperature":12}' to aParts[4].sFunctionContent
+    Move "user" to aParts[5].sRole
+    Move "functionResponse" to aParts[5].sPartType
+    Move "get_weather" to aParts[5].sFunctionName
+    Move 'service down' to aParts[5].sFunctionContent
+
+    Get CreateGeminiApiJsonRequest of (oGeminiRequest(ghoGeminiAI)) "models/test" aParts Cfg to hoReq
+    Set peWhiteSpace of hoReq to jpWhitespace_Plain
+    Get Stringify of hoReq to sJson
+    Send Destroy of hoReq
+    // cJsonObject may escape "/" as "\/" (valid JSON); compare without that
+    Move (Replaces("\/",sJson,"/")) to sJson
+    Send CheckEq "gemini: grouped turns, object args/response" sJson ;
+        ('{"contents":[{"role":"user","parts":[{"text":"Weather?"},{"inlineData":{"mimeType":"image/png","data":"AAAA"}}]},' + ;
+         '{"role":"model","parts":[{"functionCall":{"name":"get_weather","args":{"city":"Paris"}}},{"functionCall":{"name":"get_weather","args":{"city":"Oslo"}}}]},' + ;
+         '{"role":"user","parts":[{"functionResponse":{"name":"get_weather","response":{"result":{"temperature":12}}}},{"functionResponse":{"name":"get_weather","response":{"result":"service down"}}}]}],' + ;
+         '"model":"models/test"}')
+End_Procedure
+
+Procedure TestClaudeRequest
+    tAIMessage[] aMsgs
+    tAIToolDefinition[] aTools
+    Handle hoReq
+    String sJson sHead
+
+    Move "user" to aMsgs[0].sRole
+    Move "Weather in Paris and Oslo?" to aMsgs[0].sText
+    Move "assistant" to aMsgs[1].sRole
+    Move "Let me check." to aMsgs[1].sText
+    Move "toolu_01" to aMsgs[1].ToolCalls[0].sId
+    Move "get_weather" to aMsgs[1].ToolCalls[0].sName
+    Move '{"city":"Paris"}' to aMsgs[1].ToolCalls[0].sArgumentsJson
+    Move "toolu_02" to aMsgs[1].ToolCalls[1].sId
+    Move "get_weather" to aMsgs[1].ToolCalls[1].sName
+    Move '{"city":"Oslo"}' to aMsgs[1].ToolCalls[1].sArgumentsJson
+    Move "tool" to aMsgs[2].sRole
+    Move "toolu_01" to aMsgs[2].ToolResults[0].sCallId
+    Move "get_weather" to aMsgs[2].ToolResults[0].sName
+    Move '{"temperature":12}' to aMsgs[2].ToolResults[0].sContent
+    Move "toolu_02" to aMsgs[2].ToolResults[1].sCallId
+    Move "get_weather" to aMsgs[2].ToolResults[1].sName
+    Move 'service down' to aMsgs[2].ToolResults[1].sContent
+    Move True to aMsgs[2].ToolResults[1].bIsError
+    Move "assistant" to aMsgs[3].sRole
+    Move "Paris 12C." to aMsgs[3].sText
+    Move "user" to aMsgs[4].sRole
+    Move "Thanks" to aMsgs[4].sText
+
+    Move "get_weather" to aTools[0].sName
+    Move "Current weather" to aTools[0].sDescription
+    Move '{"type":"object","properties":{"city":{"type":"string"}},"required":["city"]}' to aTools[0].sParametersJson
+    Move "post_note" to aTools[1].sName
+    Move "Post a note" to aTools[1].sDescription
+    Move '' to aTools[1].sParametersJson
+
+    Move ('{"model":"' + psModelId(ghoClaudeAI) + '","max_tokens":' + String(piMaxTokens(ghoClaudeAI))) to sHead
+
+    Get CreateClaudeConversationRequest of (oClaudeRequest(ghoClaudeAI)) aMsgs aTools "Be brief." AI_TOOLCHOICE_AUTO "" True to hoReq
+    Set peWhiteSpace of hoReq to jpWhitespace_Plain
+    Get Stringify of hoReq to sJson
+    Send Destroy of hoReq
+    Move (Replaces("\/",sJson,"/")) to sJson
+    Send CheckEq "claude request: system, tools, tool_use, tool_result" sJson ;
+        (sHead + ',"system":"Be brief.","tools":[{"name":"get_weather","description":"Current weather","input_schema":{"type":"object","properties":{"city":{"type":"string"}},"required":["city"]}},' + ;
+         '{"name":"post_note","description":"Post a note","input_schema":{"type":"object","properties":{}}}],' + ;
+         '"messages":[{"role":"user","content":[{"type":"text","text":"Weather in Paris and Oslo?"}]},' + ;
+         '{"role":"assistant","content":[{"type":"text","text":"Let me check."},{"type":"tool_use","id":"toolu_01","name":"get_weather","input":{"city":"Paris"}},{"type":"tool_use","id":"toolu_02","name":"get_weather","input":{"city":"Oslo"}}]},' + ;
+         '{"role":"user","content":[{"type":"tool_result","tool_use_id":"toolu_01","content":"{\"temperature\":12}"},{"type":"tool_result","tool_use_id":"toolu_02","content":"service down","is_error":true}]},' + ;
+         '{"role":"assistant","content":[{"type":"text","text":"Paris 12C."}]},' + ;
+         '{"role":"user","content":[{"type":"text","text":"Thanks"}]}]}')
+
+    // tool choice variants
+    Get CreateClaudeConversationRequest of (oClaudeRequest(ghoClaudeAI)) aMsgs aTools "" AI_TOOLCHOICE_SPECIFIC "get_weather" False to hoReq
+    Set peWhiteSpace of hoReq to jpWhitespace_Plain
+    Get Stringify of hoReq to sJson
+    Send Destroy of hoReq
+    Send Check "claude tool_choice: specific + no parallel" (Pos('"tool_choice":{"type":"tool","name":"get_weather","disable_parallel_tool_use":true}',sJson)>0)
+    Send Check "claude: blank system omitted" (Pos('"system"',sJson)=0)
+
+    Get CreateClaudeConversationRequest of (oClaudeRequest(ghoClaudeAI)) aMsgs aTools "" AI_TOOLCHOICE_REQUIRED "" True to hoReq
+    Set peWhiteSpace of hoReq to jpWhitespace_Plain
+    Get Stringify of hoReq to sJson
+    Send Destroy of hoReq
+    Send Check "claude tool_choice: required -> any" (Pos('"tool_choice":{"type":"any"}',sJson)>0)
+
+    Get CreateClaudeConversationRequest of (oClaudeRequest(ghoClaudeAI)) aMsgs aTools "" AI_TOOLCHOICE_NONE "" False to hoReq
+    Set peWhiteSpace of hoReq to jpWhitespace_Plain
+    Get Stringify of hoReq to sJson
+    Send Destroy of hoReq
+    Send Check "claude tool_choice: none" (Pos('"tool_choice":{"type":"none"}',sJson)>0)
+
+    Move (ResizeArray(aTools,0)) to aTools
+    Get CreateClaudeConversationRequest of (oClaudeRequest(ghoClaudeAI)) aMsgs aTools "" AI_TOOLCHOICE_REQUIRED "" True to hoReq
+    Set peWhiteSpace of hoReq to jpWhitespace_Plain
+    Get Stringify of hoReq to sJson
+    Send Destroy of hoReq
+    Send Check "claude: no tools -> no tools/tool_choice" (Pos('"tools"',sJson)=0)
+    Send Check "claude: no tool_choice without tools" (Pos('"tool_choice"',sJson)=0)
+End_Procedure
+
+Procedure TestClaudeParse
+    tAIResponse R
+    tAIMessage[] aMsgs
+    tAIToolDefinition[] aTools
+    Handle hoResp hoReq
+    Boolean bOk
+    String sJson sRaw
+
+    Get Create (RefClass(cJsonObject)) to hoResp
+    Get ParseString of hoResp (ClaudeSample('{"type":"thinking","thinking":"Need weather.","signature":"sig123"},' + SampleTextBlock("Let me check.") + ',' + SampleToolUse("toolu_01","get_weather",'{"city":"Paris"}') + ',' + SampleToolUse("toolu_02","get_weather",'{"city":"Oslo","unit":"celsius"}'),"tool_use")) to bOk
+    Send Check "sample 1 parses" bOk
+    Get ParseConversationResponse of ghoClaudeAI hoResp to R
+    Send Destroy of hoResp
+    Send Check "claude parse: stop tool_use" (R.eStopReason=AI_STOP_TOOL_CALLS)
+    Send Check "claude parse: 2 calls" (SizeOfArray(R.ToolCalls)=2)
+    Send CheckEq "claude parse: id" R.ToolCalls[0].sId "toolu_01"
+    Send CheckEq "claude parse: name" R.ToolCalls[1].sName "get_weather"
+    Send CheckEq "claude parse: args object text" R.ToolCalls[1].sArgumentsJson '{"city":"Oslo","unit":"celsius"}'
+    Send Check "claude parse: index" (R.ToolCalls[1].iIndex=1)
+    Send CheckEq "claude parse: text" R.sText "Let me check."
+    Send Check "claude parse: usage" (R.Usage.iInputTokens=100)
+    Send CheckEq "claude parse: tool_call part" R.Choices[0].ContentParts[2].sType "tool_call"
+    Send CheckEq "claude parse: part call id" R.Choices[0].ContentParts[2].sToolCallId "toolu_01"
+    Send CheckEq "claude parse: message role" R.AssistantMessage.sRole "assistant"
+    Send CheckEq "claude parse: message provider" R.AssistantMessage.sProvider "claude"
+    Send Check "claude parse: message calls" (SizeOfArray(R.AssistantMessage.ToolCalls)=2)
+    Move (UCharArrayToString(R.AssistantMessage.ucProviderJson)) to sRaw
+    Send Check "claude parse: raw JSON kept (thinking signature)" (Pos('"signature":"sig123"',sRaw)>0)
+    Send Check "claude parse: raw JSON is the assistant message" (Pos('{"role":"assistant","content":[',sRaw)=1)
+
+    // replaying the parsed turn keeps the thinking block
+    Move "user" to aMsgs[0].sRole
+    Move "Weather?" to aMsgs[0].sText
+    Move R.AssistantMessage to aMsgs[1]
+    Get CreateClaudeConversationRequest of (oClaudeRequest(ghoClaudeAI)) aMsgs aTools "" AI_TOOLCHOICE_AUTO "" True to hoReq
+    Set peWhiteSpace of hoReq to jpWhitespace_Plain
+    Get Stringify of hoReq to sJson
+    Send Destroy of hoReq
+    Send Check "claude replay: thinking block sent back" (Pos('{"type":"thinking","thinking":"Need weather.","signature":"sig123"}',sJson)>0)
+    Send Check "claude replay: tool_use sent back" (Pos('"id":"toolu_02"',sJson)>0)
+
+    // final answer
+    Get Create (RefClass(cJsonObject)) to hoResp
+    Get ParseString of hoResp (ClaudeSample(SampleTextBlock("Paris is 12C."),"end_turn")) to bOk
+    Get ParseConversationResponse of ghoClaudeAI hoResp to R
+    Send Destroy of hoResp
+    Send Check "claude parse: end_turn" (R.eStopReason=AI_STOP_END_TURN)
+    Send Check "claude parse: no calls" (SizeOfArray(R.ToolCalls)=0)
+    Send CheckEq "claude parse: final text" R.sText "Paris is 12C."
+
+    // cut off inside a tool_use block: max_tokens wins, calls are not "to run"
+    Get Create (RefClass(cJsonObject)) to hoResp
+    Get ParseString of hoResp (ClaudeSample(SampleToolUse("toolu_09","get_weather",'{}'),"max_tokens")) to bOk
+    Get ParseConversationResponse of ghoClaudeAI hoResp to R
+    Send Destroy of hoResp
+    Send Check "claude parse: max_tokens kept" (R.eStopReason=AI_STOP_MAX_TOKENS)
+    Send CheckEq "claude parse: empty input -> {}" R.ToolCalls[0].sArgumentsJson "{}"
+End_Procedure
+
+Function LastToolTurn Global Handle hoAI Returns tAIMessage
+    tAIMessage[] aMsgs
+    tAIMessage Empty
+    Integer i
+    Get paMessages of (ActiveConversation(hoAI)) to aMsgs
+    For i from 0 to (SizeOfArray(aMsgs)-1)
+        If (aMsgs[SizeOfArray(aMsgs)-1-i].sRole='tool') Function_Return aMsgs[SizeOfArray(aMsgs)-1-i]
+    Loop
+    Function_Return Empty
+End_Function
+
+Procedure TestToolLoop
+    Handle hoAI
+    String[] aResp
+    tAIResponse R
+    tAIMessage ToolTurn
+    tAIToolResult OneResult
+    tAIToolResult[] aResults
+    String sReq
+
+    Move oFakeClaude to hoAI
+
+    // 1. auto loop, two parallel calls, thinking replayed
+    Move (ClaudeSample('{"type":"thinking","thinking":"t","signature":"sig1"},' + SampleToolUse("toolu_p","get_weather",'{"city":"Paris"}') + ',' + SampleToolUse("toolu_o","get_weather",'{"city":"Oslo"}'),"tool_use")) to aResp[0]
+    Move (ClaudeSample(SampleTextBlock("Paris 12, Oslo 5."),"end_turn")) to aResp[1]
+    Send QueueResponses of hoAI aResp
+    Get Chat of hoAI "Weather in Paris and Oslo?" to R
+    Send Check "loop: end_turn" (R.eStopReason=AI_STOP_END_TURN)
+    Send CheckEq "loop: final text" R.sText "Paris 12, Oslo 5."
+    Send Check "loop: 2 round trips" (R.iToolIterations=2)
+    Send Check "loop: 4 turns in conversation" (MessageCount(ActiveConversation(hoAI))=4)
+    Get SentRequest of hoAI 1 to sReq
+    Send Check "loop: results sent" (Pos('{"type":"tool_result","tool_use_id":"toolu_p","content":"{\"temperature\":12}"},{"type":"tool_result","tool_use_id":"toolu_o","content":"{\"temperature\":5}"}',sReq)>0)
+    Send Check "loop: thinking replayed" (Pos('"signature":"sig1"',sReq)>0)
+    Send Check "loop: tools sent" (Pos('"tools":[{"name":"get_weather"',sReq)>0)
+    Send Check "loop: log has 4 entries" (SizeOfArray(paToolLoopLog(hoAI))=4)
+    Send Check "loop: no error" (not(HasError(hoAI)))
+
+    // 2. a DataFlex error inside a tool becomes an error result (no popup)
+    Move (ClaudeSample(SampleToolUse("toolu_c","crash_tool",'{}'),"tool_use")) to aResp[0]
+    Move (ClaudeSample(SampleTextBlock("The tool failed."),"end_turn")) to aResp[1]
+    Send QueueResponses of hoAI aResp
+    Get Chat of hoAI "Crash please" to R
+    Move (LastToolTurn(hoAI)) to ToolTurn
+    Send Check "error capture: is_error" (ToolTurn.ToolResults[0].bIsError)
+    Send Check "error capture: message" (Pos("boom from crash_tool",ToolTurn.ToolResults[0].sContent)>0)
+    Send Check "error capture: loop finished" (R.eStopReason=AI_STOP_END_TURN)
+
+    // 3. confirmation deferred, approved, then continued
+    Move 0 to giNotes
+    Set piConfirmAnswer of hoAI to AI_CONFIRM_DEFER
+    Move (ClaudeSample(SampleToolUse("toolu_w","get_weather",'{"city":"Paris"}') + ',' + SampleToolUse("toolu_n","post_note",'{"text":"hi"}'),"tool_use")) to aResp[0]
+    Move (ClaudeSample(SampleTextBlock("Posted."),"end_turn")) to aResp[1]
+    Send QueueResponses of hoAI aResp
+    Get Chat of hoAI "Post hi" to R
+    Send Check "confirm: paused" (R.eStopReason=AI_STOP_CONFIRMATION)
+    Send Check "confirm: one pending" (SizeOfArray(R.PendingConfirmations)=1)
+    Send CheckEq "confirm: pending is post_note" R.PendingConfirmations[0].sName "post_note"
+    Send Check "confirm: not run yet" (giNotes=0)
+    Send Check "confirm: nothing sent yet" (piFakeNext(hoAI)=1)
+    Send ApproveToolCall of hoAI "toolu_n"
+    Get ContinueConversation of hoAI to R
+    Send Check "confirm: finished" (R.eStopReason=AI_STOP_END_TURN)
+    Send Check "confirm: ran once" (giNotes=1)
+    Send Check "confirm: asked once" (piConfirmAsked(hoAI)=1)
+    Move (LastToolTurn(hoAI)) to ToolTurn
+    Send Check "confirm: one tool turn, 2 results" (SizeOfArray(ToolTurn.ToolResults)=2)
+    Send CheckEq "confirm: results in call order" ToolTurn.ToolResults[0].sCallId "toolu_w"
+    Send Check "confirm: pending cleared" (SizeOfArray(paPendingConfirmations(hoAI))=0)
+
+    // 4. declined by the user
+    Move 0 to giNotes
+    Set piConfirmAnswer of hoAI to AI_CONFIRM_NO
+    Move (ClaudeSample(SampleToolUse("toolu_n2","post_note",'{"text":"hi"}'),"tool_use")) to aResp[0]
+    Move (ClaudeSample(SampleTextBlock("I did not post it."),"end_turn")) to aResp[1]
+    Send QueueResponses of hoAI aResp
+    Get Chat of hoAI "Post hi" to R
+    Move (LastToolTurn(hoAI)) to ToolTurn
+    Send Check "decline: not run" (giNotes=0)
+    Send Check "decline: error result" (ToolTurn.ToolResults[0].bIsError and Pos("declined",ToolTurn.ToolResults[0].sContent)>0)
+    Send Check "decline: loop finished" (R.eStopReason=AI_STOP_END_TURN)
+
+    // 5. deferred, then the user moves on: the call is answered as "not run"
+    Set piConfirmAnswer of hoAI to AI_CONFIRM_DEFER
+    Move (ClaudeSample(SampleToolUse("toolu_n3","post_note",'{"text":"x"}'),"tool_use")) to aResp[0]
+    Move (ClaudeSample(SampleTextBlock("OK."),"end_turn")) to aResp[1]
+    Send QueueResponses of hoAI aResp
+    Get Chat of hoAI "Post x" to R
+    Get Chat of hoAI "Never mind" to R
+    Get SentRequest of hoAI 1 to sReq
+    Send Check "moved on: not-run result sent" (Pos('"tool_use_id":"toolu_n3","content":"Not run:',sReq)>0)
+    Send Check "moved on: answered" (R.eStopReason=AI_STOP_END_TURN)
+
+    // 6. loop limit
+    Set piMaxToolIterations of hoAI to 2
+    Move (ClaudeSample(SampleToolUse("toolu_a","get_weather",'{"city":"A"}'),"tool_use")) to aResp[0]
+    Move (ClaudeSample(SampleToolUse("toolu_b","get_weather",'{"city":"B"}'),"tool_use")) to aResp[1]
+    Send QueueResponses of hoAI aResp
+    Get Chat of hoAI "Loop" to R
+    Send Check "limit: stopped with tool_calls" (R.eStopReason=AI_STOP_TOOL_CALLS)
+    Send Check "limit: error number" (piLastErrorNumber(hoAI)=AI_ERR_TOOL_LOOP)
+    Send Check "limit: 2 round trips" (piFakeNext(hoAI)=2)
+    Send Check "limit: history answered" (not(HasUnansweredToolCalls(ActiveConversation(hoAI))))
+    Set piMaxToolIterations of hoAI to 8
+
+    // 7. the same call repeated
+    Move (ClaudeSample(SampleToolUse("toolu_r1","get_weather",'{"city":"A"}'),"tool_use")) to aResp[0]
+    Move (ClaudeSample(SampleToolUse("toolu_r2","get_weather",'{"city":"A"}'),"tool_use")) to aResp[1]
+    Move (ClaudeSample(SampleToolUse("toolu_r3","get_weather",'{"city":"A"}'),"tool_use")) to aResp[2]
+    Move (ClaudeSample(SampleTextBlock("never"),"end_turn")) to aResp[3]
+    Send QueueResponses of hoAI aResp
+    Get Chat of hoAI "Repeat" to R
+    Send Check "repeat: stopped after 3" (piFakeNext(hoAI)=3 and piLastErrorNumber(hoAI)=AI_ERR_TOOL_LOOP)
+    Move (ResizeArray(aResp,2)) to aResp
+
+    // 8. manual mode
+    Set pbAutoExecuteTools of hoAI to False
+    Move (ClaudeSample(SampleToolUse("toolu_m","get_weather",'{"city":"Paris"}'),"tool_use")) to aResp[0]
+    Move (ClaudeSample(SampleTextBlock("12 degrees."),"end_turn")) to aResp[1]
+    Send QueueResponses of hoAI aResp
+    Get Chat of hoAI "Weather?" to R
+    Send Check "manual: returns tool calls" (R.eStopReason=AI_STOP_TOOL_CALLS and SizeOfArray(R.ToolCalls)=1)
+    Send Check "manual: tool not run by library" (MessageCount(ActiveConversation(hoAI))=2)
+    Get ExecuteToolCall of oLoopTools R.ToolCalls[0] to OneResult
+    Move OneResult to aResults[0]
+    Send AddToolResults of hoAI aResults
+    Get ContinueConversation of hoAI to R
+    Send CheckEq "manual: final" R.sText "12 degrees."
+    Set pbAutoExecuteTools of hoAI to True
+
+    // 9. unknown tool
+    Move (ClaudeSample(SampleToolUse("toolu_u","no_such_tool",'{}'),"tool_use")) to aResp[0]
+    Move (ClaudeSample(SampleTextBlock("Sorry."),"end_turn")) to aResp[1]
+    Send QueueResponses of hoAI aResp
+    Get Chat of hoAI "Unknown" to R
+    Move (LastToolTurn(hoAI)) to ToolTurn
+    Send Check "unknown tool: error result" (ToolTurn.ToolResults[0].bIsError and Pos("Unknown tool",ToolTurn.ToolResults[0].sContent)>0)
+
+    // 10. transfer error mid-loop (silent)
+    Move (ResizeArray(aResp,1)) to aResp
+    Move (ClaudeSample(SampleToolUse("toolu_t","get_weather",'{"city":"Paris"}'),"tool_use")) to aResp[0]
+    Send QueueResponses of hoAI aResp
+    Get Chat of hoAI "Weather?" to R
+    Send Check "transfer error: AI_STOP_ERROR" (R.eStopReason=AI_STOP_ERROR)
+    Send Check "transfer error: HasError" (HasError(hoAI) and piLastErrorNumber(hoAI)=AI_ERR_TRANSFER)
+    Send Check "transfer error: history kept up to the tool turn" (MessageCount(ActiveConversation(hoAI))=3)
+
+    // 11. per-view isolation on the same provider
+    Move (ResizeArray(aResp,2)) to aResp
+    Move (ClaudeSample(SampleTextBlock("A1"),"end_turn")) to aResp[0]
+    Move (ClaudeSample(SampleTextBlock("B1"),"end_turn")) to aResp[1]
+    Send QueueResponses of hoAI aResp
+    Send ClearMessages of oConvA
+    Send ClearMessages of oConvB
+    Set phoConversation of hoAI to oConvA
+    Get Chat of hoAI "Hello A" to R
+    Set phoConversation of hoAI to oConvB
+    Get Chat of hoAI "Hello B" to R
+    Set phoConversation of hoAI to 0
+    Send Check "isolation: A has 2 turns" (MessageCount(oConvA)=2)
+    Send CheckEq "isolation: B answer" (LastAssistantText(oConvB)) "B1"
+    Get SentRequest of hoAI 1 to sReq
+    Send Check "isolation: B request has no A text" (Pos("Hello A",sReq)=0)
+    Send ClearMessages of oConvA
+    Send ClearMessages of oConvB
+End_Procedure
+
+Procedure TestDialogue
+    String[] aResp1 aResp2 aEmpty
+    Integer iTurns
+    tAIMessage Msg
+    String sReq sMarkdown
+
+    Move (ClaudeSample(SampleTextBlock("A1"),"end_turn")) to aResp1[0]
+    Move (ClaudeSample(SampleTextBlock("A2"),"end_turn")) to aResp1[1]
+    Move (ClaudeSample(SampleTextBlock("B1"),"end_turn")) to aResp2[0]
+    Move (ClaudeSample(SampleTextBlock("B2"),"end_turn")) to aResp2[1]
+    Send QueueResponses of oFakeClaude aResp1
+    Send QueueResponses of oFakeClaude2 aResp2
+    Set phoFirstAI of oDialogue to oFakeClaude
+    Set phoSecondAI of oDialogue to oFakeClaude2
+    Get Run of oDialogue "Debate: tabs or spaces?" 4 to iTurns
+    Send Check "dialogue: 4 turns" (iTurns=4)
+    Send Check "dialogue: transcript 5 entries" (EntryCount(phoTranscript(oDialogue))=5)
+    Get MessageAt of (phoSecondConversation(oDialogue)) 0 to Msg
+    Send CheckEq "dialogue: relayed with label" Msg.sText "Claude: A1"
+    Send Check "dialogue: relayed is a user turn" (Msg.sRole="user" and Msg.bRelayed)
+    Get SentRequest of oFakeClaude2 0 to sReq
+    Send Check "dialogue: B sees A's reply" (Pos("Claude: A1",sReq)>0)
+    Send Check "dialogue: B does not see the opening" (Pos("tabs or spaces",sReq)=0)
+    Get SentRequest of oFakeClaude 1 to sReq
+    Send Check "dialogue: A sees B's reply" (Pos("Grok: B1",sReq)>0)
+    Send CheckEq "dialogue: last B text" (LastAssistantText(phoSecondConversation(oDialogue))) "B2"
+    Send Check "dialogue: provider conversation restored" (phoConversation(oFakeClaude)=0)
+    Get AsMarkdown of (phoTranscript(oDialogue)) to sMarkdown
+    Send Check "dialogue: transcript speakers" (Pos("**Grok:**",sMarkdown)>0 and Pos("**User:**",sMarkdown)>0)
+
+    // stop phrase
+    Move (ResizeArray(aResp1,1)) to aResp1
+    Move (ClaudeSample(SampleTextBlock("Agreed. DONE"),"end_turn")) to aResp1[0]
+    Send QueueResponses of oFakeClaude aResp1
+    Send QueueResponses of oFakeClaude2 aResp2
+    Set psStopPhrase of oDialogue to "DONE"
+    Get Run of oDialogue "Agree quickly" 6 to iTurns
+    Send Check "dialogue: stop phrase after 1 turn" (iTurns=1 and pbStopped(oDialogue))
+    Set psStopPhrase of oDialogue to ""
+
+    // an error stops the dialogue
+    Send QueueResponses of oFakeClaude aEmpty
+    Get Run of oDialogue "Hello" 3 to iTurns
+    Send Check "dialogue: error stops" (iTurns=0 and peLastStopReason(oDialogue)=AI_STOP_ERROR)
+End_Procedure
+
+Procedure TestDialogueSteps
+    String[] aResp1 aResp2 aEmpty
+    Integer iTurns
+    tAIResponse R
+    tAIToolCall[] aPending
+    String sReq sModel1 sModel2
+
+    Move 0 to giBeforeTurns
+    Move 0 to giAfterTurns
+    Move 0 to giConvAttached
+    Move 0 to giStopAtTurn
+    Get psModelId of oFakeClaude to sModel1
+    Get psModelId of oFakeClaude2 to sModel2
+    Set phoFirstAI of oStepDialogue to oFakeClaude
+    Set phoSecondAI of oStepDialogue to oFakeClaude2
+
+    // 1. StartDialogue + StepDialogue, per-side settings via the events
+    Move (ClaudeSample(SampleTextBlock("A1"),"end_turn")) to aResp1[0]
+    Move (ClaudeSample(SampleTextBlock("B1"),"end_turn")) to aResp2[0]
+    Send QueueResponses of oFakeClaude aResp1
+    Send QueueResponses of oFakeClaude2 aResp2
+    Send StartDialogue of oStepDialogue "Topic X"
+    Send Check "step: nothing run by StartDialogue" (piTurnsDone(oStepDialogue)=0 and piFakeNext(oFakeClaude)=0)
+    Send Check "step: opening in transcript" (EntryCount(phoTranscript(oStepDialogue))=1)
+    Send CheckEq "step: Alpha first" (NextSideLabel(oStepDialogue)) "Alpha"
+    Get StepDialogue of oStepDialogue to R
+    Send Check "step: one turn" (piTurnsDone(oStepDialogue)=1 and R.eStopReason=AI_STOP_END_TURN)
+    Send CheckEq "step: Beta next" (NextSideLabel(oStepDialogue)) "Beta"
+    Get SentRequest of oFakeClaude 0 to sReq
+    Send Check "step: side 0 settings sent" (Pos('"model":"side0"',sReq)>0)
+    Send CheckEq "step: side 0 model restored" (psModelId(oFakeClaude)) sModel1
+    Get StepDialogue of oStepDialogue to R
+    Send Check "step: two turns" (piTurnsDone(oStepDialogue)=2)
+    Get SentRequest of oFakeClaude2 0 to sReq
+    Send Check "step: side 1 settings sent" (Pos('"model":"side1"',sReq)>0 and Pos("Alpha: A1",sReq)>0)
+    Send CheckEq "step: side 1 model restored" (psModelId(oFakeClaude2)) sModel2
+    Send Check "step: events once per turn" (giBeforeTurns=2 and giAfterTurns=2)
+    Send Check "step: conversation attached in OnBeforeSideTurn" (giConvAttached=2)
+    Send Check "step: provider conversations restored" (phoConversation(oFakeClaude)=0 and phoConversation(oFakeClaude2)=0)
+    Send Check "step: transcript 3 entries" (EntryCount(phoTranscript(oStepDialogue))=3)
+
+    // 2. StopDialogue from OnDialogueTurn; ContinueDialogue goes on afterwards
+    Move (ClaudeSample(SampleTextBlock("A1"),"end_turn")) to aResp1[0]
+    Move (ClaudeSample(SampleTextBlock("B1"),"end_turn")) to aResp2[0]
+    Send QueueResponses of oFakeClaude aResp1
+    Send QueueResponses of oFakeClaude2 aResp2
+    Move 1 to giStopAtTurn
+    Get Run of oStepDialogue "Go" 4 to iTurns
+    Send Check "stop: StopDialogue after turn 1" (iTurns=1 and pbStopped(oStepDialogue))
+    Get ContinueDialogue of oStepDialogue 1 to iTurns
+    Send Check "stop: continue runs again" (iTurns=1 and piTurnsDone(oStepDialogue)=2)
+    Move 0 to giStopAtTurn
+
+    // 3. confirmation pause, approved through the dialogue
+    Move 0 to giNotes
+    Set piConfirmAnswer of oFakeClaude to AI_CONFIRM_DEFER
+    Move (ClaudeSample(SampleToolUse("toolu_d","post_note",'{"text":"hi"}'),"tool_use")) to aResp1[0]
+    Move (ClaudeSample(SampleTextBlock("A posted"),"end_turn")) to aResp1[1]
+    Move (ClaudeSample(SampleTextBlock("B ok"),"end_turn")) to aResp2[0]
+    Send QueueResponses of oFakeClaude aResp1
+    Send QueueResponses of oFakeClaude2 aResp2
+    Get Run of oStepDialogue "Post a note" 2 to iTurns
+    Send Check "pause: no turn completed" (iTurns=0 and peLastStopReason(oStepDialogue)=AI_STOP_CONFIRMATION)
+    Send Check "pause: waiting" (IsWaitingForConfirmation(oStepDialogue) and pbStopped(oStepDialogue))
+    Get PendingConfirmations of oStepDialogue to aPending
+    Send Check "pause: post_note pending" (SizeOfArray(aPending)=1 and aPending[0].sName="post_note")
+    Send CheckEq "pause: same side next" (NextSideLabel(oStepDialogue)) "Alpha"
+    Send Check "pause: no error text" (psLastError(oStepDialogue)="")
+    Send Check "pause: provider conversation restored" (phoConversation(oFakeClaude)=0)
+    Send ApproveToolCall of oStepDialogue "toolu_d"
+    Send Check "pause: approve leaves provider conversation" (phoConversation(oFakeClaude)=0)
+    Get ContinueDialogue of oStepDialogue 2 to iTurns
+    Send Check "pause: resumed, 2 turns" (iTurns=2 and giNotes=1)
+    Send CheckEq "pause: Alpha finished" (LastAssistantText(phoFirstConversation(oStepDialogue))) "A posted"
+    Send Check "pause: nothing pending" (not(IsWaitingForConfirmation(oStepDialogue)))
+
+    // 4. declined through the dialogue, with a reason
+    Move 0 to giNotes
+    Move (ClaudeSample(SampleToolUse("toolu_e","post_note",'{"text":"hi"}'),"tool_use")) to aResp1[0]
+    Move (ClaudeSample(SampleTextBlock("Not posted"),"end_turn")) to aResp1[1]
+    Send QueueResponses of oFakeClaude aResp1
+    Send QueueResponses of oFakeClaude2 aResp2
+    Get Run of oStepDialogue "Post a note" 2 to iTurns
+    Send DeclineToolCall of oStepDialogue "toolu_e" "no thanks"
+    Get StepDialogue of oStepDialogue to R
+    Send Check "decline: turn finished, not run" (R.eStopReason=AI_STOP_END_TURN and giNotes=0)
+    Get SentRequest of oFakeClaude 1 to sReq
+    Send Check "decline: reason sent" (Pos("no thanks",sReq)>0)
+
+    // 5. error texts; a tool loop limit keeps the provider's message
+    Set phoSecondAI of oStepDialogue to oFakeClaude2
+    Set piMaxToolIterations of oFakeClaude to 1
+    Move (ClaudeSample(SampleToolUse("toolu_l1","get_weather",'{"city":"Paris"}'),"tool_use")) to aResp1[0]
+    Move (ClaudeSample(SampleTextBlock("never"),"end_turn")) to aResp1[1]
+    Send QueueResponses of oFakeClaude aResp1
+    Get Run of oStepDialogue "Weather?" 2 to iTurns
+    Send Check "loop limit: stops the dialogue" (iTurns=0 and pbStopped(oStepDialogue) and peLastStopReason(oStepDialogue)<>AI_STOP_ERROR)
+    Send Check "loop limit: error text" (Pos("Alpha: Tool loop limit reached",psLastError(oStepDialogue))=1)
+    Set piMaxToolIterations of oFakeClaude to 8
+    Send QueueResponses of oFakeClaude aEmpty
+    Get Run of oStepDialogue "Hello" 2 to iTurns
+    Send Check "error: provider error text" (iTurns=0 and Pos("Alpha:",psLastError(oStepDialogue))=1 and Pos("No more fake responses",psLastError(oStepDialogue))>0)
+    Set phoSecondAI of oStepDialogue to 0
+    Move (ClaudeSample(SampleTextBlock("A1"),"end_turn")) to aResp1[0]
+    Move (ResizeArray(aResp1,1)) to aResp1
+    Send QueueResponses of oFakeClaude aResp1
+    Get Run of oStepDialogue "Hello" 2 to iTurns
+    Send Check "error: missing AI" (iTurns=1 and peLastStopReason(oStepDialogue)=AI_STOP_ERROR and Pos("No AI object for Beta",psLastError(oStepDialogue))>0)
+    Send ResetDialogue of oStepDialogue
+    Send Check "reset: clears error and transcript" (psLastError(oStepDialogue)="" and EntryCount(phoTranscript(oStepDialogue))=0)
+End_Procedure
+
+Procedure TestDemoToolSet
+    tAIToolCall Call
+    tAIToolResult Result
+    Handle hoTool
+
+    Move 0 to giDemoActivity
+    Send Check "demo tools: 5 tools" (ToolCount(oDemoSet)=5 and SizeOfArray(Definitions(oDemoSet))=5)
+    Get ToolByName of oDemoSet "post_note" to hoTool
+    Send Check "demo tools: post_note needs confirmation" (hoTool<>0 and pbRequiresConfirmation(hoTool))
+
+    Move "c1" to Call.sId
+    Move "calculate" to Call.sName
+    Move '{"a":6,"b":7,"operation":"multiply"}' to Call.sArgumentsJson
+    Get ExecuteToolCall of oDemoSet Call to Result
+    Send Check "demo tools: calculate" (not(Result.bIsError) and Pos("42",Result.sContent)>0)
+    Move '{"a":1,"b":0,"operation":"divide"}' to Call.sArgumentsJson
+    Get ExecuteToolCall of oDemoSet Call to Result
+    Send Check "demo tools: divide by zero is an error" (Result.bIsError and Pos("Division by zero",Result.sContent)>0)
+
+    Move "get_weather" to Call.sName
+    Move '{"city":"Oslo"}' to Call.sArgumentsJson
+    Get ExecuteToolCall of oDemoSet Call to Result
+    Send Check "demo tools: weather Oslo" (Pos('"temperature":5',Result.sContent)>0)
+
+    Move "lookup_customer" to Call.sName
+    Move '{"customer_id":"c002"}' to Call.sArgumentsJson
+    Get ExecuteToolCall of oDemoSet Call to Result
+    Send Check "demo tools: customer C002" (Pos("Nordic Supply",Result.sContent)>0)
+
+    Move "post_note" to Call.sName
+    Move '{"text":"hello"}' to Call.sArgumentsJson
+    Get ExecuteToolCall of oDemoSet Call to Result
+    Send Check "demo tools: note stored on the set" (psNotes(oDemoSet)="hello" and piNoteCount(oDemoSet)=1)
+    Send Check "demo tools: activity event" (giDemoActivity=5)
+End_Procedure
+
+Procedure TestLogLimit
+    String[] aResp aLog
+    tAIResponse R
+    Handle hoAI
+    Move oFakeClaude to hoAI
+#IF (!@>191)
+    Send Check "log limit default (25.0): none" (piMaxLogLength(ghoClaudeAI)=0)
+#ELSE
+    Send Check "log limit default (19.1): 60000" (piMaxLogLength(ghoClaudeAI)=60000)
+#ENDIF
+    Set piMaxLogLength of hoAI to 50
+    Set piMaxLogEntries of hoAI to 3
+    Move (ClaudeSample(SampleToolUse("toolu_l","get_weather",'{"city":"Paris"}'),"tool_use")) to aResp[0]
+    Move (ClaudeSample(SampleTextBlock("Done."),"end_turn")) to aResp[1]
+    Send QueueResponses of hoAI aResp
+    Get Chat of hoAI "Weather?" to R
+    Get paToolLoopLog of hoAI to aLog
+    Send Check "log: oldest dropped (3 kept)" (SizeOfArray(aLog)=3)
+    Send Check "log: entry cut" (Pos("[log entry truncated]",aLog[0])>0 and Length(aLog[0])<=80)
+    Send Check "log: debug copy cut" (Length(psModelResponseJson(hoAI))<=80)
+    Send Check "log: loop still finished" (R.eStopReason=AI_STOP_END_TURN)
+    Set piMaxLogLength of hoAI to 0
+    Set piMaxLogEntries of hoAI to 40
+End_Procedure
+
+// one Chat Completions response; sMessage is the message object
+Function OpenAISample Global String sMessage String sFinish Returns String
+    Function_Return ('{"id":"chatcmpl-test","object":"chat.completion","created":1700000000,"model":"gpt-test","choices":[{"index":0,"message":' + sMessage + ',"finish_reason":"' + sFinish + '"}],"usage":{"prompt_tokens":10,"completion_tokens":5,"total_tokens":15}}')
+End_Function
+
+Function OpenAICall Global String sId String sName String sArgsEscaped Returns String
+    Function_Return ('{"id":"' + sId + '","type":"function","function":{"name":"' + sName + '","arguments":"' + sArgsEscaped + '"}}')
+End_Function
+
+Function OpenAIToolCalls Global String sCalls Returns String
+    Function_Return ('{"role":"assistant","content":null,"tool_calls":[' + sCalls + '],"refusal":null}')
+End_Function
+
+Function OpenAIText Global String sText Returns String
+    Function_Return ('{"role":"assistant","content":"' + sText + '","refusal":null}')
+End_Function
+
+Function RequestText Global Handle hoReq Returns String
+    String sJson
+    Set peWhiteSpace of hoReq to jpWhitespace_Plain
+    Get Stringify of hoReq to sJson
+    Send Destroy of hoReq
+    Function_Return (Replaces("\/",sJson,"/"))
+End_Function
+
+Procedure TestChatCompletionsRequest
+    tAIMessage[] aMsgs aAttach
+    tAIToolDefinition[] aTools aNoTools
+    Handle hoReq
+    String sJson
+
+    Move "user" to aMsgs[0].sRole
+    Move "Weather in Paris and Oslo?" to aMsgs[0].sText
+    Move "assistant" to aMsgs[1].sRole
+    Move "Let me check." to aMsgs[1].sText
+    Move "toolu_01" to aMsgs[1].ToolCalls[0].sId
+    Move "get_weather" to aMsgs[1].ToolCalls[0].sName
+    Move '{"city":"Paris"}' to aMsgs[1].ToolCalls[0].sArgumentsJson
+    Move "toolu_02" to aMsgs[1].ToolCalls[1].sId
+    Move "get_weather" to aMsgs[1].ToolCalls[1].sName
+    Move '{"city":"Oslo"}' to aMsgs[1].ToolCalls[1].sArgumentsJson
+    Move "tool" to aMsgs[2].sRole
+    Move "toolu_01" to aMsgs[2].ToolResults[0].sCallId
+    Move '{"temperature":12}' to aMsgs[2].ToolResults[0].sContent
+    Move "toolu_02" to aMsgs[2].ToolResults[1].sCallId
+    Move 'service down' to aMsgs[2].ToolResults[1].sContent
+    Move True to aMsgs[2].ToolResults[1].bIsError
+    Move "assistant" to aMsgs[3].sRole
+    Move "Paris 12C." to aMsgs[3].sText
+    Move "user" to aMsgs[4].sRole
+    Move "Thanks" to aMsgs[4].sText
+    Move "get_weather" to aTools[0].sName
+    Move "Current weather" to aTools[0].sDescription
+    Move '{"type":"object","properties":{"city":{"type":"string"}},"required":["city"]}' to aTools[0].sParametersJson
+    Move "post_note" to aTools[1].sName
+    Move "Post a note" to aTools[1].sDescription
+
+    Get ConstructConversationRequest of (oChatGPTRequest(ghoChatGPTAI)) "gpt-test" 100 aMsgs aTools "Be brief." AI_TOOLCHOICE_AUTO "" True to hoReq
+    Move (RequestText(hoReq)) to sJson
+    Send CheckEq "openai request: system, tool_calls, tool messages, tools" sJson ;
+        ('{"model":"gpt-test","max_tokens":100,"messages":[{"role":"system","content":"Be brief."},{"role":"user","content":"Weather in Paris and Oslo?"},' + ;
+         '{"role":"assistant","content":"Let me check.","tool_calls":[{"id":"toolu_01","type":"function","function":{"name":"get_weather","arguments":"{\"city\":\"Paris\"}"}},' + ;
+         '{"id":"toolu_02","type":"function","function":{"name":"get_weather","arguments":"{\"city\":\"Oslo\"}"}}]},' + ;
+         '{"role":"tool","tool_call_id":"toolu_01","content":"{\"temperature\":12}"},{"role":"tool","tool_call_id":"toolu_02","content":"{\"error\":\"service down\"}"},' + ;
+         '{"role":"assistant","content":"Paris 12C."},{"role":"user","content":"Thanks"}],' + ;
+         '"tools":[{"type":"function","function":{"name":"get_weather","description":"Current weather","parameters":{"type":"object","properties":{"city":{"type":"string"}},"required":["city"]}}},' + ;
+         '{"type":"function","function":{"name":"post_note","description":"Post a note","parameters":{"type":"object","properties":{}}}}]}')
+
+    Get ConstructConversationRequest of (oChatGPTRequest(ghoChatGPTAI)) "gpt-test" 100 aMsgs aTools "" AI_TOOLCHOICE_SPECIFIC "get_weather" False to hoReq
+    Move (RequestText(hoReq)) to sJson
+    Send Check "openai tool_choice: specific" (Pos('"tool_choice":{"type":"function","function":{"name":"get_weather"}}',sJson)>0)
+    Send Check "openai: parallel_tool_calls false" (Pos('"parallel_tool_calls":false',sJson)>0)
+    Send Check "openai: blank system omitted" (Pos('"role":"system"',sJson)=0)
+    Get ConstructConversationRequest of (oChatGPTRequest(ghoChatGPTAI)) "gpt-test" 100 aMsgs aTools "" AI_TOOLCHOICE_REQUIRED "" True to hoReq
+    Move (RequestText(hoReq)) to sJson
+    Send Check "openai tool_choice: required" (Pos('"tool_choice":"required"',sJson)>0 and Pos('parallel_tool_calls',sJson)=0)
+    Get ConstructConversationRequest of (oChatGPTRequest(ghoChatGPTAI)) "gpt-test" 100 aMsgs aTools "" AI_TOOLCHOICE_NONE "" True to hoReq
+    Move (RequestText(hoReq)) to sJson
+    Send Check "openai tool_choice: none" (Pos('"tool_choice":"none"',sJson)>0)
+    Get ConstructConversationRequest of (oChatGPTRequest(ghoChatGPTAI)) "gpt-test" 100 aMsgs aNoTools "" AI_TOOLCHOICE_REQUIRED "" False to hoReq
+    Move (RequestText(hoReq)) to sJson
+    Send Check "openai: no tools -> no tool members" (Pos('"tool_choice"',sJson)=0 and Pos('"tools"',sJson)=0 and Pos('parallel_tool_calls',sJson)=0)
+
+    // attachments: image as data URL; PDF as a file part for ChatGPT only
+    Move "user" to aAttach[0].sRole
+    Move "Describe" to aAttach[0].sText
+    Move "image/png" to aAttach[0].Attachments[0].sMimeType
+    Move (StringToUCharArray("AAAA")) to aAttach[0].Attachments[0].uBase64File
+    Move "application/pdf" to aAttach[0].Attachments[1].sMimeType
+    Move (StringToUCharArray("JVBE")) to aAttach[0].Attachments[1].uBase64File
+    Get ConstructConversationRequest of (oChatGPTRequest(ghoChatGPTAI)) "gpt-test" 0 aAttach aNoTools "" AI_TOOLCHOICE_AUTO "" True to hoReq
+    Move (RequestText(hoReq)) to sJson
+    Send CheckEq "openai: attachments as content parts" sJson ;
+        ('{"model":"gpt-test","messages":[{"role":"user","content":[{"type":"text","text":"Describe"},{"type":"image_url","image_url":{"url":"data:image/png;base64,AAAA"}},' + ;
+         '{"type":"file","file":{"filename":"document.pdf","file_data":"data:application/pdf;base64,JVBE"}}]}]}')
+    Get BuildConversationRequest of ghoGrokAI aAttach aNoTools to hoReq
+    Move (RequestText(hoReq)) to sJson
+    Send Check "grok: no PDF file part" (Pos('"type":"file"',sJson)=0 and Pos('"image_url"',sJson)>0)
+
+    // Grok single-turn request is Chat Completions now
+    Get CreateRequest of ghoGrokAI "Hi" to hoReq
+    Move (RequestText(hoReq)) to sJson
+    Send CheckEq "grok CreateRequest: chat completions" sJson ('{"model":"' + psModelId(ghoGrokAI) + '","max_tokens":' + String(piMaxTokens(ghoGrokAI)) + ',"messages":[{"role":"user","content":"Hi"}]}')
+End_Procedure
+
+Procedure TestChatCompletionsParse
+    tAIResponse R
+    Handle hoResp
+    Boolean bOk
+    String sRaw
+
+    Get Create (RefClass(cJsonObject)) to hoResp
+    Get ParseString of hoResp (OpenAISample(OpenAIToolCalls(OpenAICall("call_1","get_weather",'{\"city\": \"Paris\"}') + ',' + OpenAICall("call_2","get_weather",'{\"city\":\"Oslo\",\"unit\":\"celsius\"}')),"tool_calls")) to bOk
+    Send Check "openai sample parses" bOk
+    Get ParseConversationResponse of ghoChatGPTAI hoResp to R
+    Send Destroy of hoResp
+    Send Check "openai parse: stop tool_calls" (R.eStopReason=AI_STOP_TOOL_CALLS)
+    Send Check "openai parse: 2 calls" (SizeOfArray(R.ToolCalls)=2)
+    Send CheckEq "openai parse: id" R.ToolCalls[0].sId "call_1"
+    Send CheckEq "openai parse: args normalized" R.ToolCalls[0].sArgumentsJson '{"city":"Paris"}'
+    Send CheckEq "openai parse: args 2" R.ToolCalls[1].sArgumentsJson '{"city":"Oslo","unit":"celsius"}'
+    Send Check "openai parse: index" (R.ToolCalls[1].iIndex=1)
+    Send CheckEq "openai parse: text empty" R.sText ""
+    Send CheckEq "openai parse: provider" R.AssistantMessage.sProvider "chatgpt"
+    Send Check "openai parse: usage" (R.Usage.iInputTokens=10)
+    Send Check "openai parse: tool_call parts" (SizeOfArray(R.Choices[0].ContentParts)=3 and R.Choices[0].ContentParts[1].sToolCallId="call_1")
+    Move (UCharArrayToString(R.AssistantMessage.ucProviderJson)) to sRaw
+    Send Check "openai parse: raw message kept" (Pos('"tool_calls":[',sRaw)>0 and Pos('"role":"assistant"',sRaw)>0)
+
+    Get Create (RefClass(cJsonObject)) to hoResp
+    Get ParseString of hoResp (OpenAISample(OpenAIToolCalls(OpenAICall("call_x","get_weather",'{city: Paris')),"tool_calls")) to bOk
+    Get ParseConversationResponse of ghoChatGPTAI hoResp to R
+    Send Destroy of hoResp
+    Send CheckEq "openai parse: invalid args kept raw" R.ToolCalls[0].sArgumentsJson '{city: Paris'
+
+    Get Create (RefClass(cJsonObject)) to hoResp
+    Get ParseString of hoResp (OpenAISample(OpenAIText("Hello there."),"stop")) to bOk
+    Get ParseConversationResponse of ghoGrokAI hoResp to R
+    Send Destroy of hoResp
+    Send Check "grok parse: end_turn" (R.eStopReason=AI_STOP_END_TURN)
+    Send CheckEq "grok parse: text" R.sText "Hello there."
+    Send CheckEq "grok parse: provider" R.AssistantMessage.sProvider "grok"
+
+    Get Create (RefClass(cJsonObject)) to hoResp
+    Get ParseString of hoResp (OpenAISample(OpenAIText("cut"),"length")) to bOk
+    Get ParseConversationResponse of ghoChatGPTAI hoResp to R
+    Send Destroy of hoResp
+    Send Check "openai parse: length -> max tokens" (R.eStopReason=AI_STOP_MAX_TOKENS)
+End_Procedure
+
+Procedure TestChatCompletionsLoop
+    String[] aResp
+    tAIResponse R
+    tAIMessage ToolTurn
+    String sReq
+    Handle hoAI
+
+    // ChatGPT: auto loop with parallel calls
+    Move oFakeChatGPT to hoAI
+    Move (OpenAISample(OpenAIToolCalls(OpenAICall("call_p","get_weather",'{\"city\":\"Paris\"}') + ',' + OpenAICall("call_o","get_weather",'{\"city\":\"Oslo\"}')),"tool_calls")) to aResp[0]
+    Move (OpenAISample(OpenAIText("Paris 12, Oslo 5."),"stop")) to aResp[1]
+    Send QueueResponses of hoAI aResp
+    Get Chat of hoAI "Weather in Paris and Oslo?" to R
+    Send Check "openai loop: end_turn" (R.eStopReason=AI_STOP_END_TURN)
+    Send CheckEq "openai loop: text" R.sText "Paris 12, Oslo 5."
+    Get SentRequest of hoAI 1 to sReq
+    Send Check "openai loop: assistant tool_calls replayed" (Pos('"tool_calls":[{"id":"call_p","type":"function","function":{"name":"get_weather","arguments":"{\"city\":\"Paris\"}"}}',sReq)>0)
+    Send Check "openai loop: tool messages" (Pos('{"role":"tool","tool_call_id":"call_p","content":"{\"temperature\":12}"},{"role":"tool","tool_call_id":"call_o","content":"{\"temperature\":5}"}',sReq)>0)
+    Send Check "openai loop: tools sent" (Pos('"tools":[{"type":"function","function":{"name":"get_weather"',sReq)>0)
+
+    // ChatGPT: invalid arguments become an error result the model can react to
+    Move (OpenAISample(OpenAIToolCalls(OpenAICall("call_b","get_weather",'{city')),"tool_calls")) to aResp[0]
+    Move (OpenAISample(OpenAIText("Retrying later."),"stop")) to aResp[1]
+    Send QueueResponses of hoAI aResp
+    Get Chat of hoAI "Weather?" to R
+    Get SentRequest of hoAI 1 to sReq
+    Send Check "openai loop: invalid args -> error content" (Pos('"tool_call_id":"call_b","content":"{\"error\":\"Invalid JSON arguments:',sReq)>0)
+
+    // Grok: confirmation deferred and approved
+    Move oFakeGrok to hoAI
+    Move 0 to giNotes
+    Set piConfirmAnswer of hoAI to AI_CONFIRM_DEFER
+    Move (OpenAISample(OpenAIToolCalls(OpenAICall("call_n","post_note",'{\"text\":\"hi\"}')),"tool_calls")) to aResp[0]
+    Move (OpenAISample(OpenAIText("Posted."),"stop")) to aResp[1]
+    Send QueueResponses of hoAI aResp
+    Get Chat of hoAI "Post hi" to R
+    Send Check "grok loop: paused for confirmation" (R.eStopReason=AI_STOP_CONFIRMATION and giNotes=0)
+    Send ApproveToolCall of hoAI "call_n"
+    Get ContinueConversation of hoAI to R
+    Send Check "grok loop: approved and finished" (R.eStopReason=AI_STOP_END_TURN and giNotes=1)
+    Get SentRequest of hoAI 0 to sReq
+    Send Check "grok loop: chat completions format" (Pos('"messages":[{"role":"user","content":"Post hi"}]',sReq)>0)
+
+    // moving a conversation from Claude to Grok: neutral rebuild, Claude extras dropped
+    Send ClearMessages of oConvA
+    Set phoConversation of oFakeClaude to oConvA
+    Move (ClaudeSample('{"type":"thinking","thinking":"t","signature":"sigX"},' + SampleToolUse("toolu_m","get_weather",'{"city":"Paris"}'),"tool_use")) to aResp[0]
+    Move (ClaudeSample(SampleTextBlock("Paris is 12."),"end_turn")) to aResp[1]
+    Send QueueResponses of oFakeClaude aResp
+    Get Chat of oFakeClaude "Weather in Paris?" to R
+    Set phoConversation of oFakeClaude to 0
+    // queue first: QueueResponses clears the active conversation
+    Move (ResizeArray(aResp,1)) to aResp
+    Move (OpenAISample(OpenAIText("Still 12."),"stop")) to aResp[0]
+    Send QueueResponses of oFakeGrok aResp
+    Set phoConversation of oFakeGrok to oConvA
+    Get Chat of oFakeGrok "And now?" to R
+    Set phoConversation of oFakeGrok to 0
+    Get SentRequest of oFakeGrok 0 to sReq
+    Send Check "switch: Claude tool call rebuilt for Grok" (Pos('"tool_calls":[{"id":"toolu_m","type":"function","function":{"name":"get_weather","arguments":"{\"city\":\"Paris\"}"}}]',sReq)>0)
+    Send Check "switch: tool result as tool message" (Pos('{"role":"tool","tool_call_id":"toolu_m"',sReq)>0)
+    Send Check "switch: no Claude thinking sent to Grok" (Pos("sigX",sReq)=0 and Pos("thinking",sReq)=0)
+    Send CheckEq "switch: answered" R.sText "Still 12."
+    Send Check "switch: 6 turns in shared conversation" (MessageCount(oConvA)=6)
+    Send ClearMessages of oConvA
+End_Procedure
+
+//=============================================================================
+// Phase 6: Gemini conversation request, response parsing and tool loop
+//=============================================================================
+
+Function GeminiSample Global String sParts String sFinish Returns String
+    Function_Return ('{"candidates":[{"content":{"parts":[' + sParts + '],"role":"model"},"finishReason":"' + sFinish + '","index":0}],' + ;
+        '"usageMetadata":{"promptTokenCount":10,"candidatesTokenCount":5,"totalTokenCount":15},"modelVersion":"gemini-test","responseId":"resp-1"}')
+End_Function
+
+// sId '' = no id (Gemini often omits it), sSig '' = no thoughtSignature
+Function GeminiCall Global String sId String sName String sArgs String sSig Returns String
+    String sJson
+    Move '{"functionCall":{' to sJson
+    If (sId<>'') Move (sJson + '"id":"' + sId + '",') to sJson
+    Move (sJson + '"name":"' + sName + '","args":' + sArgs + '}') to sJson
+    If (sSig<>'') Move (sJson + ',"thoughtSignature":"' + sSig + '"') to sJson
+    Function_Return (sJson + '}')
+End_Function
+
+Function GeminiText Global String sText Returns String
+    Function_Return ('{"text":"' + sText + '"}')
+End_Function
+
+Function GeminiThought Global String sText Returns String
+    Function_Return ('{"text":"' + sText + '","thought":true}')
+End_Function
+
+Function GeminiRequestFor Global Handle hoAI tAIMessage[] aMsgs Returns String
+    Handle hoReq
+    tAIToolDefinition[] aTools
+    Get AllToolDefinitions of hoAI to aTools
+    Get BuildConversationRequest of hoAI aMsgs aTools to hoReq
+    Function_Return (RequestText(hoReq))
+End_Function
+
+Procedure TestGeminiConversationRequest
+    Handle hoAI
+    tAIMessage[] aMsgs
+    tAIMessage[] aEmpty
+    String sReq
+
+    Move oFakeGemini to hoAI
+    Set psSystemPrompt of hoAI to "Be brief"
+
+    // history that came from another provider: ids are not sent, names are filled in
+    Move "user" to aMsgs[0].sRole
+    Move "Weather?" to aMsgs[0].sText
+    Move "image/png" to aMsgs[0].Attachments[0].sMimeType
+    Move (StringToUCharArray("QUJD")) to aMsgs[0].Attachments[0].uBase64File
+    Move "assistant" to aMsgs[1].sRole
+    Move "chatgpt" to aMsgs[1].sProvider
+    Move "call_x" to aMsgs[1].ToolCalls[0].sId
+    Move "get_weather" to aMsgs[1].ToolCalls[0].sName
+    Move '{"city":"Paris"}' to aMsgs[1].ToolCalls[0].sArgumentsJson
+    Move "tool" to aMsgs[2].sRole
+    Move "call_x" to aMsgs[2].ToolResults[0].sCallId
+    Move '{"temperature":12}' to aMsgs[2].ToolResults[0].sContent
+    Move "user" to aMsgs[3].sRole
+    Move "Thanks" to aMsgs[3].sText
+
+    Get GeminiRequestFor hoAI aMsgs to sReq
+    Send Check "gemini conv: systemInstruction" (Pos('"systemInstruction":{"parts":[{"text":"Be brief"}]}',sReq)>0)
+    Send Check "gemini conv: user text + inlineData" (Pos('{"role":"user","parts":[{"text":"Weather?"},{"inlineData":{"mimeType":"image/png","data":"QUJD"}}]}',sReq)>0)
+    Send Check "gemini conv: rebuilt functionCall, no foreign id" (Pos('{"role":"model","parts":[{"functionCall":{"name":"get_weather","args":{"city":"Paris"}}}]}',sReq)>0)
+    Send Check "gemini conv: functionResponse named by call, merged with next user text" ;
+        (Pos('{"role":"user","parts":[{"functionResponse":{"name":"get_weather","response":{"result":{"temperature":12}}}},{"text":"Thanks"}]}',sReq)>0)
+    Send Check "gemini conv: no call_x sent" (Pos("call_x",sReq)=0)
+    Send Check "gemini conv: functionDeclarations" (Pos('"tools":[{"functionDeclarations":[{"name":"get_weather","description":"Current weather","parametersJsonSchema":{"type":"object"',sReq)>0)
+    // cAITool supplies an empty object schema when psParametersJson is blank
+    Send Check "gemini conv: no-parameter function" (Pos('{"name":"post_note","description":"Post a note","parametersJsonSchema":{"type":"object","properties":{}}}',sReq)>0)
+    Send Check "gemini conv: auto -> no toolConfig" (Pos('toolConfig',sReq)=0)
+    Send Check "gemini conv: maxOutputTokens" (Pos('"generationConfig":{"maxOutputTokens":8192}',sReq)>0)
+
+    // tool choice
+    Set peToolChoice of hoAI to AI_TOOLCHOICE_NONE
+    Get GeminiRequestFor hoAI aMsgs to sReq
+    Send Check "gemini conv: choice none" (Pos('"toolConfig":{"functionCallingConfig":{"mode":"NONE"}}',sReq)>0)
+    Set peToolChoice of hoAI to AI_TOOLCHOICE_REQUIRED
+    Get GeminiRequestFor hoAI aMsgs to sReq
+    Send Check "gemini conv: choice required" (Pos('"toolConfig":{"functionCallingConfig":{"mode":"ANY"}}',sReq)>0)
+    Set peToolChoice of hoAI to AI_TOOLCHOICE_SPECIFIC
+    Set psToolChoiceName of hoAI to "get_weather"
+    Get GeminiRequestFor hoAI aMsgs to sReq
+    Send Check "gemini conv: choice specific" (Pos('"functionCallingConfig":{"mode":"ANY","allowedFunctionNames":["get_weather"]}',sReq)>0)
+    Set peToolChoice of hoAI to AI_TOOLCHOICE_AUTO
+    Set psToolChoiceName of hoAI to ''
+
+    // Gemini's own ids and thought signatures go back when the raw reply is missing;
+    // generated ids do not; errors use {"error":..}
+    Move aEmpty to aMsgs
+    Move "user" to aMsgs[0].sRole
+    Move "Go" to aMsgs[0].sText
+    Move "assistant" to aMsgs[1].sRole
+    Move "gemini" to aMsgs[1].sProvider
+    Move "fc-1" to aMsgs[1].ToolCalls[0].sId
+    Move "get_weather" to aMsgs[1].ToolCalls[0].sName
+    Move '{"city":"Oslo"}' to aMsgs[1].ToolCalls[0].sArgumentsJson
+    Move "sigA" to aMsgs[1].ToolCalls[0].sProviderData
+    Move "gemini-call-7" to aMsgs[1].ToolCalls[1].sId
+    Move "crash_tool" to aMsgs[1].ToolCalls[1].sName
+    Move "tool" to aMsgs[2].sRole
+    Move "fc-1" to aMsgs[2].ToolResults[0].sCallId
+    Move "get_weather" to aMsgs[2].ToolResults[0].sName
+    Move 'cloudy' to aMsgs[2].ToolResults[0].sContent
+    Move "gemini-call-7" to aMsgs[2].ToolResults[1].sCallId
+    Move "boom" to aMsgs[2].ToolResults[1].sContent
+    Move True to aMsgs[2].ToolResults[1].bIsError
+    Get GeminiRequestFor hoAI aMsgs to sReq
+    Send Check "gemini conv: native id + signature" (Pos('{"functionCall":{"name":"get_weather","args":{"city":"Oslo"},"id":"fc-1"},"thoughtSignature":"sigA"}',sReq)>0)
+    Send Check "gemini conv: generated id not sent" (Pos('gemini-call-',sReq)=0)
+    Send Check "gemini conv: response with id, text result" (Pos('{"functionResponse":{"id":"fc-1","name":"get_weather","response":{"result":"cloudy"}}}',sReq)>0)
+    Send Check "gemini conv: error result, name by call id" (Pos('{"functionResponse":{"name":"crash_tool","response":{"error":"boom"}}}',sReq)>0)
+    Set psSystemPrompt of hoAI to ''
+End_Procedure
+
+Function GeminiParse Global Handle hoAI String sJson Returns tAIResponse
+    Handle hoJson
+    Boolean bOk
+    tAIResponse R
+    Get Create of Desktop (RefClass(cJsonObject)) to hoJson
+    Get ParseString of hoJson sJson to bOk
+    If (bOk) Get ParseConversationResponse of hoAI hoJson to R
+    Send Destroy of hoJson
+    Function_Return R
+End_Function
+
+Procedure TestGeminiParse
+    Handle hoAI
+    tAIResponse R
+    String sRaw sParts
+
+    Move oFakeGemini to hoAI
+    Move (GeminiThought("secret plan") + ',' + GeminiText("Checking.") + ',') to sParts
+    Move (sParts + GeminiCall("fc-a","get_weather",'{"city":"Paris"}',"sigP") + ',' + GeminiCall("","get_weather",'{"city":"Oslo"}',"")) to sParts
+    Get GeminiParse hoAI (GeminiSample(sParts,"STOP")) to R
+    Send Check "gemini parse: STOP + calls -> tool_calls" (R.eStopReason=AI_STOP_TOOL_CALLS)
+    Send Check "gemini parse: 2 calls" (SizeOfArray(R.ToolCalls)=2)
+    Send CheckEq "gemini parse: id kept" R.ToolCalls[0].sId "fc-a"
+    Send Check "gemini parse: id generated when missing" (Left(R.ToolCalls[1].sId,12)="gemini-call-")
+    Send CheckEq "gemini parse: args" R.ToolCalls[1].sArgumentsJson '{"city":"Oslo"}'
+    Send CheckEq "gemini parse: name" R.ToolCalls[1].sName "get_weather"
+    Send CheckEq "gemini parse: thoughtSignature" R.ToolCalls[0].sProviderData "sigP"
+    Send Check "gemini parse: call order" (R.ToolCalls[1].iIndex=1)
+    Send CheckEq "gemini parse: thought not in text" R.sText "Checking."
+    Send Check "gemini parse: usage" (R.Usage.iInputTokens=10 and R.Usage.iOutputTokens=5)
+    Send CheckEq "gemini parse: provider" R.AssistantMessage.sProvider "gemini"
+    Move (UCharArrayToString(R.AssistantMessage.ucProviderJson)) to sRaw
+    Send Check "gemini parse: raw keeps signature and thought" (Pos('"thoughtSignature":"sigP"',sRaw)>0 and Pos('secret plan',sRaw)>0 and Pos('"role":"model"',sRaw)>0)
+    Send Check "gemini parse: tool_call content part" (R.Choices[0].ContentParts[1].sType="tool_call" and R.Choices[0].ContentParts[1].sToolCallId="fc-a")
+
+    Get GeminiParse hoAI (GeminiSample(GeminiText("Cut"),"MAX_TOKENS")) to R
+    Send Check "gemini parse: max tokens" (R.eStopReason=AI_STOP_MAX_TOKENS)
+    Get GeminiParse hoAI (GeminiSample(GeminiText("x"),"MALFORMED_FUNCTION_CALL")) to R
+    Send Check "gemini parse: malformed call -> error" (R.eStopReason=AI_STOP_ERROR)
+    Get GeminiParse hoAI '{"promptFeedback":{"blockReason":"SAFETY"}}' to R
+    Send Check "gemini parse: blocked prompt" (R.eStopReason=AI_STOP_CONTENT_FILTER and SizeOfArray(R.ToolCalls)=0)
+End_Procedure
+
+Procedure TestGeminiLoop
+    Handle hoAI
+    String[] aResp
+    tAIResponse R
+    String sReq
+
+    // auto loop, two calls without ids: raw reply replayed (signature kept),
+    // responses matched by name and order
+    Move oFakeGemini to hoAI
+    Move (GeminiSample(GeminiThought("t") + ',' + GeminiCall("","get_weather",'{"city":"Paris"}',"sigG") + ',' + GeminiCall("","get_weather",'{"city":"Oslo"}',""),"STOP")) to aResp[0]
+    Move (GeminiSample(GeminiText("Paris 12, Oslo 5."),"STOP")) to aResp[1]
+    Send QueueResponses of hoAI aResp
+    Get Chat of hoAI "Weather in Paris and Oslo?" to R
+    Send Check "gemini loop: end_turn" (R.eStopReason=AI_STOP_END_TURN)
+    Send CheckEq "gemini loop: text" R.sText "Paris 12, Oslo 5."
+    Send Check "gemini loop: 2 round trips" (R.iToolIterations=2)
+    Get SentRequest of hoAI 1 to sReq
+    Send Check "gemini loop: raw model turn replayed" (Pos('{"role":"model","parts":[{"text":"t","thought":true},{"functionCall":{"name":"get_weather","args":{"city":"Paris"}},"thoughtSignature":"sigG"}',sReq)>0)
+    Send Check "gemini loop: responses in call order" ;
+        (Pos('[{"functionResponse":{"name":"get_weather","response":{"result":{"temperature":12}}}},{"functionResponse":{"name":"get_weather","response":{"result":{"temperature":5}}}}]',sReq)>0)
+    Send Check "gemini loop: generated ids not sent" (Pos('gemini-call-',sReq)=0)
+    Send Check "gemini loop: no error" (not(HasError(hoAI)))
+
+    // Gemini ids: confirmation deferred, approved, id echoed in functionResponse
+    Move 0 to giNotes
+    Set piConfirmAnswer of hoAI to AI_CONFIRM_DEFER
+    Move (GeminiSample(GeminiCall("fc-9","post_note",'{"text":"hi"}',""),"STOP")) to aResp[0]
+    Move (GeminiSample(GeminiText("Posted."),"STOP")) to aResp[1]
+    Send QueueResponses of hoAI aResp
+    Get Chat of hoAI "Post hi" to R
+    Send Check "gemini confirm: paused" (R.eStopReason=AI_STOP_CONFIRMATION)
+    Send ApproveToolCall of hoAI "fc-9"
+    Get ContinueConversation of hoAI to R
+    Send Check "gemini confirm: finished" (R.eStopReason=AI_STOP_END_TURN and giNotes=1)
+    Get SentRequest of hoAI 1 to sReq
+    Send Check "gemini confirm: id echoed" (Pos('{"functionResponse":{"id":"fc-9","name":"post_note","response":{"result":{"posted":true}}}}',sReq)>0)
+
+    // a DataFlex error inside a tool goes back as {"error":..}
+    Move (GeminiSample(GeminiCall("","crash_tool",'{}',""),"STOP")) to aResp[0]
+    Move (GeminiSample(GeminiText("It failed."),"STOP")) to aResp[1]
+    Send QueueResponses of hoAI aResp
+    Get Chat of hoAI "Crash" to R
+    Get SentRequest of hoAI 1 to sReq
+    Send Check "gemini error: error response" (Pos('{"functionResponse":{"name":"crash_tool","response":{"error":"',sReq)>0 and Pos('boom from crash_tool',sReq)>0)
+    Send Check "gemini error: finished" (R.eStopReason=AI_STOP_END_TURN)
+    Send ClearConversation of hoAI
+End_Procedure
+
+// pending confirmations belong to the conversation: a second conversation on the
+// same provider object neither sees nor clears them
+Procedure TestPendingPerConversation
+    Handle hoAI
+    String[] aResp
+    tAIResponse R
+    tAIToolCall[] aPending
+
+    Move oFakeGemini to hoAI
+    Move 0 to giNotes
+    Set piConfirmAnswer of hoAI to AI_CONFIRM_DEFER
+    Move (GeminiSample(GeminiCall("fc-n","post_note",'{"text":"hi"}',""),"STOP")) to aResp[0]
+    Move (GeminiSample(GeminiCall("fc-w","get_weather",'{"city":"Oslo"}',""),"STOP")) to aResp[1]
+    Move (GeminiSample(GeminiText("Y done"),"STOP")) to aResp[2]
+    Move (GeminiSample(GeminiText("X done"),"STOP")) to aResp[3]
+    Send QueueResponses of hoAI aResp
+
+    Send ClearMessages of oConvA
+    Send ClearMessages of oConvB
+    Set phoConversation of hoAI to oConvA
+    Get Chat of hoAI "Post hi" to R
+    Send Check "per-conv: A paused" (R.eStopReason=AI_STOP_CONFIRMATION)
+    Send Check "per-conv: A has the pending call" (SizeOfArray(paPendingConfirmations(oConvA))=1)
+
+    Set phoConversation of hoAI to oConvB
+    Send Check "per-conv: B sees nothing pending" (SizeOfArray(paPendingConfirmations(hoAI))=0)
+    Get Chat of hoAI "Weather in Oslo?" to R
+    Send CheckEq "per-conv: B finished its own tool loop" R.sText "Y done"
+    Send Check "per-conv: A still pending after B's loop" (SizeOfArray(paPendingConfirmations(oConvA))=1)
+    Send Check "per-conv: post_note not run" (giNotes=0)
+
+    Set phoConversation of hoAI to oConvA
+    Get paPendingConfirmations of hoAI to aPending
+    Send CheckEq "per-conv: provider shows A's pending again" aPending[0].sId "fc-n"
+    Send ApproveToolCall of hoAI "fc-n"
+    Get ContinueConversation of hoAI to R
+    Send CheckEq "per-conv: A finished" R.sText "X done"
+    Send Check "per-conv: approved call ran once" (giNotes=1)
+    Send Check "per-conv: A pending cleared" (SizeOfArray(paPendingConfirmations(oConvA))=0)
+    Send Check "per-conv: B untouched" (MessageCount(oConvB)=4)
+
+    // ClearMessages also drops pending state
+    Send QueueResponses of hoAI aResp
+    Set phoConversation of hoAI to oConvA
+    Get Chat of hoAI "Post hi" to R
+    Send ClearMessages of oConvA
+    Send Check "per-conv: ClearMessages clears pending" (SizeOfArray(paPendingConfirmations(oConvA))=0)
+
+    Set phoConversation of hoAI to 0
+    Send ClearMessages of oConvA
+    Send ClearMessages of oConvB
+End_Procedure
+
+//=============================================================================
+// Default models and OpenAI token parameters (reasoning models)
+//=============================================================================
+
+Function ChatRequestFor Global Handle hoAI String sModel Boolean bTools Returns String
+    Handle hoReq
+    tAIMessage[] aMsgs
+    tAIToolDefinition[] aTools aNoTools
+    String sSaved
+    Move "user" to aMsgs[0].sRole
+    Move "Hi" to aMsgs[0].sText
+    Get AllToolDefinitions of hoAI to aTools
+    Get psModelId of hoAI to sSaved
+    Set psModelId of hoAI to sModel
+    If (bTools) Get BuildConversationRequest of hoAI aMsgs aTools to hoReq
+    Else Get BuildConversationRequest of hoAI aMsgs aNoTools to hoReq
+    Set psModelId of hoAI to sSaved
+    Function_Return (RequestText(hoReq))
+End_Function
+
+Procedure TestModelDefaults
+    String sReq
+
+    Send CheckEq "default: claude" (psModelId(ghoClaudeAI)) "claude-sonnet-5-5"
+    Send CheckEq "default: chatgpt" (psModelId(ghoChatGPTAI)) "gpt-6-luna"
+    Send CheckEq "default: gemini" (psModelId(ghoGeminiAI)) "models/gemini-3.8-flash"
+    Send CheckEq "default: grok" (psModelId(ghoGrokAI)) "grok-4.7"
+
+    Send Check "reasoning: gpt-6-luna" (IsReasoningModel(ghoChatGPTAI,"gpt-6-luna"))
+    Send Check "reasoning: gpt-6.1-sol" (IsReasoningModel(ghoChatGPTAI,"gpt-6.1-sol"))
+    Send Check "reasoning: gpt-5-mini" (IsReasoningModel(ghoChatGPTAI,"gpt-5-mini"))
+    Send Check "reasoning: o3" (IsReasoningModel(ghoChatGPTAI,"o3"))
+    Send Check "reasoning: o4-mini" (IsReasoningModel(ghoChatGPTAI,"o4-mini"))
+    Send Check "not reasoning: gpt-4o" (not(IsReasoningModel(ghoChatGPTAI,"gpt-4o")))
+    Send Check "not reasoning: gpt-4.1-mini" (not(IsReasoningModel(ghoChatGPTAI,"gpt-4.1-mini")))
+    Send Check "not reasoning: gpt-5-chat-latest" (not(IsReasoningModel(ghoChatGPTAI,"gpt-5-chat-latest")))
+    Send Check "not reasoning: omni-moderation" (not(IsReasoningModel(ghoChatGPTAI,"omni-moderation-latest")))
+    Send Check "not reasoning: gpt-test" (not(IsReasoningModel(ghoChatGPTAI,"gpt-test")))
+
+    Get ChatRequestFor oFakeChatGPT "gpt-6-luna" True to sReq
+    Send Check "luna + tools: max_completion_tokens" (Pos('"max_completion_tokens":8192',sReq)>0 and Pos('"max_tokens"',sReq)=0)
+    Send Check "luna + tools: reasoning_effort none" (Pos('"reasoning_effort":"none"',sReq)>0)
+    Get ChatRequestFor oFakeChatGPT "gpt-6-luna" False to sReq
+    Send Check "luna, no tools: no reasoning_effort" (Pos('reasoning_effort',sReq)=0 and Pos('"max_completion_tokens":8192',sReq)>0)
+    Set psReasoningEffort of oFakeChatGPT to "low"
+    Get ChatRequestFor oFakeChatGPT "gpt-6-luna" True to sReq
+    Send Check "luna: explicit effort wins" (Pos('"reasoning_effort":"low"',sReq)>0)
+    Get ChatRequestFor oFakeChatGPT "gpt-4o" True to sReq
+    Send Check "gpt-4o: max_tokens, no effort" (Pos('"max_tokens":8192',sReq)>0 and Pos('reasoning_effort',sReq)=0 and Pos('max_completion_tokens',sReq)=0)
+    Set psReasoningEffort of oFakeChatGPT to ''
+    Get ChatRequestFor oFakeGrok "grok-4.7" True to sReq
+    Send Check "grok: max_tokens, no effort" (Pos('"max_tokens":',sReq)>0 and Pos('reasoning_effort',sReq)=0)
+End_Procedure
+
+Procedure RunTests
+    Move 0 to giPass
+    Move 0 to giFail
+    Direct_Output "DTAIOfflineTests.txt"
+    Send TestStopReasons
+    Send TestFinalize
+    Send TestToolRegistry
+    Send TestToolExecution
+    Send TestConversation
+    Send TestSilentErrors
+    Send TestGeminiRequest
+    Send TestClaudeRequest
+    Send TestClaudeParse
+    Send TestToolLoop
+    Send TestDialogue
+    Send TestDialogueSteps
+    Send TestDemoToolSet
+    Send TestLogLimit
+    Send TestChatCompletionsRequest
+    Send TestChatCompletionsParse
+    Send TestChatCompletionsLoop
+    Send TestGeminiConversationRequest
+    Send TestGeminiParse
+    Send TestGeminiLoop
+    Send TestPendingPerConversation
+    Send TestModelDefaults
+    Writeln ("TOTAL pass=" + String(giPass) + " fail=" + String(giFail))
+    Close_Output
+End_Procedure
+
+Send RunTests

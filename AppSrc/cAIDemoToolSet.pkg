@@ -1,0 +1,193 @@
+//=============================================================================
+// cAIDemoToolSet - the demo tools used by AIToolCallTest.vw and AIDialogueDemo.vw
+// (test data only, no database):
+//   get_weather      fixed weather for Paris, Oslo, Tokyo (others: 20 and sunny)
+//   calculate        add / subtract / multiply / divide (ToolError on divide by 0)
+//   lookup_customer  customers C001, C002, C003 (ToolError for others)
+//   always_fails     raises a DataFlex error (shows the error capture)
+//   post_note        appends to psNotes; pbRequiresConfirmation = True
+// OnToolActivity is sent for every call so a view can log it.
+// Must stay DataFlex 19.1 compatible.
+//=============================================================================
+Use ai.pkg
+
+Register_Procedure OnToolActivity String sText
+Register_Function  AddDemoNote String sText Returns Integer
+
+// base class of the demo tools: argument and JSON helpers
+Class cAIDemoTool is a cAITool
+    // JSON string escaping for tool results
+    Function JsonEscape String sText Returns String
+        Move (Replaces("\",sText,"\\")) to sText
+        Move (Replaces('"',sText,'\"')) to sText
+        Move (Replaces(Character(13),sText,"\r")) to sText
+        Move (Replaces(Character(10),sText,"\n")) to sText
+        Function_Return sText
+    End_Function
+
+    // a member of the call's arguments as text ('' when missing)
+    Function ArgValue Handle hoArgs String sName Returns String
+        Boolean bHas
+        String sValue
+        Get HasMember of hoArgs sName to bHas
+        If (bHas) Get MemberValue of hoArgs sName to sValue
+        Function_Return sValue
+    End_Function
+End_Class
+
+Class cAIDemoWeatherTool is a cAIDemoTool
+    Procedure Construct_Object
+        Forward Send Construct_Object
+        Set psName to "get_weather"
+        Set psDescription to "Current weather for a city (test data). Use when the user asks about weather."
+        Set psParametersJson to '{"type":"object","properties":{"city":{"type":"string","description":"City name"},"unit":{"type":"string","enum":["celsius","fahrenheit"]}},"required":["city"]}'
+    End_Procedure
+
+    Function Execute Handle hoArgs tAIToolCall ToolCall Returns String
+        String sCity sUnit sConditions
+        Number nTemp
+        Get ArgValue hoArgs "city" to sCity
+        Get ArgValue hoArgs "unit" to sUnit
+        If (sUnit='') Move "celsius" to sUnit
+        Move 20 to nTemp
+        Move "sunny" to sConditions
+        If (Lowercase(sCity)="paris") Begin
+            Move 12 to nTemp
+            Move "cloudy" to sConditions
+        End
+        If (Lowercase(sCity)="oslo") Begin
+            Move 5 to nTemp
+            Move "snow" to sConditions
+        End
+        If (Lowercase(sCity)="tokyo") Begin
+            Move 18 to nTemp
+            Move "rain" to sConditions
+        End
+        If (sUnit="fahrenheit") Move (nTemp*9/5+32) to nTemp
+        Delegate Send OnToolActivity ("get_weather"*sCity)
+        Function_Return ('{"city":"'+JsonEscape(Self,sCity)+'","temperature":'+String(nTemp)+',"unit":"'+sUnit+'","conditions":"'+sConditions+'"}')
+    End_Function
+End_Class
+
+Class cAIDemoCalculateTool is a cAIDemoTool
+    Procedure Construct_Object
+        Forward Send Construct_Object
+        Set psName to "calculate"
+        Set psDescription to "Exact arithmetic on two numbers."
+        Set psParametersJson to '{"type":"object","properties":{"a":{"type":"number"},"b":{"type":"number"},"operation":{"type":"string","enum":["add","subtract","multiply","divide"]}},"required":["a","b","operation"]}'
+    End_Procedure
+
+    Function Execute Handle hoArgs tAIToolCall ToolCall Returns String
+        Number nA nB nResult
+        String sOp
+        Move (ArgValue(Self,hoArgs,"a")) to nA
+        Move (ArgValue(Self,hoArgs,"b")) to nB
+        Get ArgValue hoArgs "operation" to sOp
+        Delegate Send OnToolActivity ("calculate"*String(nA)*sOp*String(nB))
+        If (sOp="add") Move (nA+nB) to nResult
+        Else If (sOp="subtract") Move (nA-nB) to nResult
+        Else If (sOp="multiply") Move (nA*nB) to nResult
+        Else If (sOp="divide") Begin
+            If (nB=0) Begin
+                Send ToolError "Division by zero is not allowed."
+                Function_Return ''
+            End
+            Move (nA/nB) to nResult
+        End
+        Else Begin
+            Send ToolError ("Unknown operation:"*sOp)
+            Function_Return ''
+        End
+        Function_Return ('{"result":'+String(nResult)+'}')
+    End_Function
+End_Class
+
+Class cAIDemoCustomerTool is a cAIDemoTool
+    Procedure Construct_Object
+        Forward Send Construct_Object
+        Set psName to "lookup_customer"
+        Set psDescription to "Looks up a customer by id (test data: C001, C002, C003)."
+        Set psParametersJson to '{"type":"object","properties":{"customer_id":{"type":"string"}},"required":["customer_id"]}'
+    End_Procedure
+
+    Function Execute Handle hoArgs tAIToolCall ToolCall Returns String
+        String sId
+        Get ArgValue hoArgs "customer_id" to sId
+        Move (Uppercase(Trim(sId))) to sId
+        Delegate Send OnToolActivity ("lookup_customer"*sId)
+        If (sId="C001") Function_Return '{"id":"C001","name":"Acme Corp","city":"Paris","balance":1250.50,"status":"active"}'
+        If (sId="C002") Function_Return '{"id":"C002","name":"Nordic Supply AS","city":"Oslo","balance":0,"status":"active"}'
+        If (sId="C003") Function_Return '{"id":"C003","name":"Tokyo Trading","city":"Tokyo","balance":-320.00,"status":"on hold"}'
+        Send ToolError ("Customer not found:"*sId)
+        Function_Return ''
+    End_Function
+End_Class
+
+Class cAIDemoFailingTool is a cAIDemoTool
+    Procedure Construct_Object
+        Forward Send Construct_Object
+        Set psName to "always_fails"
+        Set psDescription to "Test tool that always raises a DataFlex error."
+    End_Procedure
+
+    Function Execute Handle hoArgs tAIToolCall ToolCall Returns String
+        Delegate Send OnToolActivity "always_fails (raising a DataFlex error)"
+        Error DFERR_PROGRAM "always_fails: simulated database error"
+        Function_Return 'not used'
+    End_Function
+End_Class
+
+Class cAIDemoPostNoteTool is a cAIDemoTool
+    Procedure Construct_Object
+        Forward Send Construct_Object
+        Set psName to "post_note"
+        Set psDescription to "Posts a note to the team notice board (test). Changes data, so it needs confirmation."
+        Set psParametersJson to '{"type":"object","properties":{"text":{"type":"string"}},"required":["text"]}'
+        Set pbRequiresConfirmation to True
+    End_Procedure
+
+    Function Execute Handle hoArgs tAIToolCall ToolCall Returns String
+        String sText
+        Integer iCount
+        Get ArgValue hoArgs "text" to sText
+        Delegate Get AddDemoNote sText to iCount   // the notes live on the tool set
+        Delegate Send OnToolActivity ("post_note:"*sText)
+        Function_Return ('{"posted":true,"note_count":'+String(iCount)+'}')
+    End_Function
+End_Class
+
+// the set: one object of each demo tool
+Class cAIDemoToolSet is a cAIToolSet
+
+    Procedure Construct_Object
+        Forward Send Construct_Object
+        Property Integer piNoteCount 0
+        Property String  psNotes ''       // notes posted by post_note (CR LF separated)
+
+        Object oGetWeather is a cAIDemoWeatherTool
+        End_Object
+        Object oCalculate is a cAIDemoCalculateTool
+        End_Object
+        Object oLookupCustomer is a cAIDemoCustomerTool
+        End_Object
+        Object oAlwaysFails is a cAIDemoFailingTool
+        End_Object
+        Object oPostNote is a cAIDemoPostNoteTool
+        End_Object
+    End_Procedure
+
+    // event: a demo tool was called (sText describes the call)
+    Procedure OnToolActivity String sText
+    End_Procedure
+
+    // used by post_note: adds a note, returns the note count
+    Function AddDemoNote String sText Returns Integer
+        String sNotes
+        Get psNotes to sNotes
+        If (sNotes<>'') Move (sNotes+Character(13)+Character(10)) to sNotes
+        Set psNotes to (sNotes+sText)
+        Set piNoteCount to (piNoteCount(Self)+1)
+        Function_Return (piNoteCount(Self))
+    End_Function
+
+End_Class

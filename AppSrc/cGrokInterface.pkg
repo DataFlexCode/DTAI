@@ -1,17 +1,23 @@
 Use cAIResponseTranslator.pkg
 
+// Grok on the OpenAI-compatible Chat Completions endpoint (tool_calls_plan.md, D1).
+// Requests are built with cChatGPTRequest and responses read with cGrokTranslator
+// (a cChatGPTTranslator). The deprecated /v1/messages endpoint is no longer used.
 Class cGrokInterface is a cAiInterface
 
     Procedure construct_object
         Forward Send Construct_Object
         
-        Property String psHost "api.x.ai" // Updated to xAI API endpoint
-        Property String psModelId "grok-3" // Updated to Grok model ID
+        Property String psHost "api.x.ai" // xAI API endpoint
+        // grok-3 was retired on May 15, 2026 (requests are redirected to grok-4.3);
+        // xAI recommends grok-4.7 for chat and code
+        Property String psModelId "grok-4.7"
         Property Integer piMaxTokens 256000
 
-        Set psApiKey to (EnvironmentVariable(ghoEnvironment,'grok-api-key')) // Updated environment variable
+        Set psApiKey to (EnvironmentVariable(ghoEnvironment,'grok-api-key'))
         
-        Object oGrokRequest is a cClaudeRequest // Consider renaming to cGrokRequest
+        Object oGrokRequest is a cChatGPTRequest
+            Set pbFileParts to False   // xAI chat completions: images yes, PDF file parts no
         End_Object
         
         Object oGrokTranslator is a cGrokTranslator
@@ -31,12 +37,12 @@ Class cGrokInterface is a cAiInterface
         Set psContentTypeSent to "application/json" // grok is sensitive about this
         Get AddHeader "Cache-Control" "no-cache" to iRetVal
         Get AddHeader "Accept" "*/*" to iRetVal
-        Get AddHeader "Authorization" ("Bearer "+psApiKey(Self)) to iRetVal // Updated to Bearer token
+        Get AddHeader "Authorization" ("Bearer "+psApiKey(Self)) to iRetVal
     End_Procedure
     
+    // returns the response JSON, or 0 after reporting a transfer or API error
     Function MakeRequestJSON Handle hoRequest Returns Handle
-        Integer iRetVal
-        Boolean bError
+        Boolean bError bHas
         Handle hoResponse hoError
         String sResponseType sMessage
         Boolean bOk
@@ -45,21 +51,36 @@ Class cGrokInterface is a cAiInterface
             Send SetTimeout 45
             
             Send AddStandardHeaders
-            Get httpPostJson (psHost(Self)) "v1/messages" hoRequest (&bOk) to hoResponse
+            Get httpPostJson (psHost(Self)) "v1/chat/completions" hoRequest (&bOk) to hoResponse
             If (not(bOk)) Begin
                 If (left(psContentTypeReceived(Self),10)='text/plain') Begin
-                    Send info_box (DataReceived(Self)) "Text Response"
+                    If (not(pbSilentErrors(Self))) Send info_box (DataReceived(Self)) "Text Response"
                 End
-                Send UserError (TransferErrorDescription(Self)) "Transfer failed!"
+                Send ReportAIError AI_ERR_TRANSFER (TransferErrorDescription(Self)) "Transfer failed!"
+                Move 0 to hoResponse
             End
             Else Begin
                 Send RemoveNullMembers hoResponse
-                // Check for error and display
+                // xAI: {"code":"...","error":"..."}; OpenAI style: {"error":{"message":"...","type":"..."}}
                 Get HasMember of hoResponse 'error' to bError
                 If (bError) Begin
-                    Get MemberValue of hoResponse "code" to sResponseType
-                    Get MemberValue of hoResponse "error" to sMessage
-                    Send Stop_Box sMessage sResponseType                
+                    Move '' to sMessage
+                    Move '' to sResponseType
+                    Get Member of hoResponse "error" to hoError
+                    If (JsonType(hoError)=jsonTypeObject) Begin
+                        Get HasMember of hoError "message" to bHas
+                        If (bHas) Get MemberValue of hoError "message" to sMessage
+                        Get HasMember of hoError "type" to bHas
+                        If (bHas) Get MemberValue of hoError "type" to sResponseType
+                    End
+                    Else Get MemberValue of hoResponse "error" to sMessage
+                    Send Destroy of hoError
+                    Get HasMember of hoResponse "code" to bHas
+                    If (bHas and sResponseType='') Get MemberValue of hoResponse "code" to sResponseType
+                    If (sResponseType='') Move "API Error" to sResponseType
+                    Send ReportAIError AI_ERR_API sMessage sResponseType
+                    Send Destroy of hoResponse
+                    Move 0 to hoResponse
                 End
             End
         End
@@ -78,9 +99,9 @@ Class cGrokInterface is a cAiInterface
         If (SizeOfArray(ModelList)=0) Begin
             If (CheckApiKeyExists(Self)) Begin
                 Send AddStandardHeaders
-                Get HttpGetJson (psHost(Self)) "v1/models" (&bOk) to hoResponse // Verify endpoint with xAI API docs
+                Get HttpGetJson (psHost(Self)) "v1/models" (&bOk) to hoResponse
                 If (not(bOk)) Begin
-                    Send UserError (TransferErrorDescription(Self)) "Transfer failed!"
+                    Send ReportAIError AI_ERR_TRANSFER (TransferErrorDescription(Self)) "Transfer failed!"
                 End
                 Else Begin
                     Set pbRequireAllMembers of hoResponse to False
@@ -100,18 +121,22 @@ Class cGrokInterface is a cAiInterface
         Function_Return ModelList
     End_Function
     
-    Function CreateRequest String sPrompt tClaudeAttachment[] Attachments Returns Handle 
+    // single-turn request in Chat Completions format; attachments are optional
+    Function CreateRequest String sPrompt tAIAttachment[] Attachments Returns Handle 
         Handle hoRequest
-        tClaudeAttachment[] NoAttachments
+        tAIMessage[] aMessages
+        tAIToolDefinition[] aNoTools
         
-        If (num_arguments=1) Get CreateClaudeApiRequest of (oGrokRequest(Self)) sPrompt NoAttachments to hoRequest
-        If (num_arguments=2) Get CreateClaudeApiRequest of (oGrokRequest(Self)) sPrompt Attachments to hoRequest // Verify file support
+        Move "user" to aMessages[0].sRole
+        Move sPrompt to aMessages[0].sText
+        If (num_arguments>1) Move Attachments to aMessages[0].Attachments
+        Get ConstructConversationRequest of (oGrokRequest(Self)) (psModelId(Self)) (piMaxTokens(Self)) aMessages aNoTools '' AI_TOOLCHOICE_AUTO '' True to hoRequest
         Function_Return hoRequest
     End_Function
     
     Function MakeRequest Handle hoRequest Returns tAIResponse
         Handle hoResponse
-        tClaudeResponse GrokResponse        // Grok uses anthropic message API
+        tChatGPTResponse GrokResponse
         tAIResponse Response
         
         Set peWhiteSpace of hoRequest to jpWhitespace_Pretty
@@ -127,7 +152,31 @@ Class cGrokInterface is a cAiInterface
             //
             Get TranslateToUnified of oGrokTranslator GrokResponse to Response
         End
+        Else Move AI_STOP_ERROR to Response.eStopReason
         
         Function_Return Response
     End_Function
+
+    // provider id used in conversation history
+    Function ProviderName Returns String
+        Function_Return "grok"
+    End_Function
+
+    //=========================================================================
+    // Conversation with tools (tool_calls_plan.md, Phase 5)
+    //=========================================================================
+
+    Function BuildConversationRequest tAIMessage[] Messages tAIToolDefinition[] Tools Returns Handle
+        Handle hoRequest
+        Get ConstructConversationRequest of (oGrokRequest(Self)) (psModelId(Self)) (piMaxTokens(Self)) Messages Tools (EffectiveSystemPrompt(Self)) (peToolChoice(Self)) (psToolChoiceName(Self)) (pbParallelToolCalls(Self)) to hoRequest
+        Function_Return hoRequest
+    End_Function
+
+    Function ParseConversationResponse Handle hoResponse Returns tAIResponse
+        tAIResponse Response
+        Send RemoveNullMembers hoResponse
+        Get TranslateConversationResponse of oGrokTranslator hoResponse (ProviderName(Self)) to Response
+        Function_Return Response
+    End_Function
+
 End_Class

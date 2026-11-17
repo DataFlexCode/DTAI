@@ -1,91 +1,135 @@
+Use ai.h
 Use geminiai.h
 Use cJsonObject.pkg
 
 
 Class cGeminiRequest is a cJsonObject
+
+    Procedure Construct_Object
+        Forward Send Construct_Object
+        // conversation build state (CreateGeminiConversationRequest)
+        Property Handle phoPendingParts 0
+        Property String psPendingRole ''
+    End_Procedure
     
     //-----------------------------------------------------------------------------
     // function to Construct a Gemini API JSON Request
     //-----------------------------------------------------------------------------
     
-    Function CreateGeminiApiJsonRequest String sModelId tGeminiPart[] aParts tGenerationConfig tGenConfig Returns String
+    // parse JSON text into a cJsonObject; returns 0 when sJson is not a JSON object
+    Function ParseJsonObjectText String sJson Returns Handle
+        Handle hoJson
+        Boolean bOk
+        If (Trim(sJson)='') Function_Return 0
+        Get Create (RefClass(cJsonObject)) to hoJson
+        Get ParseString of hoJson sJson to bOk
+        If (bOk) Move (JsonType(hoJson)=jsonTypeObject) to bOk
+        If (not(bOk)) Begin
+            Send Destroy of hoJson
+            Function_Return 0
+        End
+        Function_Return hoJson
+    End_Function
+
+    // Consecutive parts with the same role are grouped into one "contents" entry
+    //  (Gemini expects e.g. all functionCall parts of a turn in one model content).
+    // functionCall.args and functionResponse.response are JSON objects, not strings.
+    Function CreateGeminiApiJsonRequest String sModelId tGeminiPart[] aParts tGenerationConfig tGenConfig Returns Handle
         Handle hoJsonRequest hoContentsArray hoContentObject hoPartsArray hoPartObject
-        String sJsonString
+        Handle hoInlineData hoFunctionCall hoFunctionResponse hoValue hoWrapper
         Integer i
-        
+        String sCurrentRole
+
         // Create the main JSON object for the request payload
         Get Create (RefClass(cJsonObject)) to hoJsonRequest
         Send InitializeJsonType of hoJsonRequest jsonTypeObject
-        
+
         // Create the 'contents' array, which holds the conversation history
         Get Create (RefClass(cJsonObject)) to hoContentsArray
         Send InitializeJsonType of hoContentsArray jsonTypeArray
-        
-        // Iterate through the array of parts and build the JSON structure
+
+        Move 0 to hoContentObject
+        Move 0 to hoPartsArray
+        Move '' to sCurrentRole
+
         For i from 0 to (SizeOfArray(aParts) - 1)
-            
-            // Create a JSON object for the role and its parts
-            Get Create (RefClass(cJsonObject)) to hoContentObject
-            Send InitializeJsonType of hoContentObject jsonTypeObject
-            
-            // Add the 'role' property (e.g., "user")
-            Send SetMemberValue of hoContentObject "role" jsonTypeString (aParts[i].sRole)
-            
-            // Create the 'parts' array
-            Get Create (RefClass(cJsonObject)) to hoPartsArray
-            Send InitializeJsonType of hoPartsArray jsonTypeArray
-            
+
+            // start a new content entry when the role changes
+            If (hoContentObject=0 or aParts[i].sRole<>sCurrentRole) Begin
+                If (hoContentObject<>0) Begin
+                    Send SetMember of hoContentObject "parts" hoPartsArray
+                    Send AddMember of hoContentsArray hoContentObject
+                    Send Destroy of hoPartsArray
+                    Send Destroy of hoContentObject
+                End
+                Get Create (RefClass(cJsonObject)) to hoContentObject
+                Send InitializeJsonType of hoContentObject jsonTypeObject
+                Send SetMemberValue of hoContentObject "role" jsonTypeString (aParts[i].sRole)
+                Get Create (RefClass(cJsonObject)) to hoPartsArray
+                Send InitializeJsonType of hoPartsArray jsonTypeArray
+                Move aParts[i].sRole to sCurrentRole
+            End
+
             // Create the part object based on its type
             Get Create (RefClass(cJsonObject)) to hoPartObject
             Send InitializeJsonType of hoPartObject jsonTypeObject
-            
-            // Add the appropriate part based on the sPartType
+
             If (aParts[i].sPartType='text') Begin
-                Send SetMemberValue of hoPartObject "text" jsonTypeString (aParts[i].sText) 
+                Send SetMemberValue of hoPartObject "text" jsonTypeString (aParts[i].sText)
             End
             If (aParts[i].sPartType='inlineData') Begin
-                Handle hoInlineData
                 Get Create (RefClass(cJsonObject)) to hoInlineData
                 Send InitializeJsonType of hoInlineData jsonTypeObject
-                Send SetMemberValue of hoInlineData "mimeType"      jsonTypeString (aParts[i].sMimeType) 
-                Send SetMemberValue of hoInlineData "data"          jsonTypeString (aParts[i].sData) 
+                Send SetMemberValue of hoInlineData "mimeType"      jsonTypeString (aParts[i].sMimeType)
+                Send SetMemberValue of hoInlineData "data"          jsonTypeString (aParts[i].sData)
                 Send SetMember of hoPartObject "inlineData" hoInlineData
                 Send Destroy of hoInlineData
             End
             If (aParts[i].sPartType="functionCall") Begin
-                Handle hoFunctionCall
                 Get Create (RefClass(cJsonObject)) to hoFunctionCall
                 Send InitializeJsonType of hoFunctionCall jsonTypeObject
-                Send SetMemberValue of hoFunctionCall "name"        jsonTypeString (aParts[i].sFunctionName) 
-                Send SetMemberValue of hoFunctionCall "args"        jsonTypeString (aParts[i].sFunctionArgs) 
+                Send SetMemberValue of hoFunctionCall "name" jsonTypeString (aParts[i].sFunctionName)
+                Get ParseJsonObjectText (aParts[i].sFunctionArgs) to hoValue
+                If (hoValue=0) Begin
+                    Get Create (RefClass(cJsonObject)) to hoValue
+                    Send InitializeJsonType of hoValue jsonTypeObject
+                End
+                Send SetMember of hoFunctionCall "args" hoValue
+                Send Destroy of hoValue
                 Send SetMember of hoPartObject "functionCall" hoFunctionCall
                 Send Destroy of hoFunctionCall
             End
             If (aParts[i].sPartType="functionResponse") Begin
-                Handle hoFunctionResponse
                 Get Create (RefClass(cJsonObject)) to hoFunctionResponse
                 Send InitializeJsonType of hoFunctionResponse jsonTypeObject
-                Send SetMemberValue of hoFunctionResponse "name"        jsonTypeString (aParts[i].sFunctionName) 
-                Send SetMemberValue of hoFunctionResponse "content"     jsonTypeString (aParts[i].sFunctionContent) 
+                Send SetMemberValue of hoFunctionResponse "name" jsonTypeString (aParts[i].sFunctionName)
+                // response must be an object: {"result": <object or text>}
+                Get Create (RefClass(cJsonObject)) to hoWrapper
+                Send InitializeJsonType of hoWrapper jsonTypeObject
+                Get ParseJsonObjectText (aParts[i].sFunctionContent) to hoValue
+                If (hoValue<>0) Begin
+                    Send SetMember of hoWrapper "result" hoValue
+                    Send Destroy of hoValue
+                End
+                Else Send SetMemberValue of hoWrapper "result" jsonTypeString (aParts[i].sFunctionContent)
+                Send SetMember of hoFunctionResponse "response" hoWrapper
+                Send Destroy of hoWrapper
                 Send SetMember of hoPartObject "functionResponse" hoFunctionResponse
                 Send Destroy of hoFunctionResponse
             End
-            
-            // Add the completed part object to the parts array
+
             Send AddMember of hoPartsArray hoPartObject
-            
-            // Add the parts array to the content object
-            Send SetMember of hoContentObject "parts" hoPartsArray
-            
-            // Add the completed content object to the main 'contents' array
-            Send AddMember of hoContentsArray hoContentObject            
-            
-            // Destroy the handles for the inner objects to free memory
             Send Destroy of hoPartObject
+        Loop
+
+        // close the last content entry
+        If (hoContentObject<>0) Begin
+            Send SetMember of hoContentObject "parts" hoPartsArray
+            Send AddMember of hoContentsArray hoContentObject
             Send Destroy of hoPartsArray
             Send Destroy of hoContentObject
-        Loop
-        
+        End
+
         // Add the 'contents' array to the main request JSON
         Send SetMember of hoJsonRequest "contents" hoContentsArray
         Send Destroy of hoContentsArray
@@ -109,6 +153,293 @@ Class cGeminiRequest is a cJsonObject
         Send SetMemberValue of hoJsonRequest "model" jsonTypeString sModelId
         
         Function_Return hoJsonRequest
+    End_Function
+
+    //=========================================================================
+    // Conversation requests (tool_calls_plan.md, Phase 6)
+    // Neutral tAIMessage[] -> generateContent request with systemInstruction,
+    // tools[].functionDeclarations, toolConfig and functionCall/functionResponse
+    // parts. Consecutive turns with the same role are merged into one content,
+    // because Gemini wants user and model turns to alternate.
+    //=========================================================================
+
+    Function NewJsonNode Integer eType Returns Handle
+        Handle hoNode
+        Get Create (RefClass(cJsonObject)) to hoNode
+        Send InitializeJsonType of hoNode eType
+        Function_Return hoNode
+    End_Function
+
+    // adds the pending parts as one {"role":..,"parts":[..]} content
+    Procedure FlushPendingContent Handle hoContents
+        Handle hoParts hoContent
+        Get phoPendingParts to hoParts
+        If (hoParts=0) Procedure_Return
+        If (MemberCount(hoParts)>0) Begin
+            Get NewJsonNode jsonTypeObject to hoContent
+            Send SetMemberValue of hoContent "role" jsonTypeString (psPendingRole(Self))
+            Send SetMember of hoContent "parts" hoParts
+            Send AddMember of hoContents hoContent
+            Send Destroy of hoContent
+        End
+        Send Destroy of hoParts
+        Set phoPendingParts to 0
+        Set psPendingRole to ''
+    End_Procedure
+
+    // the parts array to add to for sRole ("user" or "model")
+    Function PartsForRole Handle hoContents String sRole Returns Handle
+        Handle hoParts
+        Get phoPendingParts to hoParts
+        If (hoParts<>0) Begin
+            If (psPendingRole(Self)=sRole) Function_Return hoParts
+        End
+        Send FlushPendingContent hoContents
+        Get NewJsonNode jsonTypeArray to hoParts
+        Set phoPendingParts to hoParts
+        Set psPendingRole to sRole
+        Function_Return hoParts
+    End_Function
+
+    Procedure AddTextPart Handle hoParts String sText
+        Handle hoPart
+        Get NewJsonNode jsonTypeObject to hoPart
+        Send SetMemberValue of hoPart "text" jsonTypeString sText
+        Send AddMember of hoParts hoPart
+        Send Destroy of hoPart
+    End_Procedure
+
+    // text/JSON attachments as text parts, files with an id/uri as fileData, others inlineData
+    Procedure AddAttachmentParts Handle hoParts tAIAttachment[] Attachments
+        Handle hoPart hoData
+        Integer i
+        String sMime
+        For i from 0 to (SizeOfArray(Attachments)-1)
+            Move Attachments[i].sMimeType to sMime
+            If (Left(sMime,4)='text' or sMime='application/json') Begin
+                Send AddTextPart hoParts (UCharArrayToString(Attachments[i].uBase64File))
+            End
+            Else Begin
+                Get NewJsonNode jsonTypeObject to hoData
+                Send SetMemberValue of hoData "mimeType" jsonTypeString sMime
+                Get NewJsonNode jsonTypeObject to hoPart
+                If (Attachments[i].sFileID<>'') Begin
+                    Send SetMemberValue of hoData "fileUri" jsonTypeString Attachments[i].sFileID
+                    Send SetMember of hoPart "fileData" hoData
+                End
+                Else Begin
+                    Send SetMemberValue of hoData "data" jsonTypeString (UCharArrayToString(Attachments[i].uBase64File))
+                    Send SetMember of hoPart "inlineData" hoData
+                End
+                Send AddMember of hoParts hoPart
+                Send Destroy of hoData
+                Send Destroy of hoPart
+            End
+        Loop
+    End_Procedure
+
+    // true when a call id came from Gemini itself (ids we generate are not sent back)
+    Function IsNativeGeminiCallId String sProvider String sId Returns Boolean
+        If (sProvider<>'gemini' or sId='') Function_Return False
+        Function_Return (Left(sId,12)<>'gemini-call-')
+    End_Function
+
+    // model turn: replay the raw Gemini content when we have it (keeps thought
+    // signatures), else rebuild text + functionCall parts from the neutral form
+    Procedure AddModelTurn Handle hoContents tAIMessage Msg
+        Handle hoReplay hoRawParts hoRawPart hoParts hoPart hoCall hoArgs
+        Boolean bOk bHas
+        Integer i iCount
+
+        If (SizeOfArray(Msg.ucProviderJson)>0) Begin
+            Get Create (RefClass(cJsonObject)) to hoReplay
+            Get ParseUtf8 of hoReplay Msg.ucProviderJson to bOk
+            If (bOk) Move (JsonType(hoReplay)=jsonTypeObject) to bOk
+            If (bOk) Get HasMember of hoReplay "parts" to bOk
+            If (bOk) Begin
+                Get Member of hoReplay "parts" to hoRawParts
+                Get MemberCount of hoRawParts to iCount
+                If (iCount>0) Begin
+                    Get PartsForRole hoContents "model" to hoParts
+                    For i from 0 to (iCount-1)
+                        Get MemberByIndex of hoRawParts i to hoRawPart
+                        Send AddMember of hoParts hoRawPart
+                        Send Destroy of hoRawPart
+                    Loop
+                End
+                Send Destroy of hoRawParts
+                Send Destroy of hoReplay
+                If (iCount>0) Procedure_Return
+            End
+            Else Send Destroy of hoReplay
+        End
+
+        If (Msg.sText='' and SizeOfArray(Msg.ToolCalls)=0) Procedure_Return
+        Get PartsForRole hoContents "model" to hoParts
+        If (Msg.sText<>'') Send AddTextPart hoParts Msg.sText
+        For i from 0 to (SizeOfArray(Msg.ToolCalls)-1)
+            Get ParseJsonObjectText Msg.ToolCalls[i].sArgumentsJson to hoArgs
+            If (hoArgs=0) Get NewJsonNode jsonTypeObject to hoArgs
+            Get NewJsonNode jsonTypeObject to hoCall
+            Send SetMemberValue of hoCall "name" jsonTypeString Msg.ToolCalls[i].sName
+            Send SetMember of hoCall "args" hoArgs
+            If (IsNativeGeminiCallId(Self,Msg.sProvider,Msg.ToolCalls[i].sId)) Send SetMemberValue of hoCall "id" jsonTypeString Msg.ToolCalls[i].sId
+            Get NewJsonNode jsonTypeObject to hoPart
+            Send SetMember of hoPart "functionCall" hoCall
+            If (Msg.sProvider='gemini' and Msg.ToolCalls[i].sProviderData<>'') Send SetMemberValue of hoPart "thoughtSignature" jsonTypeString Msg.ToolCalls[i].sProviderData
+            Send AddMember of hoParts hoPart
+            Send Destroy of hoArgs
+            Send Destroy of hoCall
+            Send Destroy of hoPart
+        Loop
+    End_Procedure
+
+    // tool turn: one functionResponse part per result, in call order. The name
+    // comes from the result, else from the matching call (by id, then position).
+    // The id is only sent back when Gemini supplied one.
+    Procedure AddFunctionResponseTurn Handle hoContents tAIMessage Msg tAIMessage CallMsg
+        Handle hoParts hoPart hoFn hoWrapper hoValue
+        Integer i j
+        String sName sId
+        Boolean bNative
+
+        If (SizeOfArray(Msg.ToolResults)=0) Procedure_Return
+        Get PartsForRole hoContents "user" to hoParts
+        For i from 0 to (SizeOfArray(Msg.ToolResults)-1)
+            Move Msg.ToolResults[i].sName to sName
+            Move Msg.ToolResults[i].sCallId to sId
+            Move False to bNative
+            For j from 0 to (SizeOfArray(CallMsg.ToolCalls)-1)
+                If (CallMsg.ToolCalls[j].sId=sId and sId<>'') Begin
+                    If (sName='') Move CallMsg.ToolCalls[j].sName to sName
+                    Get IsNativeGeminiCallId CallMsg.sProvider sId to bNative
+                End
+            Loop
+            If (sName='' and i<SizeOfArray(CallMsg.ToolCalls)) Move CallMsg.ToolCalls[i].sName to sName
+
+            Get NewJsonNode jsonTypeObject to hoWrapper
+            If (Msg.ToolResults[i].bIsError) Begin
+                Send SetMemberValue of hoWrapper "error" jsonTypeString Msg.ToolResults[i].sContent
+            End
+            Else Begin
+                Get ParseJsonObjectText Msg.ToolResults[i].sContent to hoValue
+                If (hoValue<>0) Begin
+                    Send SetMember of hoWrapper "result" hoValue
+                    Send Destroy of hoValue
+                End
+                Else Send SetMemberValue of hoWrapper "result" jsonTypeString Msg.ToolResults[i].sContent
+            End
+            Get NewJsonNode jsonTypeObject to hoFn
+            If (bNative) Send SetMemberValue of hoFn "id" jsonTypeString sId
+            Send SetMemberValue of hoFn "name" jsonTypeString sName
+            Send SetMember of hoFn "response" hoWrapper
+            Get NewJsonNode jsonTypeObject to hoPart
+            Send SetMember of hoPart "functionResponse" hoFn
+            Send AddMember of hoParts hoPart
+            Send Destroy of hoWrapper
+            Send Destroy of hoFn
+            Send Destroy of hoPart
+        Loop
+    End_Procedure
+
+    // Builds a generateContent request. toolConfig is only sent when the choice is
+    // not "auto". Gemini has no switch for parallel calls, so that setting is ignored.
+    // generationConfig: members of GenConfig that are set, maxOutputTokens falls back to iMaxTokens.
+    Function CreateGeminiConversationRequest tAIMessage[] Messages tAIToolDefinition[] Tools String sSystem Integer eToolChoice String sToolChoiceName tGenerationConfig GenConfig Integer iMaxTokens Returns Handle
+        Handle hoRoot hoContents hoParts hoSys hoTools hoToolObj hoDecls hoDecl hoSchema hoConfig hoFcc hoNames hoGen
+        tAIMessage LastAssistant EmptyMsg
+        Integer i
+
+        Get NewJsonNode jsonTypeObject to hoRoot
+
+        If (sSystem<>'') Begin
+            Get NewJsonNode jsonTypeArray to hoParts
+            Send AddTextPart hoParts sSystem
+            Get NewJsonNode jsonTypeObject to hoSys
+            Send SetMember of hoSys "parts" hoParts
+            Send SetMember of hoRoot "systemInstruction" hoSys
+            Send Destroy of hoParts
+            Send Destroy of hoSys
+        End
+
+        Get NewJsonNode jsonTypeArray to hoContents
+        Set phoPendingParts to 0
+        Set psPendingRole to ''
+        For i from 0 to (SizeOfArray(Messages)-1)
+            If (Messages[i].sRole='assistant') Begin
+                Send AddModelTurn hoContents Messages[i]
+                Move Messages[i] to LastAssistant
+            End
+            Else If (Messages[i].sRole='tool') Begin
+                Send AddFunctionResponseTurn hoContents Messages[i] LastAssistant
+                Move EmptyMsg to LastAssistant
+            End
+            Else Begin
+                If (Messages[i].sText<>'' or SizeOfArray(Messages[i].Attachments)>0) Begin
+                    Get PartsForRole hoContents "user" to hoParts
+                    If (Messages[i].sText<>'') Send AddTextPart hoParts Messages[i].sText
+                    Send AddAttachmentParts hoParts Messages[i].Attachments
+                End
+            End
+        Loop
+        Send FlushPendingContent hoContents
+        Send SetMember of hoRoot "contents" hoContents
+        Send Destroy of hoContents
+
+        If (SizeOfArray(Tools)>0) Begin
+            Get NewJsonNode jsonTypeArray to hoDecls
+            For i from 0 to (SizeOfArray(Tools)-1)
+                Get NewJsonNode jsonTypeObject to hoDecl
+                Send SetMemberValue of hoDecl "name" jsonTypeString Tools[i].sName
+                If (Tools[i].sDescription<>'') Send SetMemberValue of hoDecl "description" jsonTypeString Tools[i].sDescription
+                // blank or invalid schema: a function without parameters
+                Get ParseJsonObjectText Tools[i].sParametersJson to hoSchema
+                If (hoSchema<>0) Begin
+                    Send SetMember of hoDecl "parametersJsonSchema" hoSchema
+                    Send Destroy of hoSchema
+                End
+                Send AddMember of hoDecls hoDecl
+                Send Destroy of hoDecl
+            Loop
+            Get NewJsonNode jsonTypeObject to hoToolObj
+            Send SetMember of hoToolObj "functionDeclarations" hoDecls
+            Get NewJsonNode jsonTypeArray to hoTools
+            Send AddMember of hoTools hoToolObj
+            Send SetMember of hoRoot "tools" hoTools
+            Send Destroy of hoDecls
+            Send Destroy of hoToolObj
+            Send Destroy of hoTools
+
+            If (eToolChoice<>AI_TOOLCHOICE_AUTO) Begin
+                Get NewJsonNode jsonTypeObject to hoFcc
+                If (eToolChoice=AI_TOOLCHOICE_NONE) Send SetMemberValue of hoFcc "mode" jsonTypeString "NONE"
+                Else Send SetMemberValue of hoFcc "mode" jsonTypeString "ANY"
+                If (eToolChoice=AI_TOOLCHOICE_SPECIFIC and sToolChoiceName<>'') Begin
+                    Get NewJsonNode jsonTypeArray to hoNames
+                    Send AddMemberValue of hoNames jsonTypeString sToolChoiceName
+                    Send SetMember of hoFcc "allowedFunctionNames" hoNames
+                    Send Destroy of hoNames
+                End
+                Get NewJsonNode jsonTypeObject to hoConfig
+                Send SetMember of hoConfig "functionCallingConfig" hoFcc
+                Send SetMember of hoRoot "toolConfig" hoConfig
+                Send Destroy of hoFcc
+                Send Destroy of hoConfig
+            End
+        End
+
+        If (GenConfig.iMaxOutputTokens>0) Move GenConfig.iMaxOutputTokens to iMaxTokens
+        If (iMaxTokens>0 or GenConfig.nTemperature>0 or GenConfig.nTopP>0 or GenConfig.iTopK>0) Begin
+            Get NewJsonNode jsonTypeObject to hoGen
+            If (iMaxTokens>0) Send SetMemberValue of hoGen "maxOutputTokens" jsonTypeInteger iMaxTokens
+            If (GenConfig.nTemperature>0) Send SetMemberValue of hoGen "temperature" jsonTypeDouble GenConfig.nTemperature
+            If (GenConfig.nTopP>0) Send SetMemberValue of hoGen "topP" jsonTypeDouble GenConfig.nTopP
+            If (GenConfig.iTopK>0) Send SetMemberValue of hoGen "topK" jsonTypeInteger GenConfig.iTopK
+            Send SetMember of hoRoot "generationConfig" hoGen
+            Send Destroy of hoGen
+        End
+
+        Function_Return hoRoot
     End_Function
     
 End_Class

@@ -2,6 +2,8 @@ Use ai.h
 Use cdtJsonHttpTransfer.pkg
 Use cMarkdown_mixin.pkg
 Use cBase64Attachment_mixin.pkg
+Use cAIConversation.pkg
+Use cAIToolSet.pkg
 
 // subclass of cdtJsonHttpTransfer gets the cMarkdown_mixin and cBase64Attachment_mixin
 
@@ -20,7 +22,54 @@ Class cAiInterface is a cdtJsonHttpTransfer
         Property String psModelResponseJson ''
         Property String psModelRequestJson ''
         Property tRestCallStats pLastCallStats
-                
+
+        // silent errors (D4)
+        Property Boolean pbSilentErrors    False  // True = no boxes; check HasError / psLastError
+        Property String  psLastError       ''
+        Property Integer piLastErrorNumber AI_ERR_NONE
+        Property Integer piLastHttpStatus  0
+        Property String  psLastErrorDetail ''
+
+        // tools
+        Property tAIToolDefinition[] paTools
+        Property Integer peToolChoice          AI_TOOLCHOICE_AUTO
+        Property String  psToolChoiceName      ''
+        Property Boolean pbParallelToolCalls   True
+        Property Integer piMaxToolIterations   8
+        Property Boolean pbAutoExecuteTools    True   // False = manual mode
+        Property Integer piMaxToolResultLength 100000
+        Property Handle  phoToolSet            0      // optional cAIToolSet
+
+        // conversation (D3): attach a cAIConversation, else the default one is used
+        Property String  psSystemPrompt        ''
+        Property Handle  phoConversation       0
+        Property Handle  phoDefaultConversation 0
+
+        Object oDefaultConversation is a cAIConversation
+        End_Object
+        Set phoDefaultConversation to oDefaultConversation
+
+        // tool loop (Phase 3)
+        Property Handle   phoToolHandler      0  // object with Function OnToolCall tAIToolCall Returns tAIToolResult (AddTool tools)
+        Property String[] paToolLoopLog          // request/response JSON of every round trip of the last Chat/ContinueConversation
+        // the confirmation state (pending calls, held results, approvals) lives on
+        // the cAIConversation, so views with their own conversations don't interfere
+        Property Integer  piMaxRepeatedToolCalls 3 // same name+arguments this often in one loop stops it
+        Property Handle   phoToolErrorCapture 0
+        // log limits: on 19.x strings are limited by the argument size, so long
+        // entries are cut there by default (0 = no limit). Oldest entries are dropped
+        // beyond piMaxLogEntries (0 = keep all).
+#IF (!@>191)
+        Property Integer  piMaxLogLength 0
+#ELSE
+        Property Integer  piMaxLogLength 60000
+#ENDIF
+        Property Integer  piMaxLogEntries 40
+
+        Object oToolErrorCapture is a cAIToolErrorCapture
+        End_Object
+        Set phoToolErrorCapture to oToolErrorCapture
+
         Set peTransferFlags to ifSecure
         Set piRemotePort to rpHttpSSL
     End_Procedure
@@ -29,9 +78,11 @@ Class cAiInterface is a cdtJsonHttpTransfer
         Forward Send End_Construct_Object
     End_Procedure
     
+    // start of every provider call: clears the last error, then checks the key
     Function CheckApiKeyExists Returns Boolean
+        Send ClearLastError
         If (psApiKey(Self)='') Begin
-            Error DFERR_PROGRAM "Error API Key is not set, add to .env file"
+            Send ReportAIError AI_ERR_NO_API_KEY "Error API Key is not set, add to .env file" "API Key"
             Function_Return 0
         End
         Else Function_Return 1
@@ -82,4 +133,681 @@ Class cAiInterface is a cdtJsonHttpTransfer
         Function_Return hoRequest
     End_Function
     
+    //=========================================================================
+    // Silent errors (tool_calls_plan.md, decision D4)
+    // All provider/transfer errors go through ReportAIError. When pbSilentErrors
+    // is False (default) the same boxes as before are shown; when True only the
+    // properties are set and OnAIError is sent.
+    //=========================================================================
+
+    Procedure ClearLastError
+        Set piLastErrorNumber to AI_ERR_NONE
+        Set psLastError to ''
+        Set psLastErrorDetail to ''
+        Set piLastHttpStatus to 0
+    End_Procedure
+
+    Function HasError Returns Boolean
+        Function_Return (piLastErrorNumber(Self)<>AI_ERR_NONE)
+    End_Function
+
+    // record an error without any UI and without OnAIError
+    Procedure SetAIError Integer iErr String sMessage String sDetail
+        Integer iStatus
+        Set piLastErrorNumber to iErr
+        Set psLastError to sMessage
+        Set psLastErrorDetail to sDetail
+        Move 0 to iStatus
+        If (iErr=AI_ERR_TRANSFER or iErr=AI_ERR_API) Get ResponseStatusCode to iStatus
+        Set piLastHttpStatus to iStatus
+    End_Procedure
+
+    // event for application logging; sent for every reported error
+    Procedure OnAIError Integer iErr String sMessage
+    End_Procedure
+
+    // sCaption is the box caption (and is kept in psLastErrorDetail)
+    Procedure ReportAIError Integer iErr String sMessage String sCaption
+        Send SetAIError iErr sMessage sCaption
+        Send OnAIError iErr sMessage
+        If (pbSilentErrors(Self)) Procedure_Return
+        If (iErr=AI_ERR_NO_API_KEY) Begin
+            Error DFERR_PROGRAM sMessage
+        End
+        Else If (iErr=AI_ERR_TRANSFER) Begin
+            Send UserError sMessage sCaption
+        End
+        Else Begin
+            Send Stop_Box sMessage sCaption
+        End
+    End_Procedure
+
+    // short provider id used in conversation history ("claude", "chatgpt", ...)
+    Function ProviderName Returns String
+        Function_Return ''
+    End_Function
+
+    //=========================================================================
+    // Conversation (D3). History lives in a cAIConversation object.
+    //=========================================================================
+
+    // the attached conversation, or the internal default one
+    Function ActiveConversation Returns Handle
+        Handle hoConv
+        Get phoConversation to hoConv
+        If (hoConv=0) Get phoDefaultConversation to hoConv
+        Function_Return hoConv
+    End_Function
+
+    Procedure ClearConversation
+        Send ClearMessages of (ActiveConversation(Self))
+    End_Procedure
+
+    Procedure AddUserMessage String sText
+        Send AddUserMessage of (ActiveConversation(Self)) sText
+    End_Procedure
+
+    Procedure AddUserMessageWithAttachments String sText tAIAttachment[] Attachments
+        Send AddUserMessageWithAttachments of (ActiveConversation(Self)) sText Attachments
+    End_Procedure
+
+    Procedure AddToolResults tAIToolResult[] Results
+        Send AddToolResults of (ActiveConversation(Self)) Results
+    End_Procedure
+
+    Function ConversationMessages Returns tAIMessage[]
+        Function_Return (MessagesForProvider(ActiveConversation(Self),ProviderName(Self)))
+    End_Function
+
+    Procedure SetConversationMessages tAIMessage[] aMessages
+        Send SetMessages of (ActiveConversation(Self)) aMessages
+    End_Procedure
+
+    // system prompt for the next request: the conversation's, else the provider's
+    Function EffectiveSystemPrompt Returns String
+        String sPrompt
+        Get psSystemPrompt of (ActiveConversation(Self)) to sPrompt
+        If (sPrompt='') Get psSystemPrompt to sPrompt
+        Function_Return sPrompt
+    End_Function
+
+    //=========================================================================
+    // Tool registry and tool choice
+    //=========================================================================
+
+    // ^[a-zA-Z0-9_-]{1,64}$ (strictest common rule across providers)
+    Function ValidToolName String sName Returns Boolean
+        Integer i iLen iChar
+        Boolean bOk
+        Move (Length(sName)) to iLen
+        If (iLen<1 or iLen>64) Function_Return False
+        For i from 1 to iLen
+            Move (Ascii(Mid(sName,1,i))) to iChar
+            Move ((iChar>=48 and iChar<=57) or (iChar>=65 and iChar<=90) or (iChar>=97 and iChar<=122) or iChar=95 or iChar=45) to bOk
+            If (not(bOk)) Function_Return False
+        Loop
+        Function_Return True
+    End_Function
+
+    // Parses sJson; when it is a JSON object returns it re-stringified (plain), else
+    // bOk=False and sError holds the reason. Blank input returns "{}".
+    Function NormalizeJsonObjectText String sJson Boolean ByRef bOk String ByRef sError Returns String
+        Handle hoJson
+        Boolean bParsed
+        String sRetVal
+        Move False to bOk
+        Move '' to sError
+        If (Trim(sJson)='') Begin
+            Move True to bOk
+            Function_Return '{}'
+        End
+        Get Create (RefClass(cJsonObject)) to hoJson
+        Get ParseString of hoJson sJson to bParsed
+        If (not(bParsed)) Begin
+            Get psParseError of hoJson to sError
+        End
+        Else If (JsonType(hoJson)<>jsonTypeObject) Begin
+            Move "JSON value is not an object" to sError
+        End
+        Else Begin
+            Set peWhiteSpace of hoJson to jpWhitespace_Plain
+            Get Stringify of hoJson to sRetVal
+            Move True to bOk
+        End
+        Send Destroy of hoJson
+        Function_Return sRetVal
+    End_Function
+
+    // index in paTools, -1 if not registered there
+    Function ToolIndex String sName Returns Integer
+        tAIToolDefinition[] aTools
+        Integer i
+        Get paTools to aTools
+        For i from 0 to (SizeOfArray(aTools)-1)
+            If (aTools[i].sName=sName) Function_Return i
+        Loop
+        Function_Return -1
+    End_Function
+
+    // bRequiresConfirmation is optional (default False). Re-adding a name replaces it.
+    Procedure AddTool String sName String sDescription String sParametersJson Boolean bRequiresConfirmation
+        tAIToolDefinition[] aTools
+        tAIToolDefinition Tool
+        Boolean bOk bConfirm
+        String sError sSchema
+        Integer iIndex
+
+        Move False to bConfirm
+        If (num_arguments>3) Move bRequiresConfirmation to bConfirm
+
+        If (not(ValidToolName(Self,sName))) Begin
+            Send ReportAIError AI_ERR_TOOL_DEFINITION ("Invalid tool name:"*sName) "AddTool"
+            Procedure_Return
+        End
+        If (Trim(sParametersJson)='') Move '{"type":"object","properties":{}}' to sSchema
+        Else Begin
+            Get NormalizeJsonObjectText sParametersJson (&bOk) (&sError) to sSchema
+            If (not(bOk)) Begin
+                Send ReportAIError AI_ERR_TOOL_DEFINITION ("Invalid parameter schema for tool"*sName+":"*sError) "AddTool"
+                Procedure_Return
+            End
+        End
+
+        Move sName to Tool.sName
+        Move sDescription to Tool.sDescription
+        Move sSchema to Tool.sParametersJson
+        Move False to Tool.bStrict
+        Move bConfirm to Tool.bRequiresConfirmation
+
+        Get paTools to aTools
+        Get ToolIndex sName to iIndex
+        If (iIndex<0) Move (SizeOfArray(aTools)) to iIndex
+        Move Tool to aTools[iIndex]
+        Set paTools to aTools
+    End_Procedure
+
+    Procedure RemoveTool String sName
+        tAIToolDefinition[] aTools
+        Integer iIndex
+        Get ToolIndex sName to iIndex
+        If (iIndex>=0) Begin
+            Get paTools to aTools
+            Move (RemoveFromArray(aTools,iIndex)) to aTools
+            Set paTools to aTools
+        End
+    End_Procedure
+
+    Procedure ClearTools
+        tAIToolDefinition[] aTools
+        Set paTools to aTools
+    End_Procedure
+
+    // sToolName only used with AI_TOOLCHOICE_SPECIFIC
+    Procedure SetToolChoice Integer eChoice String sToolName
+        Set peToolChoice to eChoice
+        If (num_arguments>1) Set psToolChoiceName to sToolName
+        Else Set psToolChoiceName to ''
+    End_Procedure
+
+    // every tool sent with a request: paTools plus the enabled tools of phoToolSet
+    Function AllToolDefinitions Returns tAIToolDefinition[]
+        tAIToolDefinition[] aTools aSetTools
+        Handle hoSet
+        Integer i j
+        Boolean bDuplicate
+        Get paTools to aTools
+        Get phoToolSet to hoSet
+        If (hoSet) Begin
+            Get Definitions of hoSet to aSetTools
+            For i from 0 to (SizeOfArray(aSetTools)-1)
+                Move False to bDuplicate
+                For j from 0 to (SizeOfArray(aTools)-1)
+                    If (aTools[j].sName=aSetTools[i].sName) Move True to bDuplicate
+                Loop
+                If (bDuplicate) Begin
+                    Send ReportAIError AI_ERR_TOOL_DEFINITION ("Duplicate tool name:"*aSetTools[i].sName) "Tools"
+                End
+                Else Begin
+                    Move aSetTools[i] to aTools[SizeOfArray(aTools)]
+                End
+            Loop
+        End
+        Function_Return aTools
+    End_Function
+
+    // tool definition by name (paTools or phoToolSet); bFound=False if unknown
+    Function FindToolDefinition String sName Boolean ByRef bFound Returns tAIToolDefinition
+        tAIToolDefinition[] aTools
+        tAIToolDefinition Empty
+        Integer i
+        Move False to bFound
+        Get AllToolDefinitions to aTools
+        For i from 0 to (SizeOfArray(aTools)-1)
+            If (aTools[i].sName=sName) Begin
+                Move True to bFound
+                Function_Return aTools[i]
+            End
+        Loop
+        Function_Return Empty
+    End_Function
+
+    //=========================================================================
+    // Provider hooks for conversation requests (implemented per provider in
+    // later phases of tool_calls_plan.md)
+    //=========================================================================
+
+    // build a provider request (JSON object) from neutral messages and tools
+    Function BuildConversationRequest tAIMessage[] Messages tAIToolDefinition[] Tools Returns Handle
+        Handle hoRetVal
+        Error DFERR_PROGRAM ("BuildConversationRequest not implemented"*name(Self))
+        Function_Return hoRetVal
+    End_Function
+
+    // parse a provider response (JSON object, not destroyed here) into tAIResponse,
+    // including ToolCalls and eStopReason
+    Function ParseConversationResponse Handle hoResponse Returns tAIResponse
+        tAIResponse Response
+        Error DFERR_PROGRAM ("ParseConversationResponse not implemented"*name(Self))
+        Function_Return Response
+    End_Function
+
+
+    //=========================================================================
+    // Chat and the tool loop (tool_calls_plan.md, Phase 3). Provider neutral:
+    // providers only implement BuildConversationRequest/ParseConversationResponse.
+    //=========================================================================
+
+    // events
+    // return True to veto a call (it gets an error result)
+    Function OnBeforeToolCall tAIToolCall ToolCall Returns Boolean
+        Function_Return False
+    End_Function
+
+    Procedure OnAfterToolCall tAIToolCall ToolCall tAIToolResult Result
+    End_Procedure
+
+    Procedure OnToolLoopIteration Integer iIteration
+    End_Procedure
+
+    // Tools that need confirmation (D5). Default: a Yes/No box, or defer to the
+    // app when pbSilentErrors is True. Returns AI_CONFIRM_YES/NO/DEFER.
+    Function OnConfirmToolCall tAIToolCall ToolCall Returns Integer
+        Integer iRet
+        String sArgs sCRLF
+        If (pbSilentErrors(Self)) Function_Return AI_CONFIRM_DEFER
+        Move (Character(13)+Character(10)) to sCRLF
+        Move ToolCall.sArgumentsJson to sArgs
+        If (Length(sArgs)>500) Move (Left(sArgs,500)+"...") to sArgs
+        Get YesNo_Box ("The AI wants to run the tool"*ToolCall.sName+"."+sCRLF+"Arguments:"*sArgs+sCRLF+sCRLF+"Allow it?") "Confirm tool call" to iRet
+        If (iRet=MBR_Yes) Function_Return AI_CONFIRM_YES
+        Function_Return AI_CONFIRM_NO
+    End_Function
+
+    // Runs a call to a tool from phoToolSet, else from phoToolHandler (AddTool tools).
+    // Override for a custom dispatcher.
+    Function OnToolCall tAIToolCall ToolCall Returns tAIToolResult
+        tAIToolResult Result
+        Handle hoSet hoHandler hoTool
+        Get phoToolSet to hoSet
+        If (hoSet) Begin
+            Get ToolByName of hoSet ToolCall.sName to hoTool
+            If (hoTool) Begin
+                Get ExecuteToolCall of hoSet ToolCall to Result
+                Function_Return Result
+            End
+        End
+        Get phoToolHandler to hoHandler
+        If (hoHandler) Begin
+            Get OnToolCall of hoHandler ToolCall to Result
+            Function_Return Result
+        End
+        Move True to Result.bIsError
+        Move ("No handler for tool"*ToolCall.sName) to Result.sContent
+        Function_Return Result
+    End_Function
+
+    Function IndexOfString String[] aValues String sValue Returns Integer
+        Integer i
+        For i from 0 to (SizeOfArray(aValues)-1)
+            If (aValues[i]=sValue) Function_Return i
+        Loop
+        Function_Return -1
+    End_Function
+
+    // Runs one call: unknown tool, veto, bad arguments and DataFlex errors raised
+    // inside the tool all become error results. Applies piMaxToolResultLength.
+    Function RunToolCall tAIToolCall ToolCall Returns tAIToolResult
+        tAIToolResult Result
+        tAIToolDefinition Def
+        Boolean bFound bOk bCancel
+        String sError sArgs
+        Integer iOldErrorObject iMax
+        Handle hoCapture
+
+        Get FindToolDefinition ToolCall.sName (&bFound) to Def
+        If (not(bFound)) Begin
+            Move True to Result.bIsError
+            Move ("Unknown tool:"*ToolCall.sName) to Result.sContent
+        End
+        Else Begin
+            Get OnBeforeToolCall ToolCall to bCancel
+            If (bCancel) Begin
+                Move True to Result.bIsError
+                Move ("The application cancelled the call to"*ToolCall.sName+".") to Result.sContent
+            End
+            Else Begin
+                Get NormalizeJsonObjectText ToolCall.sArgumentsJson (&bOk) (&sError) to sArgs
+                If (not(bOk)) Begin
+                    Move True to Result.bIsError
+                    Move ("Invalid JSON arguments:"*sError) to Result.sContent
+                End
+                Else Begin
+                    Move sArgs to ToolCall.sArgumentsJson
+                    Get phoToolErrorCapture to hoCapture
+                    Send ClearCapturedErrors of hoCapture
+                    Move Error_Object_Id to iOldErrorObject
+                    Move hoCapture to Error_Object_Id
+                    Get OnToolCall ToolCall to Result
+                    Move iOldErrorObject to Error_Object_Id
+                    If (piErrorCount(hoCapture)>0) Begin
+                        Move False to Err
+                        Move True to Result.bIsError
+                        Move ("The tool raised an error:"*psErrorText(hoCapture)) to Result.sContent
+                    End
+                End
+            End
+        End
+        Move ToolCall.sId to Result.sCallId
+        Move ToolCall.sName to Result.sName
+        Get piMaxToolResultLength to iMax
+        If (iMax>0 and Length(Result.sContent)>iMax) Move (Left(Result.sContent,iMax)+" ...[truncated]") to Result.sContent
+        Send OnAfterToolCall ToolCall Result
+        Function_Return Result
+    End_Function
+
+    // clears the confirmation state of the active conversation
+    Procedure ClearToolLoopState
+        Send ClearToolLoopState of (ActiveConversation(Self))
+    End_Procedure
+
+    // calls of the active conversation waiting for ApproveToolCall/DeclineToolCall
+    Function paPendingConfirmations Returns tAIToolCall[]
+        tAIToolCall[] aCalls
+        Get paPendingConfirmations of (ActiveConversation(Self)) to aCalls
+        Function_Return aCalls
+    End_Function
+
+    // approve / decline a call listed in paPendingConfirmations, then ContinueConversation
+    Procedure ApproveToolCall String sCallId
+        String[] aIds
+        Get paApprovedCallIds of (ActiveConversation(Self)) to aIds
+        Move sCallId to aIds[SizeOfArray(aIds)]
+        Set paApprovedCallIds of (ActiveConversation(Self)) to aIds
+    End_Procedure
+
+    // sReason is optional and is added to the result sent to the model
+    Procedure DeclineToolCall String sCallId String sReason
+        String[] aIds aReasons
+        Get paDeclinedCallIds of (ActiveConversation(Self)) to aIds
+        Get paDeclineReasons of (ActiveConversation(Self)) to aReasons
+        Move sCallId to aIds[SizeOfArray(aIds)]
+        If (num_arguments>1) Move sReason to aReasons[SizeOfArray(aReasons)]
+        Else Move '' to aReasons[SizeOfArray(aReasons)]
+        Set paDeclinedCallIds of (ActiveConversation(Self)) to aIds
+        Set paDeclineReasons of (ActiveConversation(Self)) to aReasons
+    End_Procedure
+
+    // Resolves every call of the last assistant turn (runs, declines or holds them).
+    // Returns True when the tool turn with all results was added; False when some
+    // calls wait for confirmation (paPendingConfirmations).
+    Function ResolveToolCalls tAIToolCall[] Calls Returns Boolean
+        tAIToolResult[] aHeld aResults
+        tAIToolResult Result
+        tAIToolCall[] aPending
+        tAIToolDefinition Def
+        String[] aApproved aDeclined aReasons
+        Integer i iHeld iDecision iIdx
+        Boolean bFound bHave
+
+        Get paHeldToolResults of (ActiveConversation(Self)) to aHeld
+        Get paApprovedCallIds of (ActiveConversation(Self)) to aApproved
+        Get paDeclinedCallIds of (ActiveConversation(Self)) to aDeclined
+        Get paDeclineReasons of (ActiveConversation(Self)) to aReasons
+        For i from 0 to (SizeOfArray(Calls)-1)
+            Move False to bHave
+            For iHeld from 0 to (SizeOfArray(aHeld)-1)
+                If (aHeld[iHeld].sCallId=Calls[i].sId) Begin
+                    Move aHeld[iHeld] to Result
+                    Move True to bHave
+                End
+            Loop
+            If (not(bHave)) Begin
+                Move -1 to iIdx
+                Move AI_CONFIRM_YES to iDecision
+                Get FindToolDefinition Calls[i].sName (&bFound) to Def
+                If (bFound) Begin
+                    If (Def.bRequiresConfirmation) Begin
+                        Get IndexOfString aDeclined Calls[i].sId to iIdx
+                        If (iIdx>=0) Move AI_CONFIRM_NO to iDecision
+                        Else If (IndexOfString(Self,aApproved,Calls[i].sId)<0) Get OnConfirmToolCall Calls[i] to iDecision
+                    End
+                End
+                If (iDecision=AI_CONFIRM_DEFER) Begin
+                    Move Calls[i] to aPending[SizeOfArray(aPending)]
+                End
+                Else Begin
+                    If (iDecision=AI_CONFIRM_NO) Begin
+                        Move Calls[i].sId to Result.sCallId
+                        Move Calls[i].sName to Result.sName
+                        Move True to Result.bIsError
+                        Move ("The user declined to run"*Calls[i].sName+".") to Result.sContent
+                        If (iIdx>=0 and iIdx<SizeOfArray(aReasons)) Begin
+                            If (aReasons[iIdx]<>'') Move (Result.sContent*aReasons[iIdx]) to Result.sContent
+                        End
+                    End
+                    Else Get RunToolCall Calls[i] to Result
+                    Move Result to aHeld[SizeOfArray(aHeld)]
+                    Move True to bHave
+                End
+            End
+            If (bHave) Move Result to aResults[SizeOfArray(aResults)]
+        Loop
+
+        If (SizeOfArray(aPending)>0) Begin
+            Set paHeldToolResults of (ActiveConversation(Self)) to aHeld
+            Set paPendingConfirmations of (ActiveConversation(Self)) to aPending
+            Function_Return False
+        End
+        Send AddToolResults aResults
+        Send ClearToolLoopState
+        Function_Return True
+    End_Function
+
+    // Answers every unanswered call of the last assistant turn without running it
+    // (results already run are kept), so the history stays valid for every provider.
+    Procedure CancelUnansweredToolCalls String sReason
+        tAIMessage LastMsg
+        tAIToolResult[] aHeld aResults
+        tAIToolResult Result
+        Integer i iHeld
+        Boolean bHave
+        Handle hoConv
+        Get ActiveConversation to hoConv
+        If (not(HasUnansweredToolCalls(hoConv))) Procedure_Return
+        Get LastMessage of hoConv to LastMsg
+        Get paHeldToolResults of (ActiveConversation(Self)) to aHeld
+        For i from 0 to (SizeOfArray(LastMsg.ToolCalls)-1)
+            Move False to bHave
+            For iHeld from 0 to (SizeOfArray(aHeld)-1)
+                If (aHeld[iHeld].sCallId=LastMsg.ToolCalls[i].sId) Begin
+                    Move aHeld[iHeld] to Result
+                    Move True to bHave
+                End
+            Loop
+            If (not(bHave)) Begin
+                Move LastMsg.ToolCalls[i].sId to Result.sCallId
+                Move LastMsg.ToolCalls[i].sName to Result.sName
+                Move True to Result.bIsError
+                Move sReason to Result.sContent
+            End
+            Move Result to aResults[SizeOfArray(aResults)]
+        Loop
+        Send AddToolResults aResults
+        Send ClearToolLoopState
+    End_Procedure
+
+    // text cut to piMaxLogLength (0 = no limit)
+    Function LimitLogText String sText Returns String
+        Integer iMax
+        Get piMaxLogLength to iMax
+        If (iMax>0 and Length(sText)>iMax) Function_Return (Left(sText,iMax)+" ...[log entry truncated]")
+        Function_Return sText
+    End_Function
+
+    // appends to paToolLoopLog, dropping the oldest entries beyond piMaxLogEntries
+    Procedure AddToolLoopLog String sText
+        String[] aLog
+        Integer iMax
+        Get paToolLoopLog to aLog
+        Move (LimitLogText(Self,sText)) to aLog[SizeOfArray(aLog)]
+        Get piMaxLogEntries to iMax
+        While (iMax>0 and SizeOfArray(aLog)>iMax)
+            Move (RemoveFromArray(aLog,0)) to aLog
+        Loop
+        Set paToolLoopLog to aLog
+    End_Procedure
+
+    // one round trip: active conversation -> request -> response -> assistant turn appended
+    Function SendConversationTurn Returns tAIResponse
+        tAIToolDefinition[] aTools
+        tAIMessage[] aMessages
+        tAIResponse Response
+        Handle hoRequest hoResponse
+        String sJson
+
+        Get AllToolDefinitions to aTools
+        Get ConversationMessages to aMessages
+        Get BuildConversationRequest aMessages aTools to hoRequest
+        If (hoRequest=0) Begin
+            Move AI_STOP_ERROR to Response.eStopReason
+            Function_Return Response
+        End
+        Set peWhiteSpace of hoRequest to jpWhitespace_Pretty
+        Get Stringify of hoRequest to sJson
+        Set psModelRequestJson to (LimitLogText(Self,sJson))
+        Send AddToolLoopLog sJson
+        Get MakeRequestJSON hoRequest to hoResponse
+        Send Destroy of hoRequest
+        If (hoResponse=0) Begin
+            Move AI_STOP_ERROR to Response.eStopReason
+            Function_Return Response
+        End
+        Set peWhiteSpace of hoResponse to jpWhitespace_Pretty
+        Get Stringify of hoResponse to sJson
+        Set psModelResponseJson to (LimitLogText(Self,sJson))
+        Send AddToolLoopLog sJson
+        Get ParseConversationResponse hoResponse to Response
+        Send Destroy of hoResponse
+        Send AddMessage of (ActiveConversation(Self)) Response.AssistantMessage
+        Function_Return Response
+    End_Function
+
+    // the loop shared by Chat and ContinueConversation
+    Function RunConversation Returns tAIResponse
+        tAIResponse Response
+        tAIMessage LastMsg
+        tAIToolCall[] aPending
+        Handle hoConv
+        Integer iIter iMax iRepeatMax i j iSame
+        String[] aCallKeys
+        String sKey
+        Boolean bDone bRepeated
+
+        Get ActiveConversation to hoConv
+        Get piMaxToolIterations to iMax
+        If (iMax<1) Move 1 to iMax
+        Get piMaxRepeatedToolCalls to iRepeatMax
+        Move 0 to iIter
+        While (True)
+            // first answer the tool calls of the last assistant turn, if any
+            If (HasUnansweredToolCalls(hoConv)) Begin
+                Get LastMessage of hoConv to LastMsg
+                If (not(pbAutoExecuteTools(Self))) Begin
+                    // manual mode: the app runs the calls and sends AddToolResults
+                    Move AI_STOP_TOOL_CALLS to Response.eStopReason
+                    Move LastMsg.ToolCalls to Response.ToolCalls
+                    Move iIter to Response.iToolIterations
+                    Function_Return Response
+                End
+                Get ResolveToolCalls LastMsg.ToolCalls to bDone
+                If (not(bDone)) Begin
+                    Move AI_STOP_CONFIRMATION to Response.eStopReason
+                    Get paPendingConfirmations of (ActiveConversation(Self)) to aPending
+                    Move aPending to Response.PendingConfirmations
+                    Move iIter to Response.iToolIterations
+                    Function_Return Response
+                End
+            End
+
+            Send OnToolLoopIteration (iIter+1)
+            Get SendConversationTurn to Response
+            Increment iIter
+            Move iIter to Response.iToolIterations
+            If (Response.eStopReason<>AI_STOP_TOOL_CALLS) Function_Return Response
+            If (SizeOfArray(Response.ToolCalls)=0) Function_Return Response
+            If (not(pbAutoExecuteTools(Self))) Function_Return Response
+
+            // guards: the same call repeated too often, or too many round trips
+            Move False to bRepeated
+            For i from 0 to (SizeOfArray(Response.ToolCalls)-1)
+                Move (Response.ToolCalls[i].sName+"|"+Response.ToolCalls[i].sArgumentsJson) to sKey
+                Move 1 to iSame
+                For j from 0 to (SizeOfArray(aCallKeys)-1)
+                    If (aCallKeys[j]=sKey) Increment iSame
+                Loop
+                Move sKey to aCallKeys[SizeOfArray(aCallKeys)]
+                If (iRepeatMax>0 and iSame>=iRepeatMax) Move True to bRepeated
+            Loop
+            If (bRepeated) Begin
+                Send CancelUnansweredToolCalls "Not run: the same tool call was repeated too often."
+                Send ReportAIError AI_ERR_TOOL_LOOP "Tool loop stopped: the same tool call was repeated" "Tool calls"
+                Function_Return Response
+            End
+            If (iIter>=iMax) Begin
+                Send CancelUnansweredToolCalls "Not run: the tool loop limit was reached."
+                Send ReportAIError AI_ERR_TOOL_LOOP "Tool loop limit reached" "Tool calls"
+                Function_Return Response
+            End
+        Loop
+        Function_Return Response
+    End_Function
+
+    Procedure BeginConversationCall
+        String[] aLog
+        Send ClearLastError
+        Set paToolLoopLog to aLog
+    End_Procedure
+
+    // Adds the user turn to the active conversation and runs the tool loop until a
+    // final answer, an error, a confirmation pause (AI_STOP_CONFIRMATION) or, in
+    // manual mode, the first tool calls. Attachments are optional.
+    Function Chat String sPrompt tAIAttachment[] Attachments Returns tAIResponse
+        Send BeginConversationCall
+        // calls left unanswered (manual mode, pending confirmation) are answered as "not run"
+        Send CancelUnansweredToolCalls "Not run: the conversation moved on before this call was answered."
+        If (num_arguments>1) Send AddUserMessageWithAttachments sPrompt Attachments
+        Else Send AddUserMessage sPrompt
+        Function_Return (RunConversation(Self))
+    End_Function
+
+    // Continues the active conversation as it is: after AddToolResults (manual mode),
+    // after ApproveToolCall/DeclineToolCall (confirmation), or after AddRelayedMessage.
+    Function ContinueConversation Returns tAIResponse
+        Send BeginConversationCall
+        Function_Return (RunConversation(Self))
+    End_Function
+
 End_Class
+
+// after cAiInterface: cAIDialogue sends cAiInterface messages
+Use cAIDialogue.pkg

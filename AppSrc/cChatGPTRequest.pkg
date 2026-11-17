@@ -3,6 +3,16 @@ Use chatgptai.h
 
 Class cChatGPTRequest is a cObject
 
+    Procedure Construct_Object
+        Forward Send Construct_Object
+        // PDFs as "file" content parts (OpenAI). Grok sets this to False.
+        Property Boolean pbFileParts True
+        // OpenAI reasoning models reject "max_tokens" and want "max_completion_tokens";
+        // cChatGPTInterface sets these per request. Grok keeps the defaults.
+        Property String psMaxTokensMember "max_tokens"
+        Property String psReasoningEffort ''   // "reasoning_effort", only sent when not blank
+    End_Procedure
+
     Function ConstructRequest String sModel tChatGPTMessage[] Messages Integer iMaxTokens String sTemperature Returns Handle
         Handle hoJson hoMsgs hoMsg
         Integer i iCount
@@ -11,7 +21,8 @@ Class cChatGPTRequest is a cObject
         Send InitializeJsonType of hoJson jsonTypeObject
 
         Send SetMemberValue of hoJson "model" jsonTypeString sModel
-        Send SetMemberValue of hoJson "max_tokens" jsontypeInteger iMaxTokens
+        If (iMaxTokens>0) Send SetMemberValue of hoJson (psMaxTokensMember(Self)) jsonTypeInteger iMaxTokens
+        If (psReasoningEffort(Self)<>'') Send SetMemberValue of hoJson "reasoning_effort" jsonTypeString (psReasoningEffort(Self))
         // Send SetMemberValue of hoJson "temperature" jsonTypeDouble sTemperature
 
         Get Create (RefClass(cJsonObject)) to hoMsgs
@@ -32,4 +43,216 @@ Class cChatGPTRequest is a cObject
 
         Function_Return hoJson
     End_Function
+    //=========================================================================
+    // Conversation requests with tools, OpenAI Chat Completions format
+    // (tool_calls_plan.md, Phases 4 and 5). Shared by ChatGPT and Grok.
+    // Every JSON node is filled before it is added to its parent.
+    //=========================================================================
+
+
+    // returns a cJsonObject handle when sJson is a JSON object, else 0
+    Function ParseObjectText String sJson Returns Handle
+        Handle hoJson
+        Boolean bOk
+        Get Create (RefClass(cJsonObject)) to hoJson
+        Get ParseString of hoJson sJson to bOk
+        If (bOk) Begin
+            If (JsonType(hoJson)=jsonTypeObject) Function_Return hoJson
+        End
+        Send Destroy of hoJson
+        Function_Return 0
+    End_Function
+
+    Function NewJson Integer eType Returns Handle
+        Handle hoJson
+        Get Create (RefClass(cJsonObject)) to hoJson
+        Send InitializeJsonType of hoJson eType
+        Function_Return hoJson
+    End_Function
+
+    // {"error":"<message>"} - tool messages have no error flag
+    Function ErrorContent String sMessage Returns String
+        Handle hoJson
+        String sRetVal
+        Get NewJson jsonTypeObject to hoJson
+        Send SetMemberValue of hoJson "error" jsonTypeString sMessage
+        Set peWhiteSpace of hoJson to jpWhitespace_Plain
+        Get Stringify of hoJson to sRetVal
+        Send Destroy of hoJson
+        Function_Return sRetVal
+    End_Function
+
+    // user turn: plain string content, or a content array when there are attachments
+    Procedure AddUserTurn Handle hoMessages tAIMessage Msg
+        Handle hoMsg hoContent hoPart hoInner
+        Integer i
+        String sMime sData
+
+        Get NewJson jsonTypeObject to hoMsg
+        Send SetMemberValue of hoMsg "role" jsonTypeString "user"
+        If (SizeOfArray(Msg.Attachments)=0) Begin
+            Send SetMemberValue of hoMsg "content" jsonTypeString Msg.sText
+        End
+        Else Begin
+            Get NewJson jsonTypeArray to hoContent
+            If (Msg.sText<>'') Begin
+                Get NewJson jsonTypeObject to hoPart
+                Send SetMemberValue of hoPart "type" jsonTypeString "text"
+                Send SetMemberValue of hoPart "text" jsonTypeString Msg.sText
+                Send AddMember of hoContent hoPart
+                Send Destroy of hoPart
+            End
+            For i from 0 to (SizeOfArray(Msg.Attachments)-1)
+                Move Msg.Attachments[i].sMimeType to sMime
+                Move (UCharArrayToString(Msg.Attachments[i].uBase64File)) to sData
+                Move 0 to hoPart
+                If (Left(sMime,4)='text' or sMime='application/json') Begin
+                    Get NewJson jsonTypeObject to hoPart
+                    Send SetMemberValue of hoPart "type" jsonTypeString "text"
+                    Send SetMemberValue of hoPart "text" jsonTypeString sData
+                End
+                Else If (Left(sMime,5)='image' and sData<>'') Begin
+                    Get NewJson jsonTypeObject to hoInner
+                    Send SetMemberValue of hoInner "url" jsonTypeString ("data:"+sMime+";base64,"+sData)
+                    Get NewJson jsonTypeObject to hoPart
+                    Send SetMemberValue of hoPart "type" jsonTypeString "image_url"
+                    Send SetMember of hoPart "image_url" hoInner
+                    Send Destroy of hoInner
+                End
+                Else If (sMime='application/pdf' and sData<>'' and pbFileParts(Self)) Begin
+                    Get NewJson jsonTypeObject to hoInner
+                    Send SetMemberValue of hoInner "filename" jsonTypeString "document.pdf"
+                    Send SetMemberValue of hoInner "file_data" jsonTypeString ("data:application/pdf;base64,"+sData)
+                    Get NewJson jsonTypeObject to hoPart
+                    Send SetMemberValue of hoPart "type" jsonTypeString "file"
+                    Send SetMember of hoPart "file" hoInner
+                    Send Destroy of hoInner
+                End
+                // other types (and provider file ids) are skipped
+                If (hoPart) Begin
+                    Send AddMember of hoContent hoPart
+                    Send Destroy of hoPart
+                End
+            Loop
+            Send SetMember of hoMsg "content" hoContent
+            Send Destroy of hoContent
+        End
+        Send AddMember of hoMessages hoMsg
+        Send Destroy of hoMsg
+    End_Procedure
+
+    // assistant turn, always rebuilt from the neutral form (Chat Completions has no
+    // signed blocks to keep; raw replay could send response-only members back)
+    Procedure AddAssistantTurn Handle hoMessages tAIMessage Msg
+        Handle hoMsg hoCalls hoCall hoFunc
+        Integer i
+        Get NewJson jsonTypeObject to hoMsg
+        Send SetMemberValue of hoMsg "role" jsonTypeString "assistant"
+        If (Msg.sText<>'' or SizeOfArray(Msg.ToolCalls)=0) Send SetMemberValue of hoMsg "content" jsonTypeString Msg.sText
+        If (SizeOfArray(Msg.ToolCalls)>0) Begin
+            Get NewJson jsonTypeArray to hoCalls
+            For i from 0 to (SizeOfArray(Msg.ToolCalls)-1)
+                Get NewJson jsonTypeObject to hoFunc
+                Send SetMemberValue of hoFunc "name" jsonTypeString Msg.ToolCalls[i].sName
+                If (Msg.ToolCalls[i].sArgumentsJson='') Send SetMemberValue of hoFunc "arguments" jsonTypeString "{}"
+                Else Send SetMemberValue of hoFunc "arguments" jsonTypeString Msg.ToolCalls[i].sArgumentsJson
+                Get NewJson jsonTypeObject to hoCall
+                Send SetMemberValue of hoCall "id" jsonTypeString Msg.ToolCalls[i].sId
+                Send SetMemberValue of hoCall "type" jsonTypeString "function"
+                Send SetMember of hoCall "function" hoFunc
+                Send AddMember of hoCalls hoCall
+                Send Destroy of hoFunc
+                Send Destroy of hoCall
+            Loop
+            Send SetMember of hoMsg "tool_calls" hoCalls
+            Send Destroy of hoCalls
+        End
+        Send AddMember of hoMessages hoMsg
+        Send Destroy of hoMsg
+    End_Procedure
+
+    // tool turn: one "tool" message per result
+    Procedure AddToolResultTurn Handle hoMessages tAIMessage Msg
+        Handle hoMsg
+        Integer i
+        String sContent
+        For i from 0 to (SizeOfArray(Msg.ToolResults)-1)
+            Move Msg.ToolResults[i].sContent to sContent
+            If (Msg.ToolResults[i].bIsError) Get ErrorContent sContent to sContent
+            Get NewJson jsonTypeObject to hoMsg
+            Send SetMemberValue of hoMsg "role" jsonTypeString "tool"
+            Send SetMemberValue of hoMsg "tool_call_id" jsonTypeString Msg.ToolResults[i].sCallId
+            Send SetMemberValue of hoMsg "content" jsonTypeString sContent
+            Send AddMember of hoMessages hoMsg
+            Send Destroy of hoMsg
+        Loop
+    End_Procedure
+
+    // Chat Completions request from neutral messages and tool definitions.
+    // tool_choice is only sent when it is not "auto"; parallel_tool_calls only when False.
+    Function ConstructConversationRequest String sModel Integer iMaxTokens tAIMessage[] Messages tAIToolDefinition[] Tools String sSystem Integer eToolChoice String sToolChoiceName Boolean bParallel Returns Handle
+        Handle hoJson hoMsgs hoMsg hoTools hoTool hoFunc hoSchema hoChoice hoInner
+        Integer i
+
+        Get NewJson jsonTypeObject to hoJson
+        Send SetMemberValue of hoJson "model" jsonTypeString sModel
+        If (iMaxTokens>0) Send SetMemberValue of hoJson (psMaxTokensMember(Self)) jsonTypeInteger iMaxTokens
+        If (psReasoningEffort(Self)<>'') Send SetMemberValue of hoJson "reasoning_effort" jsonTypeString (psReasoningEffort(Self))
+
+        Get NewJson jsonTypeArray to hoMsgs
+        If (sSystem<>'') Begin
+            Get NewJson jsonTypeObject to hoMsg
+            Send SetMemberValue of hoMsg "role" jsonTypeString "system"
+            Send SetMemberValue of hoMsg "content" jsonTypeString sSystem
+            Send AddMember of hoMsgs hoMsg
+            Send Destroy of hoMsg
+        End
+        For i from 0 to (SizeOfArray(Messages)-1)
+            If (Messages[i].sRole='assistant') Send AddAssistantTurn hoMsgs Messages[i]
+            Else If (Messages[i].sRole='tool') Send AddToolResultTurn hoMsgs Messages[i]
+            Else Send AddUserTurn hoMsgs Messages[i]
+        Loop
+        Send SetMember of hoJson "messages" hoMsgs
+        Send Destroy of hoMsgs
+
+        If (SizeOfArray(Tools)>0) Begin
+            Get NewJson jsonTypeArray to hoTools
+            For i from 0 to (SizeOfArray(Tools)-1)
+                Move 0 to hoSchema
+                If (Trim(Tools[i].sParametersJson)<>'') Get ParseObjectText Tools[i].sParametersJson to hoSchema
+                If (hoSchema=0) Get ParseObjectText '{"type":"object","properties":{}}' to hoSchema
+                Get NewJson jsonTypeObject to hoFunc
+                Send SetMemberValue of hoFunc "name" jsonTypeString Tools[i].sName
+                If (Tools[i].sDescription<>'') Send SetMemberValue of hoFunc "description" jsonTypeString Tools[i].sDescription
+                Send SetMember of hoFunc "parameters" hoSchema
+                If (Tools[i].bStrict) Send SetMemberValue of hoFunc "strict" jsonTypeBoolean True
+                Get NewJson jsonTypeObject to hoTool
+                Send SetMemberValue of hoTool "type" jsonTypeString "function"
+                Send SetMember of hoTool "function" hoFunc
+                Send AddMember of hoTools hoTool
+                Send Destroy of hoSchema
+                Send Destroy of hoFunc
+                Send Destroy of hoTool
+            Loop
+            Send SetMember of hoJson "tools" hoTools
+            Send Destroy of hoTools
+
+            If (eToolChoice=AI_TOOLCHOICE_NONE) Send SetMemberValue of hoJson "tool_choice" jsonTypeString "none"
+            If (eToolChoice=AI_TOOLCHOICE_REQUIRED) Send SetMemberValue of hoJson "tool_choice" jsonTypeString "required"
+            If (eToolChoice=AI_TOOLCHOICE_SPECIFIC and sToolChoiceName<>'') Begin
+                Get NewJson jsonTypeObject to hoInner
+                Send SetMemberValue of hoInner "name" jsonTypeString sToolChoiceName
+                Get NewJson jsonTypeObject to hoChoice
+                Send SetMemberValue of hoChoice "type" jsonTypeString "function"
+                Send SetMember of hoChoice "function" hoInner
+                Send SetMember of hoJson "tool_choice" hoChoice
+                Send Destroy of hoInner
+                Send Destroy of hoChoice
+            End
+            If (not(bParallel)) Send SetMemberValue of hoJson "parallel_tool_calls" jsonTypeBoolean False
+        End
+
+        Function_Return hoJson
+    End_Function
 End_Class
+

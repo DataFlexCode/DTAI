@@ -149,6 +149,28 @@ Object oMain is a Panel
                     End_Procedure
                 End_Object
 
+                Object oAIToolCallTestMenuItem is a cCJMenuItem
+                    Set psCaption to "AI Tool Call Test"
+                    Set psTooltip to "Test tool calls (function calling) against the AI providers"
+
+                    Procedure OnExecute Variant vCommandBarControl
+                        Handle hoClient
+                        Get Client_Id to hoClient
+                        Send Activate_oAIToolCallTest of hoClient
+                    End_Procedure
+                End_Object
+
+                Object oAIDialogueDemoMenuItem is a cCJMenuItem
+                    Set psCaption to "AI Dialogue Demo"
+                    Set psTooltip to "Two AI participants talking to each other (cAIDialogue)"
+
+                    Procedure OnExecute Variant vCommandBarControl
+                        Handle hoClient
+                        Get Client_Id to hoClient
+                        Send Activate_oAIDialogueDemo of hoClient
+                    End_Procedure
+                End_Object
+
                 Object oDocuPipeDropMenuItem is a cCJMenuItem
                     Set psCaption to "DocuPipe PDF Processing"
                     Set psTooltip to "Drop a PDF to run it through DocuPipe"
@@ -375,6 +397,8 @@ Object oMain is a Panel
         Use JSONSchemaStruct.vw
         Use AIChatExample.vw
         Use DocuPipeDrop.vw
+        Use AIToolCallTest.vw
+        Use AIDialogueDemo.vw
 
         Procedure Activate_About
             Send DoAbout "" "" "" "" ""

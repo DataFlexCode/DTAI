@@ -113,4 +113,223 @@ Class cClaudeRequest is a cJsonObject
         
     End_Procedure
     
+    //=========================================================================
+    // Conversation requests with tools (tool_calls_plan.md, Phase 2)
+    // Every JSON node is filled before it is added to its parent.
+    //=========================================================================
+
+    // parse JSON text; returns a cJsonObject handle when it is a JSON object, else 0
+    Function ParseObjectText String sJson Returns Handle
+        Handle hoJson
+        Boolean bOk
+        If (Trim(sJson)='') Move '{}' to sJson
+        Get Create (RefClass(cJsonObject)) to hoJson
+        Get ParseString of hoJson sJson to bOk
+        If (bOk) Begin
+            If (JsonType(hoJson)=jsonTypeObject) Function_Return hoJson
+        End
+        Send Destroy of hoJson
+        Function_Return 0
+    End_Function
+
+    Procedure AddTextBlock Handle hoContent String sText
+        Handle hoBlock
+        Get Create (RefClass(cJsonObject)) to hoBlock
+        Send InitializeJsonType of hoBlock jsonTypeObject
+        Send SetMemberValue of hoBlock "type" jsonTypeString "text"
+        Send SetMemberValue of hoBlock "text" jsonTypeString sText
+        Send AddMember of hoContent hoBlock
+        Send Destroy of hoBlock
+    End_Procedure
+
+    // images, PDFs and text attachments as Claude content blocks
+    Procedure AddAttachmentBlocks Handle hoContent tAIAttachment[] Attachments
+        Handle hoBlock hoSource
+        Integer iDoc
+        String sMime sType
+        For iDoc from 0 to (SizeOfArray(Attachments)-1)
+            Move Attachments[iDoc].sMimeType to sMime
+            If (Left(sMime,4)='text' or sMime='application/json') Begin
+                Send AddTextBlock hoContent (UCharArrayToString(Attachments[iDoc].uBase64File))
+            End
+            Else Begin
+                Move '' to sType
+                If (sMime='application/pdf') Move "document" to sType
+                If (Left(sMime,5)='image') Move "image" to sType
+                // unknown types are skipped
+                If (sType<>'') Begin
+                    Get Create (RefClass(cJsonObject)) to hoSource
+                    Send InitializeJsonType of hoSource jsonTypeObject
+                    If (Attachments[iDoc].sFileID<>'') Begin
+                        Send SetMemberValue of hoSource "type" jsonTypeString "file"
+                        Send SetMemberValue of hoSource "file_id" jsonTypeString Attachments[iDoc].sFileID
+                    End
+                    Else Begin
+                        Send SetMemberValue of hoSource "type" jsonTypeString "base64"
+                        Send SetMemberValue of hoSource "media_type" jsonTypeString sMime
+                        Send SetMemberValue of hoSource "data" jsonTypeString (UCharArrayToString(Attachments[iDoc].uBase64File))
+                    End
+                    Get Create (RefClass(cJsonObject)) to hoBlock
+                    Send InitializeJsonType of hoBlock jsonTypeObject
+                    Send SetMemberValue of hoBlock "type" jsonTypeString sType
+                    Send SetMember of hoBlock "source" hoSource
+                    Send AddMember of hoContent hoBlock
+                    Send Destroy of hoSource
+                    Send Destroy of hoBlock
+                End
+            End
+        Loop
+    End_Procedure
+
+    // {"role":..,"content":hoContent} added to hoMessages (content is destroyed)
+    Procedure AddMessageObject Handle hoMessages String sRole Handle hoContent
+        Handle hoMessage
+        Get Create (RefClass(cJsonObject)) to hoMessage
+        Send InitializeJsonType of hoMessage jsonTypeObject
+        Send SetMemberValue of hoMessage "role" jsonTypeString sRole
+        Send SetMember of hoMessage "content" hoContent
+        Send AddMember of hoMessages hoMessage
+        Send Destroy of hoMessage
+        Send Destroy of hoContent
+    End_Procedure
+
+    Function NewArray Returns Handle
+        Handle hoArray
+        Get Create (RefClass(cJsonObject)) to hoArray
+        Send InitializeJsonType of hoArray jsonTypeArray
+        Function_Return hoArray
+    End_Function
+
+    // assistant turn: replay the raw Claude message when we have it (keeps thinking
+    // blocks and signatures), else rebuild text + tool_use blocks from the neutral form
+    Procedure AddAssistantTurn Handle hoMessages tAIMessage Msg
+        Handle hoReplay hoContent hoBlock hoInput
+        Boolean bOk bHas
+        Integer i
+
+        If (SizeOfArray(Msg.ucProviderJson)>0) Begin
+            Get Create (RefClass(cJsonObject)) to hoReplay
+            Get ParseUtf8 of hoReplay Msg.ucProviderJson to bOk
+            If (bOk) Begin
+                If (JsonType(hoReplay)=jsonTypeObject) Begin
+                    Get HasMember of hoReplay "content" to bHas
+                    If (bHas) Begin
+                        Send AddMember of hoMessages hoReplay
+                        Send Destroy of hoReplay
+                        Procedure_Return
+                    End
+                End
+            End
+            Send Destroy of hoReplay
+        End
+
+        Get NewArray to hoContent
+        If (Msg.sText<>'') Send AddTextBlock hoContent Msg.sText
+        For i from 0 to (SizeOfArray(Msg.ToolCalls)-1)
+            Get ParseObjectText Msg.ToolCalls[i].sArgumentsJson to hoInput
+            If (hoInput=0) Get ParseObjectText '{}' to hoInput
+            Get Create (RefClass(cJsonObject)) to hoBlock
+            Send InitializeJsonType of hoBlock jsonTypeObject
+            Send SetMemberValue of hoBlock "type" jsonTypeString "tool_use"
+            Send SetMemberValue of hoBlock "id" jsonTypeString Msg.ToolCalls[i].sId
+            Send SetMemberValue of hoBlock "name" jsonTypeString Msg.ToolCalls[i].sName
+            Send SetMember of hoBlock "input" hoInput
+            Send AddMember of hoContent hoBlock
+            Send Destroy of hoInput
+            Send Destroy of hoBlock
+        Loop
+        If (MemberCount(hoContent)>0) Send AddMessageObject hoMessages "assistant" hoContent
+        Else Send Destroy of hoContent
+    End_Procedure
+
+    // tool turn: one user message with all tool_result blocks
+    Procedure AddToolResultTurn Handle hoMessages tAIMessage Msg
+        Handle hoContent hoBlock
+        Integer i
+        Get NewArray to hoContent
+        For i from 0 to (SizeOfArray(Msg.ToolResults)-1)
+            Get Create (RefClass(cJsonObject)) to hoBlock
+            Send InitializeJsonType of hoBlock jsonTypeObject
+            Send SetMemberValue of hoBlock "type" jsonTypeString "tool_result"
+            Send SetMemberValue of hoBlock "tool_use_id" jsonTypeString Msg.ToolResults[i].sCallId
+            If (Msg.ToolResults[i].sContent<>'') Send SetMemberValue of hoBlock "content" jsonTypeString Msg.ToolResults[i].sContent
+            If (Msg.ToolResults[i].bIsError) Send SetMemberValue of hoBlock "is_error" jsonTypeBoolean True
+            Send AddMember of hoContent hoBlock
+            Send Destroy of hoBlock
+        Loop
+        If (MemberCount(hoContent)>0) Send AddMessageObject hoMessages "user" hoContent
+        Else Send Destroy of hoContent
+    End_Procedure
+
+    // Builds a Messages API request from neutral messages and tool definitions.
+    // tool_choice is only sent when it differs from the default (auto, parallel).
+    Function CreateClaudeConversationRequest tAIMessage[] Messages tAIToolDefinition[] Tools String sSystem Integer eToolChoice String sToolChoiceName Boolean bParallel Returns Handle
+        Handle hoRoot hoMessages hoContent hoTools hoTool hoSchema hoChoice
+        Integer i
+
+        Get Create (RefClass(cJsonObject)) to hoRoot
+        Send InitializeJsonType of hoRoot jsonTypeObject
+        Send SetMemberValue of hoRoot "model" jsonTypeString (psModelId(Self))
+        Send SetMemberValue of hoRoot "max_tokens" jsonTypeInteger (piMaxTokens(Self))
+        If (sSystem<>'') Send SetMemberValue of hoRoot "system" jsonTypeString sSystem
+
+        If (SizeOfArray(Tools)>0) Begin
+            Get NewArray to hoTools
+            For i from 0 to (SizeOfArray(Tools)-1)
+                // blank or invalid schema: a tool without parameters
+                Move 0 to hoSchema
+                If (Trim(Tools[i].sParametersJson)<>'') Get ParseObjectText Tools[i].sParametersJson to hoSchema
+                If (hoSchema=0) Get ParseObjectText '{"type":"object","properties":{}}' to hoSchema
+                Get Create (RefClass(cJsonObject)) to hoTool
+                Send InitializeJsonType of hoTool jsonTypeObject
+                Send SetMemberValue of hoTool "name" jsonTypeString Tools[i].sName
+                If (Tools[i].sDescription<>'') Send SetMemberValue of hoTool "description" jsonTypeString Tools[i].sDescription
+                Send SetMember of hoTool "input_schema" hoSchema
+                If (Tools[i].bStrict) Send SetMemberValue of hoTool "strict" jsonTypeBoolean True
+                Send AddMember of hoTools hoTool
+                Send Destroy of hoSchema
+                Send Destroy of hoTool
+            Loop
+            Send SetMember of hoRoot "tools" hoTools
+            Send Destroy of hoTools
+
+            If (eToolChoice<>AI_TOOLCHOICE_AUTO or not(bParallel)) Begin
+                Get Create (RefClass(cJsonObject)) to hoChoice
+                Send InitializeJsonType of hoChoice jsonTypeObject
+                If (eToolChoice=AI_TOOLCHOICE_NONE) Send SetMemberValue of hoChoice "type" jsonTypeString "none"
+                Else If (eToolChoice=AI_TOOLCHOICE_REQUIRED) Send SetMemberValue of hoChoice "type" jsonTypeString "any"
+                Else If (eToolChoice=AI_TOOLCHOICE_SPECIFIC and sToolChoiceName<>'') Begin
+                    Send SetMemberValue of hoChoice "type" jsonTypeString "tool"
+                    Send SetMemberValue of hoChoice "name" jsonTypeString sToolChoiceName
+                End
+                Else Send SetMemberValue of hoChoice "type" jsonTypeString "auto"
+                If (not(bParallel) and eToolChoice<>AI_TOOLCHOICE_NONE) Send SetMemberValue of hoChoice "disable_parallel_tool_use" jsonTypeBoolean True
+                Send SetMember of hoRoot "tool_choice" hoChoice
+                Send Destroy of hoChoice
+            End
+        End
+
+        Get NewArray to hoMessages
+        For i from 0 to (SizeOfArray(Messages)-1)
+            If (Messages[i].sRole='assistant') Begin
+                Send AddAssistantTurn hoMessages Messages[i]
+            End
+            Else If (Messages[i].sRole='tool') Begin
+                Send AddToolResultTurn hoMessages Messages[i]
+            End
+            Else Begin
+                Get NewArray to hoContent
+                If (Messages[i].sText<>'') Send AddTextBlock hoContent Messages[i].sText
+                Send AddAttachmentBlocks hoContent Messages[i].Attachments
+                If (MemberCount(hoContent)>0) Send AddMessageObject hoMessages "user" hoContent
+                Else Send Destroy of hoContent
+            End
+        Loop
+        Send SetMember of hoRoot "messages" hoMessages
+        Send Destroy of hoMessages
+
+        Function_Return hoRoot
+    End_Function
+
 End_Class
+

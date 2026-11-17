@@ -1,0 +1,233 @@
+//=============================================================================
+// cAIConversation - provider-neutral conversation history (tool_calls_plan.md, D3)
+// cAITranscript    - optional shared transcript of a whole exchange (never sent to a model)
+//
+// Attach a conversation to a provider object:
+//     Set phoConversation of ghoClaudeAI to oMyConversation
+// When none is attached, the provider uses its own internal default conversation.
+//
+// AI-to-AI: give each participant its own conversation (roles are mirrored and
+// provider extras are not portable) and relay replies with AddRelayedMessage.
+// Must stay DataFlex 19.1 compatible.
+//=============================================================================
+Use ai.h
+
+Class cAITranscript is a cObject
+
+    Procedure Construct_Object
+        Forward Send Construct_Object
+        Property tAITranscriptEntry[] paEntries
+    End_Procedure
+
+    Procedure AddEntry String sSpeaker String sRole String sText
+        tAITranscriptEntry[] aEntries
+        tAITranscriptEntry Entry
+        Move sSpeaker to Entry.sSpeaker
+        Move sRole to Entry.sRole
+        Move sText to Entry.sText
+        Move (CurrentDateTime()) to Entry.dtWhen
+        Get paEntries to aEntries
+        Move Entry to aEntries[SizeOfArray(aEntries)]
+        Set paEntries to aEntries
+    End_Procedure
+
+    Procedure ClearEntries
+        tAITranscriptEntry[] aEntries
+        Set paEntries to aEntries
+    End_Procedure
+
+    Function EntryCount Returns Integer
+        tAITranscriptEntry[] aEntries
+        Get paEntries to aEntries
+        Function_Return (SizeOfArray(aEntries))
+    End_Function
+
+    // "**Speaker:**" + text, entries separated by a blank line
+    Function AsMarkdown Returns String
+        tAITranscriptEntry[] aEntries
+        String sRetVal sCRLF
+        Integer i
+        Move (Character(13)+Character(10)) to sCRLF
+        Get paEntries to aEntries
+        For i from 0 to (SizeOfArray(aEntries)-1)
+            If (sRetVal<>'') Move (sRetVal+sCRLF+sCRLF) to sRetVal
+            Move (sRetVal+'**'+aEntries[i].sSpeaker+':**'+sCRLF+aEntries[i].sText) to sRetVal
+        Loop
+        Function_Return sRetVal
+    End_Function
+
+End_Class
+
+Class cAIConversation is a cObject
+
+    Procedure Construct_Object
+        Forward Send Construct_Object
+        Property tAIMessage[] paMessages
+        Property String psSystemPrompt ''      // optional; overrides the provider's psSystemPrompt
+        Property String psAssistantLabel 'Assistant' // transcript label for this conversation's assistant turns
+        Property String psUserLabel 'User'     // transcript label for (non relayed) user turns
+        Property Handle phoTranscript 0        // optional cAITranscript shared by several conversations
+        // tool confirmation state of the last assistant turn (managed by cAiInterface)
+        Property tAIToolCall[]   paPendingConfirmations  // calls waiting for approval
+        Property tAIToolResult[] paHeldToolResults       // results already run for that turn
+        Property String[]        paApprovedCallIds
+        Property String[]        paDeclinedCallIds
+        Property String[]        paDeclineReasons        // parallel to paDeclinedCallIds
+    End_Procedure
+
+    Procedure ClearToolLoopState
+        tAIToolResult[] aResults
+        tAIToolCall[] aCalls
+        String[] aEmpty
+        Set paHeldToolResults to aResults
+        Set paPendingConfirmations to aCalls
+        Set paApprovedCallIds to aEmpty
+        Set paDeclinedCallIds to aEmpty
+        Set paDeclineReasons to aEmpty
+    End_Procedure
+
+    Procedure ClearMessages
+        tAIMessage[] aMessages
+        Set paMessages to aMessages
+        Send ClearToolLoopState
+    End_Procedure
+
+    Function MessageCount Returns Integer
+        tAIMessage[] aMessages
+        Get paMessages to aMessages
+        Function_Return (SizeOfArray(aMessages))
+    End_Function
+
+    Function MessageAt Integer iIndex Returns tAIMessage
+        tAIMessage[] aMessages
+        tAIMessage Msg
+        Get paMessages to aMessages
+        If (iIndex>=0 and iIndex<SizeOfArray(aMessages)) Move aMessages[iIndex] to Msg
+        Function_Return Msg
+    End_Function
+
+    Function LastMessage Returns tAIMessage
+        Function_Return (MessageAt(Self,MessageCount(Self)-1))
+    End_Function
+
+    Procedure SetMessages tAIMessage[] aMessages
+        Set paMessages to aMessages
+    End_Procedure
+
+    // record a message in the shared transcript (if any). Relayed user turns and
+    // turns without text (pure tool calls / tool results) are not recorded.
+    Procedure RecordInTranscript tAIMessage Msg
+        Handle hoTranscript
+        String sSpeaker
+        Get phoTranscript to hoTranscript
+        If (hoTranscript=0) Procedure_Return
+        If (Msg.bRelayed or Msg.sRole='tool' or Msg.sText='') Procedure_Return
+        Move Msg.sSpeaker to sSpeaker
+        If (sSpeaker='') Begin
+            If (Msg.sRole='assistant') Get psAssistantLabel to sSpeaker
+            Else Get psUserLabel to sSpeaker
+        End
+        Send AddEntry of hoTranscript sSpeaker Msg.sRole Msg.sText
+    End_Procedure
+
+    Procedure AddMessage tAIMessage Msg
+        tAIMessage[] aMessages
+        Get paMessages to aMessages
+        Move Msg to aMessages[SizeOfArray(aMessages)]
+        Set paMessages to aMessages
+        Send RecordInTranscript Msg
+    End_Procedure
+
+    Procedure AddUserMessage String sText
+        tAIMessage Msg
+        Move 'user' to Msg.sRole
+        Move sText to Msg.sText
+        Send AddMessage Msg
+    End_Procedure
+
+    Procedure AddUserMessageWithAttachments String sText tAIAttachment[] Attachments
+        tAIMessage Msg
+        Move 'user' to Msg.sRole
+        Move sText to Msg.sText
+        Move Attachments to Msg.Attachments
+        Send AddMessage Msg
+    End_Procedure
+
+    // AI-to-AI: add another participant's reply as a user turn of this conversation.
+    // When bPrefixLabel is True the text sent to the model starts with "<sSpeaker>: ".
+    Procedure AddRelayedMessage String sSpeaker String sText Boolean bPrefixLabel
+        tAIMessage Msg
+        Move 'user' to Msg.sRole
+        Move sSpeaker to Msg.sSpeaker
+        Move True to Msg.bRelayed
+        If (bPrefixLabel and sSpeaker<>'') Move (sSpeaker+': '+sText) to Msg.sText
+        Else Move sText to Msg.sText
+        Send AddMessage Msg
+    End_Procedure
+
+    Procedure AddAssistantMessage String sText tAIToolCall[] ToolCalls String sProvider UChar[] ucProviderJson
+        tAIMessage Msg
+        Move 'assistant' to Msg.sRole
+        Move sText to Msg.sText
+        Move ToolCalls to Msg.ToolCalls
+        Move sProvider to Msg.sProvider
+        Move ucProviderJson to Msg.ucProviderJson
+        Send AddMessage Msg
+    End_Procedure
+
+    // one "tool" turn holds every result for the preceding assistant turn
+    Procedure AddToolResults tAIToolResult[] Results
+        tAIMessage Msg
+        Move 'tool' to Msg.sRole
+        Move Results to Msg.ToolResults
+        Send AddMessage Msg
+    End_Procedure
+
+    Procedure RemoveLastMessage
+        tAIMessage[] aMessages
+        Get paMessages to aMessages
+        If (SizeOfArray(aMessages)>0) Begin
+            Move (RemoveFromArray(aMessages,SizeOfArray(aMessages)-1)) to aMessages
+            Set paMessages to aMessages
+        End
+    End_Procedure
+
+    Function LastAssistantText Returns String
+        tAIMessage[] aMessages
+        Integer i
+        Get paMessages to aMessages
+        For i from 0 to (SizeOfArray(aMessages)-1)
+            If (aMessages[SizeOfArray(aMessages)-1-i].sRole='assistant' and aMessages[SizeOfArray(aMessages)-1-i].sText<>'') ;
+                Function_Return aMessages[SizeOfArray(aMessages)-1-i].sText
+        Loop
+        Function_Return ''
+    End_Function
+
+    // True when the last message is an assistant turn whose tool calls have no results yet
+    Function HasUnansweredToolCalls Returns Boolean
+        tAIMessage Msg
+        If (MessageCount(Self)=0) Function_Return False
+        Get LastMessage to Msg
+        Function_Return (Msg.sRole='assistant' and SizeOfArray(Msg.ToolCalls)>0)
+    End_Function
+
+    // The messages to replay to sProvider. Turns produced by another provider keep only
+    // their neutral form: raw provider JSON and per-call provider extras (thinking blocks,
+    // thought signatures) are dropped because they are not portable.
+    Function MessagesForProvider String sProvider Returns tAIMessage[]
+        tAIMessage[] aMessages
+        UChar[] ucEmpty
+        Integer i j
+        Get paMessages to aMessages
+        For i from 0 to (SizeOfArray(aMessages)-1)
+            If (aMessages[i].sProvider<>sProvider) Begin
+                Move ucEmpty to aMessages[i].ucProviderJson
+                For j from 0 to (SizeOfArray(aMessages[i].ToolCalls)-1)
+                    Move '' to aMessages[i].ToolCalls[j].sProviderData
+                Loop
+            End
+        Loop
+        Function_Return aMessages
+    End_Function
+
+End_Class

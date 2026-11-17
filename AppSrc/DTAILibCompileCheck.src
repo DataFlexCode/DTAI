@@ -1,0 +1,22 @@
+// DTAILibCompileCheck.src
+// Library-only compile check. Uses just the DTAI library packages (no demo views),
+// so it can be compiled with DataFlex 19.1 (DTAi-19.1.sws) as well as 25.0.
+// The demo views in ai.src use 20.0+ classes (cWebView2Browser, cLocalWebControlHost)
+// and are not expected to compile under 19.1.
+Use DFAllEnt.pkg
+
+Use claudeai.pkg
+Use geminiai.pkg
+Use grokai.pkg
+Use chatgptai.pkg
+Use docupipeai.pkg
+Use cAIDemoToolSet.pkg   // demo tools shared by AIToolCallTest.vw and AIDialogueDemo.vw
+
+Procedure DTAILibCompileCheck
+    Handle hoAI
+    tAIResponse Response
+    Move ghoClaudeAI to hoAI
+    Move ghoChatGPTAI to hoAI
+    Move ghoGeminiAI to hoAI
+    Move ghoGrokAI to hoAI
+End_Procedure

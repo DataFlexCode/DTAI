@@ -4,9 +4,67 @@
 //=============================================================================
 
 Use ai.h
+Use cJsonObject.pkg
 Use chatgptai.h
 Use claudeai.h 
 Use geminiai.h
+
+//=============================================================================
+// Shared helpers (tool_calls_plan.md): normalized stop reason and joined text
+//=============================================================================
+
+// provider finish/stop reason -> AI_STOP_*
+Function AIStopReasonFromProvider Global String sReason Returns Integer
+    String sLower
+    Move (Lowercase(Trim(sReason))) to sLower
+    If (sLower='') Function_Return AI_STOP_UNKNOWN
+    If (sLower='stop' or sLower='end_turn' or sLower='stop_sequence') Function_Return AI_STOP_END_TURN
+    If (sLower='tool_calls' or sLower='function_call' or sLower='tool_use') Function_Return AI_STOP_TOOL_CALLS
+    If (sLower='length' or sLower='max_tokens') Function_Return AI_STOP_MAX_TOKENS
+    If (sLower='content_filter' or sLower='refusal' or sLower='safety' or sLower='recitation') Function_Return AI_STOP_CONTENT_FILTER
+    If (sLower='prohibited_content' or sLower='blocklist' or sLower='spii') Function_Return AI_STOP_CONTENT_FILTER
+    If (sLower='image_safety' or sLower='image_prohibited_content') Function_Return AI_STOP_CONTENT_FILTER
+    If (sLower='malformed_function_call' or sLower='unexpected_tool_call' or sLower='too_many_tool_calls') Function_Return AI_STOP_ERROR
+    Function_Return AI_STOP_UNKNOWN
+End_Function
+
+// JSON text -> plain re-stringified JSON object text; '' when it is not a JSON object
+Function AINormalizeJsonObject Global String sJson Returns String
+    Handle hoJson
+    Boolean bParsed
+    String sRetVal
+    Get Create of Desktop (RefClass(cJsonObject)) to hoJson
+    Get ParseString of hoJson sJson to bParsed
+    If (bParsed) Begin
+        If (JsonType(hoJson)=jsonTypeObject) Begin
+            Set peWhiteSpace of hoJson to jpWhitespace_Plain
+            Get Stringify of hoJson to sRetVal
+        End
+    End
+    Send Destroy of hoJson
+    Function_Return sRetVal
+End_Function
+
+// fills eStopReason and sText of a translated response (choice 0)
+Function AIFinalizeResponse Global tAIResponse aiResponse Returns tAIResponse
+    String sReason sText
+    Integer i
+    If (SizeOfArray(aiResponse.Choices)=0) Function_Return aiResponse
+    Move aiResponse.Choices[0].sStopReason to sReason
+    If (sReason='') Move aiResponse.Choices[0].sFinishReason to sReason
+    Move (AIStopReasonFromProvider(sReason)) to aiResponse.eStopReason
+    For i from 0 to (SizeOfArray(aiResponse.Choices[0].ContentParts)-1)
+        If (aiResponse.Choices[0].ContentParts[i].sType='text') Begin
+            Move (sText+aiResponse.Choices[0].ContentParts[i].sText) to sText
+        End
+        // tool parts mean "run tools" unless the turn was cut off or filtered
+        If (aiResponse.Choices[0].ContentParts[i].sType='tool_use' or aiResponse.Choices[0].ContentParts[i].sType='tool_call') Begin
+            If (aiResponse.eStopReason=AI_STOP_END_TURN or aiResponse.eStopReason=AI_STOP_UNKNOWN) Move AI_STOP_TOOL_CALLS to aiResponse.eStopReason
+        End
+    Loop
+    Move sText to aiResponse.sText
+    Function_Return aiResponse
+End_Function
 
 //=============================================================================
 // ChatGPT Response Translator
@@ -59,7 +117,109 @@ Class cChatGPTTranslator is a cObject
             Move aiChoice to aiResponse.Choices[i]
         Loop
         
+        Move (AIFinalizeResponse(aiResponse)) to aiResponse
         Function_Return aiResponse
+    End_Function
+
+    // Chat Completions response (JSON handle, not destroyed) -> tAIResponse with
+    // ToolCalls and AssistantMessage (raw message JSON as UTF-8). Shared by ChatGPT
+    // and Grok. Null members should already be removed (RemoveNullMembers).
+    // Arguments that are not valid JSON objects are kept as received, so the tool
+    // loop answers them with an "Invalid JSON arguments" error result.
+    Function TranslateConversationResponse Handle hoResponse String sProvider Returns tAIResponse
+        tChatGPTResponse ChatResp
+        tAIResponse Response
+        tAIToolCall Call
+        tAIToolCall[] aCalls
+        tAIResponseContentPart Part
+        Handle hoChoices hoChoice hoMsg hoCalls hoCall hoFunc hoArgs
+        Boolean bHas
+        Integer i iCount
+        String sArgs sNorm
+        UChar[] ucJson
+
+        Set pbRequireAllMembers of hoResponse to False
+        Get JsonToDataType of hoResponse to ChatResp
+        Get TranslateToUnified ChatResp to Response
+
+        Get HasMember of hoResponse "choices" to bHas
+        If (bHas) Begin
+            Get Member of hoResponse "choices" to hoChoices
+            If (MemberCount(hoChoices)>0) Begin
+                Get MemberByIndex of hoChoices 0 to hoChoice
+                Get HasMember of hoChoice "message" to bHas
+                If (bHas) Begin
+                    Get Member of hoChoice "message" to hoMsg
+                    Get HasMember of hoMsg "tool_calls" to bHas
+                    If (bHas) Begin
+                        Get Member of hoMsg "tool_calls" to hoCalls
+                        Move (MemberCount(hoCalls)) to iCount
+                        For i from 0 to (iCount-1)
+                            Get MemberByIndex of hoCalls i to hoCall
+                            Move '' to Call.sId
+                            Move '' to Call.sName
+                            Move '{}' to Call.sArgumentsJson
+                            Move '' to Call.sProviderData
+                            Get HasMember of hoCall "id" to bHas
+                            If (bHas) Get MemberValue of hoCall "id" to Call.sId
+                            Get HasMember of hoCall "function" to bHas
+                            If (bHas) Begin
+                                Get Member of hoCall "function" to hoFunc
+                                Get HasMember of hoFunc "name" to bHas
+                                If (bHas) Get MemberValue of hoFunc "name" to Call.sName
+                                Get HasMember of hoFunc "arguments" to bHas
+                                If (bHas) Begin
+                                    Get Member of hoFunc "arguments" to hoArgs
+                                    If (JsonType(hoArgs)=jsonTypeString) Get MemberValue of hoFunc "arguments" to sArgs
+                                    Else Begin
+                                        Set peWhiteSpace of hoArgs to jpWhitespace_Plain
+                                        Get Stringify of hoArgs to sArgs
+                                    End
+                                    Send Destroy of hoArgs
+                                    Move (Trim(sArgs)) to sArgs
+                                    If (sArgs='') Move '{}' to sArgs
+                                    Move (AINormalizeJsonObject(sArgs)) to sNorm
+                                    If (sNorm<>'') Move sNorm to Call.sArgumentsJson
+                                    Else Move sArgs to Call.sArgumentsJson
+                                End
+                                Send Destroy of hoFunc
+                            End
+                            Move (SizeOfArray(aCalls)) to Call.iIndex
+                            Move Call to aCalls[SizeOfArray(aCalls)]
+                            Send Destroy of hoCall
+                        Loop
+                        Send Destroy of hoCalls
+                    End
+                    Set peWhiteSpace of hoMsg to jpWhitespace_Plain
+                    Get StringifyUtf8 of hoMsg to ucJson
+                    Send Destroy of hoMsg
+                End
+                Send Destroy of hoChoice
+            End
+            Send Destroy of hoChoices
+        End
+
+        // tool calls as content parts of choice 0
+        If (SizeOfArray(Response.Choices)>0) Begin
+            For i from 0 to (SizeOfArray(aCalls)-1)
+                Move "tool_call" to Part.sType
+                Move "assistant" to Part.sRole
+                Move '' to Part.sText
+                Move aCalls[i].sId to Part.sToolCallId
+                Move aCalls[i].sName to Part.sFunctionName
+                Move aCalls[i].sArgumentsJson to Part.sFunctionArgs
+                Move Part to Response.Choices[0].ContentParts[SizeOfArray(Response.Choices[0].ContentParts)]
+            Loop
+            Move (AIFinalizeResponse(Response)) to Response
+        End
+
+        Move aCalls to Response.ToolCalls
+        Move 'assistant' to Response.AssistantMessage.sRole
+        Move Response.sText to Response.AssistantMessage.sText
+        Move aCalls to Response.AssistantMessage.ToolCalls
+        Move sProvider to Response.AssistantMessage.sProvider
+        Move ucJson to Response.AssistantMessage.ucProviderJson
+        Function_Return Response
     End_Function
     
 End_Class
@@ -120,14 +280,15 @@ Class cClaudeTranslator is a cObject
         
         Move aiChoice to aiResponse.Choices[0]
         
+        Move (AIFinalizeResponse(aiResponse)) to aiResponse
         Function_Return aiResponse
     End_Function
     
 End_Class
 
-Class cGrokTranslator is a cClaudeTranslator
-    // grok uses the same message API as Anthropic, 
-    //  so we just create a name Class for Grok in case it ever changes
+Class cGrokTranslator is a cChatGPTTranslator
+    // Grok uses the OpenAI Chat Completions format (tool_calls_plan.md, D1);
+    //  a named class in case it ever differs
 End_Class
 
 //=============================================================================
@@ -201,6 +362,7 @@ Class cGeminiTranslator is a cObject
             Move aiChoice to aiResponse.Choices[i]
         Loop
         
+        Move (AIFinalizeResponse(aiResponse)) to aiResponse
         Function_Return aiResponse
     End_Function
     

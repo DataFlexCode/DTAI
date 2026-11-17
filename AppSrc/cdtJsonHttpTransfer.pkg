@@ -2,7 +2,7 @@ Use cJsonHttpTransfer.pkg
 Use cJSON_Mixin.pkg
 
 External_Function InternetSetOption   "InternetSetOptionA" wininet.dll Handle hInet DWord dwOption Pointer buf DWord bufLen Returns Boolean
-External_Function InternetQueryOption "InternetQueryOptionA" wininet.dll Handle hInet DWord dwOption Pointer buf DWord bufLen Returns Boolean
+External_Function InternetQueryOption "InternetQueryOptionA" wininet.dll Handle hInet DWord dwOption Pointer buf Pointer lpdwBufLen Returns Boolean
 Define INTERNET_OPTION_CALLBACK                                 for 1
 Define INTERNET_OPTION_CONNECT_TIMEOUT                          for 2
 Define INTERNET_OPTION_CONNECT_RETRIES                          for 3
@@ -109,6 +109,8 @@ Class cdtJsonHttpTransfer is a cJsonHttpTransfer
     
     // added because Grok is SLOOOOWWW
     // https://support.dataaccess.com/Forums/entry.php?95-How-to-change-the-internet-connection-timeout
+    // uses the InternetQueryOption/InternetSetOption declarations above (not WinAPI_*,
+    //  which only exist in the 20.0+ cHttpTransfer.pkg) so this compiles on 19.1 too
     Procedure SetTimeout Integer iSeconds
             String sText
             DWord dwBufferLength
@@ -118,9 +120,9 @@ Class cdtJsonHttpTransfer is a cJsonHttpTransfer
             Move (SizeOfType (Integer)) to dwBufferLength
             Move 0 to iCurrentReceiveTimeOut
         
-            Move (WinAPI_InternetQueryOption (0, INTERNET_OPTION_RECEIVE_TIMEOUT, AddressOf (iCurrentReceiveTimeOut), AddressOf (dwBufferLength))) to bQueryOptionSucceeded
+            Move (InternetQueryOption (0, INTERNET_OPTION_RECEIVE_TIMEOUT, AddressOf (iCurrentReceiveTimeOut), AddressOf (dwBufferLength))) to bQueryOptionSucceeded
             Move (iSeconds*1000) to iNewReceiveTimeOut
-            Move (WinAPI_InternetSetOption (0, INTERNET_OPTION_RECEIVE_TIMEOUT, AddressOf (iNewReceiveTimeOut), dwBufferLength)) to bQueryOptionSucceeded
+            Move (InternetSetOption (0, INTERNET_OPTION_RECEIVE_TIMEOUT, AddressOf (iNewReceiveTimeOut), dwBufferLength)) to bQueryOptionSucceeded
         
 //            Get wsSayHello of oWSTestService "Vincent" to sText
 //            Get peTransferStatus of oWSTestService to eTransferStatus

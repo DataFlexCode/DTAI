@@ -4,7 +4,9 @@ Use grokai.h        // Grok AI model list
 Use cEnvironment.pkg
 Use cJsonObject.pkg
 Use cdtJsonHttpTransfer.pkg
-Use cClaudeRequest.pkg // Consider renaming to cGrokRequest.pkg
+Use cClaudeRequest.pkg
+Use chatgptai.h       // Chat Completions structs (Grok uses the OpenAI format)
+Use cChatGPTRequest.pkg
 Use cMarkdown_mixin.pkg
 
 If (ghoEnvironment=0) Begin

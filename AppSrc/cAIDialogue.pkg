@@ -1,0 +1,258 @@
+//=============================================================================
+// cAIDialogue - AI-to-AI exchange (tool_calls_plan.md, D3 / Phase 3)
+//
+// Each participant keeps its own cAIConversation (roles are mirrored and provider
+// extras are not portable). After one side answers, its text is relayed to the
+// other side as a user turn (AddRelayedMessage), optionally prefixed "Label: ".
+// Tool calls stay inside the conversation of the side that made them.
+//
+//     Object oDebate is a cAIDialogue
+//         Set psFirstLabel to "Claude"
+//         Set psSecondLabel to "Grok"
+//     End_Object
+//     Set phoFirstAI of oDebate to ghoClaudeAI
+//     Set phoSecondAI of oDebate to ghoGrokAI
+//     Get Run of oDebate "Debate: tabs or spaces?" 6 to iTurns
+//     Get AsMarkdown of (phoTranscript(oDebate)) to sText
+//
+// Step by step (a UI that updates between turns):
+//     Send StartDialogue of oDebate "Debate: tabs or spaces?"
+//     Get StepDialogue of oDebate to Response      // one turn
+//
+// Per-side provider settings (model, tool set, ...) go in OnBeforeSideTurn and
+// are undone in OnAfterSideTurn. A confirmation pause (AI_STOP_CONFIRMATION)
+// stops the dialogue; decide with ApproveToolCall/DeclineToolCall of the
+// dialogue, then StepDialogue/ContinueDialogue resumes the same side.
+//
+// Must stay DataFlex 19.1 compatible.
+//=============================================================================
+Use ai.h
+Use cAIConversation.pkg
+
+Class cAIDialogue is a cObject
+
+    Procedure Construct_Object
+        Forward Send Construct_Object
+        Property Handle  phoFirstAI 0
+        Property Handle  phoSecondAI 0
+        Property Handle  phoFirstConversation 0   // default: an internal conversation
+        Property Handle  phoSecondConversation 0
+        Property Handle  phoTranscript 0          // default: the internal transcript
+        Property String  psFirstLabel 'AI 1'
+        Property String  psSecondLabel 'AI 2'
+        Property Boolean pbPrefixLabels True      // relayed text starts with "Label: "
+        Property String  psStopPhrase ''          // stop when a reply contains it (blank = never)
+        Property Integer piNextSide 0             // 0 = first AI answers next, 1 = second
+        Property Integer piTurnsDone 0
+        Property Integer peLastStopReason AI_STOP_UNKNOWN
+        Property Boolean pbStopped False          // stop phrase seen, an error, a pause or StopDialogue
+        Property String  psLastError ''           // why the last turn failed ('' = no error)
+
+        Object oFirstConversation is a cAIConversation
+        End_Object
+        Object oSecondConversation is a cAIConversation
+        End_Object
+        Object oTranscript is a cAITranscript
+        End_Object
+        Set phoFirstConversation to oFirstConversation
+        Set phoSecondConversation to oSecondConversation
+        Set phoTranscript to oTranscript
+    End_Procedure
+
+    // event: one side has answered
+    Procedure OnDialogueTurn Integer iTurn String sSpeaker String sText
+    End_Procedure
+
+    // event: just before a side's provider is called; its conversation is already
+    // attached (phoConversation of hoAI). Put per-side settings on hoAI here.
+    Procedure OnBeforeSideTurn Integer iSide Handle hoAI
+    End_Procedure
+
+    // event: right after the provider call, before the provider's own conversation
+    // is put back. Undo what OnBeforeSideTurn changed.
+    Procedure OnAfterSideTurn Integer iSide Handle hoAI
+    End_Procedure
+
+    Function SideConversation Integer iSide Returns Handle
+        If (iSide=0) Function_Return (phoFirstConversation(Self))
+        Function_Return (phoSecondConversation(Self))
+    End_Function
+
+    Function SideAI Integer iSide Returns Handle
+        If (iSide=0) Function_Return (phoFirstAI(Self))
+        Function_Return (phoSecondAI(Self))
+    End_Function
+
+    Function SideLabel Integer iSide Returns String
+        If (iSide=0) Function_Return (psFirstLabel(Self))
+        Function_Return (psSecondLabel(Self))
+    End_Function
+
+    Function NextSideLabel Returns String
+        Function_Return (SideLabel(Self,piNextSide(Self)))
+    End_Function
+
+    // stops ContinueDialogue after the current turn (e.g. from OnDialogueTurn)
+    Procedure StopDialogue
+        Set pbStopped to True
+    End_Procedure
+
+    // clears both conversations and the transcript; the first AI answers next
+    Procedure ResetDialogue
+        Handle hoTranscript
+        Send ClearMessages of (phoFirstConversation(Self))
+        Send ClearMessages of (phoSecondConversation(Self))
+        Get phoTranscript to hoTranscript
+        If (hoTranscript) Send ClearEntries of hoTranscript
+        Set piNextSide to 0
+        Set piTurnsDone to 0
+        Set pbStopped to False
+        Set peLastStopReason to AI_STOP_UNKNOWN
+        Set psLastError to ''
+    End_Procedure
+
+    // labels and the shared transcript on both conversations
+    Procedure PrepareConversations
+        Handle hoConv
+        Get phoFirstConversation to hoConv
+        Set psAssistantLabel of hoConv to (psFirstLabel(Self))
+        Set phoTranscript of hoConv to (phoTranscript(Self))
+        Get phoSecondConversation to hoConv
+        Set psAssistantLabel of hoConv to (psSecondLabel(Self))
+        Set phoTranscript of hoConv to (phoTranscript(Self))
+    End_Procedure
+
+    // One turn: the next side answers its own conversation; the reply is relayed to
+    // the other side. Returns the response (AI_STOP_ERROR if the side has no AI).
+    Function RunTurn Returns tAIResponse
+        tAIResponse Response
+        Handle hoAI hoConv hoOldConv
+        Integer iSide
+        String sText sStop
+
+        Get piNextSide to iSide
+        Get SideAI iSide to hoAI
+        Get SideConversation iSide to hoConv
+        Set psLastError to ''
+        If (hoAI=0) Begin
+            Move AI_STOP_ERROR to Response.eStopReason
+            Set peLastStopReason to AI_STOP_ERROR
+            Set psLastError to ("No AI object for"*SideLabel(Self,iSide))
+            Set pbStopped to True
+            Function_Return Response
+        End
+
+        Send PrepareConversations
+        Get phoConversation of hoAI to hoOldConv
+        Set phoConversation of hoAI to hoConv
+        Send OnBeforeSideTurn iSide hoAI
+        Get ContinueConversation of hoAI to Response
+        // a turn that stopped on an error (also a tool loop limit, which ends with
+        // AI_STOP_TOOL_CALLS) keeps the provider's message, prefixed with the label
+        If (Response.eStopReason<>AI_STOP_END_TURN and Response.eStopReason<>AI_STOP_MAX_TOKENS and Response.eStopReason<>AI_STOP_CONFIRMATION) Begin
+            Move '' to sText
+            If (HasError(hoAI)) Get psLastError of hoAI to sText
+            If (sText='' and Response.eStopReason=AI_STOP_ERROR) Move "The provider call failed." to sText
+            If (sText<>'') Set psLastError to (SideLabel(Self,iSide)+": "+sText)
+        End
+        Send OnAfterSideTurn iSide hoAI
+        Set phoConversation of hoAI to hoOldConv
+
+        Set peLastStopReason to Response.eStopReason
+        If (Response.eStopReason<>AI_STOP_END_TURN and Response.eStopReason<>AI_STOP_MAX_TOKENS) Begin
+            // error, confirmation pause or manual tool calls: stop and let the app decide
+            If (Response.eStopReason=AI_STOP_CONTENT_FILTER and psLastError(Self)='') Set psLastError to (SideLabel(Self,iSide)+": the reply was blocked by the content filter.")
+            Set pbStopped to True
+            Function_Return Response
+        End
+
+        Get LastAssistantText of hoConv to sText
+        Set piTurnsDone to (piTurnsDone(Self)+1)
+        Send OnDialogueTurn (piTurnsDone(Self)) (SideLabel(Self,iSide)) sText
+        Send AddRelayedMessage of (SideConversation(Self,1-iSide)) (SideLabel(Self,iSide)) sText (pbPrefixLabels(Self))
+        Set piNextSide to (1-iSide)
+
+        Get psStopPhrase to sStop
+        If (sStop<>'') Begin
+            If (Pos(sStop,sText)>0) Set pbStopped to True
+        End
+        Function_Return Response
+    End_Function
+
+    // runs up to iTurns turns (or until stopped); returns the turns completed by this call
+    Function ContinueDialogue Integer iTurns Returns Integer
+        tAIResponse Response
+        Integer i iStart
+        Get piTurnsDone to iStart
+        Set pbStopped to False
+        For i from 1 to iTurns
+            Get RunTurn to Response
+            If (pbStopped(Self)) Function_Return (piTurnsDone(Self)-iStart)
+        Loop
+        Function_Return (piTurnsDone(Self)-iStart)
+    End_Function
+
+    // one turn, also after a stop (stop phrase, StopDialogue, a decided confirmation)
+    Function StepDialogue Returns tAIResponse
+        tAIResponse Response
+        Set pbStopped to False
+        Get RunTurn to Response
+        Function_Return Response
+    End_Function
+
+    // starts a new dialogue without running a turn: sOpening is the first AI's user
+    // prompt (recorded in the transcript under the first conversation's psUserLabel)
+    Procedure StartDialogue String sOpening
+        Send ResetDialogue
+        Send PrepareConversations
+        Send AddUserMessage of (phoFirstConversation(Self)) sOpening
+    End_Procedure
+
+    // starts a new dialogue and runs up to iTurns turns; returns the turns completed
+    Function Run String sOpening Integer iTurns Returns Integer
+        Send StartDialogue sOpening
+        Function_Return (ContinueDialogue(Self,iTurns))
+    End_Function
+
+    //=========================================================================
+    // Confirmation pause: the next side's conversation holds the calls waiting
+    // for a decision. Decide each one, then StepDialogue/ContinueDialogue.
+    //=========================================================================
+    Function PendingConfirmations Returns tAIToolCall[]
+        tAIToolCall[] aCalls
+        Get paPendingConfirmations of (SideConversation(Self,piNextSide(Self))) to aCalls
+        Function_Return aCalls
+    End_Function
+
+    Function IsWaitingForConfirmation Returns Boolean
+        tAIToolCall[] aCalls
+        Get PendingConfirmations to aCalls
+        Function_Return (SizeOfArray(aCalls)>0)
+    End_Function
+
+    // bApprove True = ApproveToolCall, False = DeclineToolCall with sReason, on the
+    // next side's provider with that side's conversation attached
+    Procedure DecideToolCall String sCallId Boolean bApprove String sReason
+        Handle hoAI hoOldConv
+        Integer iSide
+        Get piNextSide to iSide
+        Get SideAI iSide to hoAI
+        If (hoAI=0) Procedure_Return
+        Get phoConversation of hoAI to hoOldConv
+        Set phoConversation of hoAI to (SideConversation(Self,iSide))
+        If (bApprove) Send ApproveToolCall of hoAI sCallId
+        Else Send DeclineToolCall of hoAI sCallId sReason
+        Set phoConversation of hoAI to hoOldConv
+    End_Procedure
+
+    Procedure ApproveToolCall String sCallId
+        Send DecideToolCall sCallId True ''
+    End_Procedure
+
+    // sReason is optional and is added to the result sent to the model
+    Procedure DeclineToolCall String sCallId String sReason
+        If (num_arguments>1) Send DecideToolCall sCallId False sReason
+        Else Send DecideToolCall sCallId False ''
+    End_Procedure
+
+End_Class
